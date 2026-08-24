@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WarZombie</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0f14; font-family: system-ui, sans-serif; color: #e6edf3; }
+      #game { display: block; width: 100%; height: 100%; }
+      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #ui > * { pointer-events: auto; }
+
+      .hud-stats { position: absolute; left: 16px; bottom: 16px; width: 220px; }
+      .bar { height: 14px; background: #1c232c; border: 1px solid #2d3742; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+      .bar > div { height: 100%; transition: width .15s; }
+      .bar.hp > div { background: #d63d3d; }
+      .bar.stamina > div { background: #3da0d6; }
+
+      .hotbar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; gap: 6px; }
+      .hotbar .slot { cursor: pointer; }
+      .slot { width: 52px; height: 52px; background: rgba(20,26,33,.85); border: 2px solid #2d3742; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; position: relative; }
+      .slot .icon { width: 22px; height: 22px; border-radius: 4px; margin-bottom: 3px; }
+      .slot .count { position: absolute; right: 4px; bottom: 2px; font-size: 11px; font-weight: bold; }
+      .slot .slot-number { position: absolute; left: 4px; top: 2px; font-size: 10px; color: #6b7681; font-weight: bold; }
+      .slot.equipped { border-color: #ffd34d; box-shadow: 0 0 0 1px #ffd34d, 0 0 8px rgba(255,211,77,.5); }
+      .slot.equipped .slot-number { color: #ffd34d; }
+
+      .prompt { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); background: rgba(0,0,0,.6); padding: 6px 12px; border-radius: 6px; font-size: 14px; display: none; }
+      .prompt.visible { display: block; }
+
+      .inventory-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 420px; background: rgba(12,16,20,.95); border: 1px solid #2d3742; border-radius: 10px; padding: 16px; display: none; }
+      .inventory-panel.visible { display: block; }
+      .inventory-panel h2 { font-size: 16px; margin-bottom: 10px; }
+      .inventory-panel .close { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; background: #2a323b; color: #e6edf3; border: 0; border-radius: 6px; cursor: pointer; font-size: 14px; }
+      .inventory-panel .close:hover { background: #d63d3d; }
+      .inventory-panel .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 14px; }
+      .inventory-panel .recipes { display: flex; flex-direction: column; gap: 6px; }
+      .recipe { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 6px; background: #151b22; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+      .recipe button { background: #3a8f4a; border: 0; color: #fff; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+      .recipe button:disabled { background: #2a323b; color: #6b7681; cursor: not-allowed; }
+      .recipe .recipe-label { flex: 1 1 auto; }
+      .recipe .progress-bar { display: none; flex-basis: 100%; height: 8px; background: #0d1116; border-radius: 4px; overflow: hidden; }
+      .recipe .progress-bar.visible { display: block; }
+      .recipe .progress-fill { height: 100%; width: 0%; background: #3a8f4a; transition: width .2s linear; }
+
+      .workbench-panel .wood-count { font-size: 13px; font-weight: 600; color: #c9a06a; margin-bottom: 12px; }
+
+      #minimap { position: absolute; right: 16px; top: 16px; width: 160px; height: 160px; background: rgba(12,16,20,.8); border: 1px solid #2d3742; border-radius: 6px; }
+
+      .hud-zombies { position: absolute; left: 16px; top: 16px; background: rgba(12,16,20,.8); border: 1px solid #2d3742; border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.6; }
+      .hud-zombies b { color: #7ed957; }
+      .hud-zombies .kills { color: #ffd34d; }
+      .hud-cooldown { color: #6b7681; font-size: 12px; }
+      .damage-flash { position: absolute; inset: 0; background: rgba(214,61,61,.35); opacity: 0; pointer-events: none !important; transition: opacity .35s ease; }
+      .damage-flash.visible { opacity: 1; transition: opacity .05s; }
+      .death-screen { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,8,11,.85); }
+      .death-screen.visible { display: flex; }
+      .death-screen h1 { font-size: 48px; letter-spacing: 6px; color: #d63d3d; margin-bottom: 12px; }
+      .death-screen p { color: #8b98a5; margin-bottom: 24px; }
+      .death-screen button { font-size: 18px; padding: 12px 40px; background: #d63d3d; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+
+      .toast-stack { position: absolute; right: 16px; bottom: 16px; display: flex; flex-direction: column-reverse; gap: 8px; align-items: flex-end; }
+      .toast { display: flex; align-items: center; gap: 8px; background: rgba(18,24,30,.92); border: 1px solid #2d3742; border-radius: 8px; padding: 8px 12px; font-size: 14px; font-weight: 600; opacity: 0; transform: translateX(16px); transition: opacity .2s ease, transform .2s ease; }
+      .toast.visible { opacity: 1; transform: translateX(0); }
+      .toast-icon { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+
+      .menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #1a2330, #05080b); }
+      .menu h1 { font-size: 56px; letter-spacing: 6px; margin-bottom: 8px; }
+      .menu p { color: #8b98a5; margin-bottom: 28px; }
+      .menu button { font-size: 18px; padding: 12px 40px; background: #d63d3d; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+      .menu .controls { margin-top: 30px; font-size: 12px; color: #6b7681; line-height: 1.8; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
