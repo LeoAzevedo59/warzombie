@@ -67,8 +67,7 @@ export class ShopUI {
         )
         .join('')}</div>`;
     const upgrades = `
-      <div class="recipes">${this.upgradeRows(money)}</div>
-      <p class="hint">O nível é seu; o preço sobe para a sala toda a cada compra (×1.35).</p>`;
+      <div class="recipes">${this.upgradeRows(money)}</div>`;
     this.panel.innerHTML = `
       <button class="close" title="Fechar (Esc)">✕</button>
       <h2>Vendedor <span class="money-line">· Dinheiro: <b>$${money}</b></span></h2>
