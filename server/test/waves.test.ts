@@ -125,3 +125,22 @@ test('chefão invoca zumbis e dispara rajada à distância', () => {
   for (let i = 0; i < 6; i++) sim.tick(0.1, [t]);
   assert.equal([...sim.projectiles.values()].filter((p) => p.boss).length, GAME.boss.VOLLEY.COUNT);
 });
+
+test('zumbi de wave volta a atacar quando o jogador renasce longe', () => {
+  const { sim } = setup(1);
+  const z = sim.spawn('zombie', 30, 30, 1, 1, true);
+  const p = { id: 'p', position: { x: 28, z: 30 }, dead: false };
+  for (let i = 0; i < 10; i++) sim.tick(0.1, [p]);
+  assert.ok(z.state === 'chase' || z.state === 'attack');
+  p.dead = true; // morreu
+  for (let i = 0; i < 20; i++) sim.tick(0.1, [p]);
+  assert.equal(z.state, 'wander');
+  p.dead = false; // renasceu no centro, a ~40 unidades
+  p.position = { x: 0, z: 0 };
+  sim.tick(0.1, [p]);
+  assert.equal(z.state, 'chase');
+  assert.equal(z.targetId, 'p');
+  const d0 = Math.hypot(z.x, z.z);
+  for (let i = 0; i < 20; i++) sim.tick(0.1, [p]);
+  assert.ok(Math.hypot(z.x, z.z) < d0 - 5, 'deveria estar vindo até o jogador');
+});

@@ -113,7 +113,7 @@ export class WaveDirector {
       const p = this.sim.pickSpawnPoint();
       // parte da horda cospe à distância (lentidão); o resto vai no corpo a corpo
       const kind = i % Math.round(1 / GAME.zombie.SPITTER_RATIO) === 1 ? 'spitter' : 'zombie';
-      const z = this.sim.spawn(kind, p.x, p.z, mult, mult);
+      const z = this.sim.spawn(kind, p.x, p.z, mult, mult, true);
       // já nascem caçando (a bateria "acorda" a horda)
       z.state = 'chase';
     }
@@ -127,7 +127,7 @@ export class WaveDirector {
     const players = Math.max(1, this.io.playerCount());
     const mult = this.difficulty(players);
     const p = this.sim.pickSpawnPoint();
-    const boss = this.sim.spawn('boss', p.x, p.z, mult, mult);
+    const boss = this.sim.spawn('boss', p.x, p.z, mult, mult, true);
     boss.state = 'chase';
     this.bossId = boss.id;
     this.phase = 'boss';

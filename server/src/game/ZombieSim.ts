@@ -25,6 +25,8 @@ export interface Zombie {
   /** multiplicadores da wave (usados para os invocados do chefão) */
   hpMult: number;
   dmgMult: number;
+  /** horda de wave: sempre sabe onde há jogador vivo (não depende do raio de detecção nem desiste) */
+  hunter: boolean;
   hitApplied: boolean;
   wanderTarget: XZ;
   wanderWait: number;
@@ -112,7 +114,7 @@ export class ZombieSim {
     return [...this.projectiles.values()].map((p) => ({ id: p.id, x: p.x, z: p.z, boss: p.boss }));
   }
 
-  spawn(kind: ZombieKind, x: number, z: number, hpMult = 1, dmgMult = 1): Zombie {
+  spawn(kind: ZombieKind, x: number, z: number, hpMult = 1, dmgMult = 1, hunter = false): Zombie {
     const cfg = GAME.zombie;
     const boss = kind === 'boss';
     const zb: Zombie = {
@@ -134,6 +136,7 @@ export class ZombieSim {
       summonCooldown: GAME.boss.SUMMON.FIRST_DELAY,
       hpMult,
       dmgMult,
+      hunter,
       hitApplied: false,
       wanderTarget: { x, z },
       wanderWait: 0,
@@ -244,7 +247,7 @@ export class ZombieSim {
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + this.rand();
       const kind: ZombieKind = this.rand() < GAME.zombie.SPITTER_RATIO ? 'spitter' : 'zombie';
-      const m = this.spawn(kind, z.x + Math.cos(a) * 2.5, z.z + Math.sin(a) * 2.5, z.hpMult, z.dmgMult);
+      const m = this.spawn(kind, z.x + Math.cos(a) * 2.5, z.z + Math.sin(a) * 2.5, z.hpMult, z.dmgMult, true);
       m.state = 'chase';
     }
   }
@@ -269,7 +272,8 @@ export class ZombieSim {
 
     switch (z.state) {
       case 'wander':
-        if (near && near.d < cfg.DETECT_RADIUS) {
+        // caçadores (waves) atacam qualquer jogador vivo, inclusive quem acabou de renascer longe deles
+        if (near && (z.hunter || near.d < cfg.DETECT_RADIUS)) {
           z.targetId = near.t.id;
           this.setState(z, 'chase');
           break;
@@ -278,7 +282,7 @@ export class ZombieSim {
         break;
 
       case 'chase': {
-        if (!near || (near.d > cfg.LOSE_RADIUS && z.stateTime > 6)) {
+        if (!near || (!z.hunter && near.d > cfg.LOSE_RADIUS && z.stateTime > 6)) {
           this.setState(z, 'wander');
           z.wanderWait = 1;
           z.vx = z.vz = 0;
