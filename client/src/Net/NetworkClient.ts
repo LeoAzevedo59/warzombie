@@ -54,7 +54,8 @@ export class NetworkClient {
             return;
           }
         }
-        for (const l of this.listeners) l(msg);
+        // cópia: um listener pode trocar de cena e registrar outro durante o despacho (ex.: game_start)
+        for (const l of [...this.listeners]) l(msg);
       };
       ws.onerror = () => {
         if (!settled) {
