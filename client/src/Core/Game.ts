@@ -3,6 +3,7 @@ import { EventBus } from './EventBus';
 import { GameState } from './GameState';
 import type { BaseScene } from '@/Scenes/BaseScene';
 import { MainMenu } from '@/Scenes/MainMenu';
+import { LobbyScene } from '@/Scenes/LobbyScene';
 import { WorldScene } from '@/Scenes/WorldScene';
 import { preloadModels } from '@/Assets/ModelAssets';
 import { NetworkClient } from '@/Net/NetworkClient';
@@ -58,9 +59,9 @@ export class Game {
     this.changeScene('menu');
   }
 
-  changeScene(name: 'menu' | 'world'): void {
+  changeScene(name: 'menu' | 'lobby' | 'world'): void {
     this.scene?.exit();
-    this.scene = name === 'menu' ? new MainMenu(this) : new WorldScene(this);
+    this.scene = name === 'menu' ? new MainMenu(this) : name === 'lobby' ? new LobbyScene(this) : new WorldScene(this);
     this.app.root.addChild(this.scene.root);
     this.scene.enter();
   }

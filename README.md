@@ -51,6 +51,15 @@ Abra http://localhost:5173, escolha um nome e entre. Abra outra aba/navegador co
 
 Nunca altere o banco à mão: a migration é a documentação da mudança. `npm run db:studio` abre o Prisma Studio.
 
+## Lobby e salas (M1)
+
+Depois do `welcome` o jogador cai no **lobby**: cria uma sala (pública ou privada com código de 4 dígitos)
+ou entra numa existente (máx. 10). O dono inicia a partida (`room_start`) e todos os membros recebem `game_start`.
+`state`/`player_joined`/`player_left` circulam **só dentro da sala**. Dono sai → o membro mais antigo herda.
+Sala vazia → `rooms` é deletada com cascade (membros e tudo o que referenciar a sala); no boot todas as salas são apagadas.
+
+Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room_members` (room_id, player_id único).
+
 ## API HTTP
 
 | Rota | Descrição |
@@ -58,11 +67,12 @@ Nunca altere o banco à mão: a migration é a documentação da mudança. `npm 
 | `GET /api/health` | status da API e do banco, jogadores online |
 | `GET /api/players/online` | jogadores conectados agora (em memória) |
 | `GET /api/players?limit=50` | últimos jogadores vistos (banco) |
+| `GET /api/rooms` | salas abertas agora |
 
 ## Protocolo WebSocket (`/ws`) — ver `shared/protocol.ts`
 
-Client → server: `join {name}`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `stats {hp,kills}`, `ping`.
-Server → client: `welcome {you, players, seed, tickRate}`, `player_joined`, `player_left`, `state {players[]}` (broadcast a `WS_TICK_RATE` Hz), `error {code}`, `pong`.
+Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `stats {hp,kills}`, `ping`.
+Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[]}`, `room_left`, `player_joined`, `player_left`, `state {players[]}` (por sala, a `WS_TICK_RATE` Hz), `error {code}`, `pong`.
 
 Regras do passo 1:
 - Identidade = nome (2–16 chars, único sem diferenciar maiúsculas). Se o nome está online, o join é recusado (`name_taken`).
@@ -73,4 +83,3 @@ Regras do passo 1:
 
 - Zumbis (cada client roda a própria IA), loot/objetos coletados, construções e craft.
 - Dano entre jogadores / zumbis compartilhados exigirá mover a simulação para o server (server-authoritative).
-- Salas/instâncias: hoje todos entram no mesmo mundo (`WORLD_SEED`).

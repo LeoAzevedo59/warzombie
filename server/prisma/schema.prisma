@@ -24,9 +24,57 @@ model Player {
   createdAt DateTime @default(now()) @map("created_at")
   lastSeenAt DateTime @default(now()) @map("last_seen_at")
 
-  sessions PlayerSession[]
+  sessions   PlayerSession[]
+  ownedRooms Room[]        @relation("RoomOwner")
+  membership RoomMember?
 
   @@map("players")
+}
+
+enum RoomVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RoomStatus {
+  LOBBY
+  PLAYING
+  FINISHED
+}
+
+/// Sala de jogo (até MAX_ROOM_PLAYERS). Efêmera: é deletada (com cascade) quando o último membro sai.
+model Room {
+  id         String         @id @default(uuid()) @db.Uuid
+  name       String         @db.VarChar(24)
+  visibility RoomVisibility @default(PUBLIC)
+  /// código de 4 dígitos exigido para entrar em sala privada
+  code       String?        @unique @db.Char(4)
+  ownerId    String         @map("owner_id") @db.Uuid
+  status     RoomStatus     @default(LOBBY)
+  /// dinheiro compartilhado por todos da sala
+  money      Int            @default(0)
+  /// wave atual da fase (0 = bateria não ativada)
+  wave       Int            @default(0)
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  owner   Player       @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members RoomMember[]
+
+  @@map("rooms")
+}
+
+/// Jogador dentro de uma sala (um jogador só pode estar em uma sala por vez).
+model RoomMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  roomId   String   @map("room_id") @db.Uuid
+  playerId String   @unique @map("player_id") @db.Uuid
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@map("room_members")
 }
 
 /// Uma conexão WebSocket do jogador (auditoria de quem entrou/saiu e quando).

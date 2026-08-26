@@ -12,6 +12,8 @@ async function main(): Promise<void> {
   await prisma.$connect();
   const stale = await SessionModel.closeAllOpen();
   if (stale) log.warn(`${stale} sessão(ões) ficaram abertas na execução anterior; fechadas`);
+  const rooms = await GameServer.resetPersistedRooms();
+  if (rooms) log.warn(`${rooms} sala(s) da execução anterior apagadas`);
 
   const server = http.createServer();
   const game = new GameServer(server);

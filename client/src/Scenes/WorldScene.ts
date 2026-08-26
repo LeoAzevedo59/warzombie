@@ -133,6 +133,9 @@ export class WorldScene extends BaseScene {
         this.player.velocity.set(0, 0, 0);
       }),
       // caiu a conexão: volta pro menu (o próximo Entrar reconecta)
+      // saiu/foi tirado da sala: volta ao lobby
+      bus.on('ui:leaveRoom', () => this.game.net.send({ type: 'room_leave' })),
+      bus.on('net:roomLeft', () => bus.emit('scene:change', { scene: 'lobby' })),
       bus.on('net:disconnected', ({ reason }) => {
         console.warn('Desconectado do servidor:', reason);
         alertDisconnect(reason);

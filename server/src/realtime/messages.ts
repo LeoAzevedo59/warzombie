@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { NAME_MAX, NAME_MIN, NAME_REGEX, type ClientMessage } from '../../../shared/protocol.js';
+import { NAME_MAX, NAME_MIN, NAME_REGEX, ROOM_NAME_MAX, ROOM_NAME_MIN, type ClientMessage } from '../../../shared/protocol.js';
 
 /** Validação em runtime do que chega pelo socket — nunca confiar no client. */
 const finite = z.number().finite();
+const visibility = z.enum(['PUBLIC', 'PRIVATE']);
 
 const joinSchema = z.object({
   type: z.literal('join'),
@@ -27,7 +28,33 @@ const statsSchema = z.object({
 
 const pingSchema = z.object({ type: z.literal('ping'), t: finite });
 
-export const clientMessageSchema = z.discriminatedUnion('type', [joinSchema, moveSchema, statsSchema, pingSchema]);
+const roomListSchema = z.object({ type: z.literal('room_list') });
+const roomCreateSchema = z.object({
+  type: z.literal('room_create'),
+  name: z.string().min(ROOM_NAME_MIN).max(ROOM_NAME_MAX).regex(NAME_REGEX),
+  visibility,
+});
+const roomJoinSchema = z.object({
+  type: z.literal('room_join'),
+  roomId: z.string().uuid(),
+  code: z.string().regex(/^\d{4}$/).optional(),
+});
+const roomLeaveSchema = z.object({ type: z.literal('room_leave') });
+const roomSetVisibilitySchema = z.object({ type: z.literal('room_set_visibility'), visibility });
+const roomStartSchema = z.object({ type: z.literal('room_start') });
+
+export const clientMessageSchema = z.discriminatedUnion('type', [
+  joinSchema,
+  moveSchema,
+  statsSchema,
+  pingSchema,
+  roomListSchema,
+  roomCreateSchema,
+  roomJoinSchema,
+  roomLeaveSchema,
+  roomSetVisibilitySchema,
+  roomStartSchema,
+]);
 
 export function parseClientMessage(raw: unknown): ClientMessage | null {
   const r = clientMessageSchema.safeParse(raw);

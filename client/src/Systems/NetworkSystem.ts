@@ -30,7 +30,7 @@ export class NetworkSystem implements System {
     private player: Player,
     private root: pc.Entity,
   ) {
-    for (const p of net.welcome?.players ?? []) this.addRemote(p);
+    for (const p of state.roomPlayers) if (p.id !== state.playerId) this.addRemote(p);
     this.unsubs.push(net.onMessage((m) => this.onMessage(m)));
     this.unsubs.push(net.onClose((reason) => bus.emit('net:disconnected', { reason })));
     this.emitCount();
@@ -55,6 +55,9 @@ export class NetworkSystem implements System {
         this.emitCount();
         break;
       }
+      case 'room_left':
+        this.bus.emit('net:roomLeft', { reason: msg.reason });
+        break;
       case 'error':
         this.bus.emit('ui:toast', { text: `Servidor: ${msg.message}` });
         break;

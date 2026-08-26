@@ -1,5 +1,6 @@
 import { CONFIG } from '@/config';
 import type { ItemStack } from '@/Items/Item';
+import type { PlayerSnapshot } from '@shared/protocol';
 
 /** Fonte única de verdade dos dados de jogo. Serializável para save/load futuro. */
 export class GameState {
@@ -8,6 +9,11 @@ export class GameState {
   /** Identidade no servidor (preenchida pelo `welcome` do WebSocket). */
   playerId: string | null = null;
   playerName = '';
+
+  /** Sala atual (definida pelo lobby) e quem já estava no mundo quando a partida começou. */
+  roomId: string | null = null;
+  isOwner = false;
+  roomPlayers: PlayerSnapshot[] = [];
 
   hp: number = CONFIG.player.MAX_HP;
   stamina: number = CONFIG.player.MAX_STAMINA;

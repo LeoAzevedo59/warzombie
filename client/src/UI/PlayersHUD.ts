@@ -16,7 +16,7 @@ export class PlayersHUD {
 
   constructor(
     parent: HTMLElement,
-    bus: EventBus,
+    private bus: EventBus,
     private myName: string,
     private remotes: () => Iterable<RemotePlayer>,
     private camera: () => pc.CameraComponent,
@@ -31,13 +31,17 @@ export class PlayersHUD {
     this.unsubs.push(
       bus.on('net:onlineCount', ({ count }) => this.render(count)),
       bus.on('net:playerJoined', ({ name }) => bus.emit('ui:toast', { text: `${name} entrou no jogo` })),
-      bus.on('net:playerLeft', ({ name }) => bus.emit('ui:toast', { text: `${name} saiu do jogo` })),
+      bus.on('net:playerLeft', ({ name }) => {
+        bus.emit('ui:toast', { text: `${name} saiu do jogo` });
+        this.update(); // remove o rótulo mesmo se a aba estiver oculta (sem rAF)
+      }),
     );
   }
 
   private render(count: number): void {
-    this.box.innerHTML = `Você: <b></b><br/>Online: <span class="count">${count}</span>`;
+    this.box.innerHTML = `Você: <b></b><br/>Online: <span class="count">${count}</span><br/><button class="leave">Sair da sala</button>`;
     this.box.querySelector('b')!.textContent = this.myName;
+    this.box.querySelector<HTMLButtonElement>('.leave')!.onclick = () => this.bus.emit('ui:leaveRoom');
   }
 
   /** Chamado a cada frame pela cena. */

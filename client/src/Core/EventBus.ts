@@ -41,12 +41,14 @@ export interface GameEvents {
 
   'interaction:targetChanged': { label: string | null };
   'ui:toast': { text: string };
-  'scene:change': { scene: 'menu' | 'world' };
+  'scene:change': { scene: 'menu' | 'lobby' | 'world' };
 
   'net:playerJoined': { name: string };
   'net:playerLeft': { name: string };
   'net:onlineCount': { count: number };
   'net:disconnected': { reason: string };
+  'net:roomLeft': { reason: string };
+  'ui:leaveRoom': void;
 }
 
 type Handler<T> = (payload: T) => void;

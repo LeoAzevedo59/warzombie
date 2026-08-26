@@ -10,8 +10,11 @@ import {
 } from '../../../shared/protocol.js';
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
+import { RoomModel } from '../models/RoomModel.js';
 import { PlayerService, PlayerServiceError } from '../services/PlayerService.js';
+import { RoomService, RoomServiceError } from '../services/RoomService.js';
 import { parseClientMessage } from './messages.js';
+import { Room } from './Room.js';
 
 const log = createLogger('ws');
 
@@ -29,22 +32,28 @@ interface Connection {
   /** preenchido depois do `join` */
   player: PlayerSnapshot | null;
   sessionId: string | null;
+  /** sala atual (null = lobby) */
+  room: Room | null;
   lastSaveAt: number;
   dirty: boolean;
 }
 
+type Msg<T extends ClientMessage['type']> = Extract<ClientMessage, { type: T }>;
+
 /**
- * Hub do multiplayer: aceita conexões, valida mensagens, mantém o estado em memória
- * dos jogadores online e faz broadcast a WS_TICK_RATE Hz.
- * Persistência (join/leave/autosave) passa sempre pelo PlayerService -> Model -> Prisma.
+ * Hub do multiplayer: aceita conexões, valida mensagens, mantém jogadores online e salas em
+ * memória, e faz broadcast de estado por sala a WS_TICK_RATE Hz.
+ * Persistência (join/leave/autosave/salas) passa sempre por Service -> Model -> Prisma.
  */
 export class GameServer {
   private wss: WebSocketServer;
   private connections = new Set<Connection>();
   private byPlayerId = new Map<string, Connection>();
+  readonly rooms = new Map<string, Room>();
   private tickTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   readonly players: PlayerService;
+  readonly roomService = new RoomService();
 
   constructor(httpServer: HttpServer) {
     this.players = new PlayerService((id) => this.byPlayerId.has(id));
@@ -77,6 +86,10 @@ export class GameServer {
     return this.byPlayerId.size;
   }
 
+  roomSummaries() {
+    return [...this.rooms.values()].map((r) => r.summary());
+  }
+
   // ---------- ciclo de vida da conexão ----------
 
   private onConnection(socket: WebSocket, req: IncomingMessage): void {
@@ -86,6 +99,7 @@ export class GameServer {
       alive: true,
       player: null,
       sessionId: null,
+      room: null,
       lastSaveAt: Date.now(),
       dirty: false,
     };
@@ -97,7 +111,7 @@ export class GameServer {
     }, JOIN_TIMEOUT_MS);
 
     socket.on('pong', () => (conn.alive = true));
-    socket.on('message', (data) => this.onMessage(conn, data.toString()));
+    socket.on('message', (data) => void this.onMessage(conn, data.toString()));
     socket.on('close', () => {
       clearTimeout(joinTimeout);
       void this.leave(conn, 'close');
@@ -119,15 +133,39 @@ export class GameServer {
     if (msg.type === 'ping') return this.send(conn, { type: 'pong', t: msg.t });
     if (!conn.player) return this.send(conn, { type: 'error', code: 'not_joined', message: 'Envie join primeiro' });
 
-    if (msg.type === 'move') this.handleMove(conn, msg);
-    else if (msg.type === 'stats') {
-      conn.player.hp = msg.hp;
-      conn.player.kills = msg.kills;
-      conn.dirty = true;
+    try {
+      switch (msg.type) {
+        case 'move':
+          return this.handleMove(conn, msg);
+        case 'stats':
+          conn.player.hp = msg.hp;
+          conn.player.kills = msg.kills;
+          conn.dirty = true;
+          return;
+        case 'room_list':
+          return this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
+        case 'room_create':
+          return await this.handleRoomCreate(conn, msg);
+        case 'room_join':
+          return await this.handleRoomJoin(conn, msg);
+        case 'room_leave':
+          return await this.handleRoomLeave(conn);
+        case 'room_set_visibility':
+          return await this.handleRoomSetVisibility(conn, msg);
+        case 'room_start':
+          return await this.handleRoomStart(conn);
+      }
+    } catch (err) {
+      if (err instanceof RoomServiceError) {
+        this.send(conn, { type: 'error', code: err.code, message: err.message });
+      } else {
+        log.error(`falha ao processar ${msg.type} de ${conn.player.name}`, err);
+        this.send(conn, { type: 'error', code: 'server_error', message: 'Erro interno' });
+      }
     }
   }
 
-  private async handleJoin(conn: Connection, msg: Extract<ClientMessage, { type: 'join' }>): Promise<void> {
+  private async handleJoin(conn: Connection, msg: Msg<'join'>): Promise<void> {
     if (conn.player) return; // join duplicado: ignora
     if (msg.version !== PROTOCOL_VERSION) {
       this.send(conn, { type: 'error', code: 'version_mismatch', message: `Protocolo ${msg.version} ≠ servidor ${PROTOCOL_VERSION}. Recarregue a página.` });
@@ -153,14 +191,8 @@ export class GameServer {
       };
       this.byPlayerId.set(player.id, conn);
 
-      this.send(conn, {
-        type: 'welcome',
-        you: conn.player,
-        players: this.onlinePlayers().filter((p) => p.id !== player.id),
-        seed: env.WORLD_SEED,
-        tickRate: env.WS_TICK_RATE,
-      });
-      this.broadcast({ type: 'player_joined', player: conn.player }, conn);
+      this.send(conn, { type: 'welcome', you: conn.player, tickRate: env.WS_TICK_RATE });
+      this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
       log.info(`${player.name} entrou (${this.onlineCount} online)`);
     } catch (err) {
       if (err instanceof PlayerServiceError) {
@@ -182,12 +214,116 @@ export class GameServer {
     conn.dirty = true;
   }
 
+  // ---------- salas ----------
+
+  private async handleRoomCreate(conn: Connection, msg: Msg<'room_create'>): Promise<void> {
+    const player = conn.player!;
+    const row = await this.roomService.create(player.id, msg.name, msg.visibility, conn.room?.view() ?? null);
+    const room = new Room(row);
+    room.members.set(player.id, { socket: conn.socket, player });
+    this.rooms.set(room.id, room);
+    conn.room = room;
+    log.info(`${player.name} criou a sala "${room.name}" (${room.visibility}${room.code ? ` #${room.code}` : ''})`);
+    room.broadcastState();
+    this.broadcastLobby();
+  }
+
+  private async handleRoomJoin(conn: Connection, msg: Msg<'room_join'>): Promise<void> {
+    const player = conn.player!;
+    const room = this.rooms.get(msg.roomId);
+    await this.roomService.join(player.id, room?.view(), msg.code, conn.room?.view() ?? null);
+    room!.members.set(player.id, { socket: conn.socket, player });
+    conn.room = room!;
+    log.info(`${player.name} entrou na sala "${room!.name}" (${room!.members.size}/${room!.members.size})`);
+    room!.broadcastState();
+    this.broadcastLobby();
+    if (room!.status !== 'LOBBY') this.enterWorld(conn, room!);
+  }
+
+  private async handleRoomLeave(conn: Connection): Promise<void> {
+    if (!conn.room) throw new RoomServiceError('not_in_room', 'Você não está em uma sala.');
+    await this.leaveRoom(conn, 'saiu');
+    this.send(conn, { type: 'room_left', reason: 'left' });
+    this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
+  }
+
+  private async handleRoomSetVisibility(conn: Connection, msg: Msg<'room_set_visibility'>): Promise<void> {
+    const room = conn.room;
+    const code = await this.roomService.setVisibility(conn.player!.id, room?.view() ?? null, msg.visibility);
+    room!.visibility = msg.visibility;
+    room!.code = code;
+    room!.broadcastState();
+    this.broadcastLobby();
+  }
+
+  private async handleRoomStart(conn: Connection): Promise<void> {
+    const room = conn.room;
+    await this.roomService.start(conn.player!.id, room?.view() ?? null);
+    room!.status = 'PLAYING';
+    log.info(`sala "${room!.name}" iniciou com ${room!.members.size} jogador(es)`);
+    // partida começa com todos no centro do mapa, espalhados num círculo para não nascerem sobrepostos
+    let i = 0;
+    const n = room!.members.size;
+    for (const m of room!.members.values()) {
+      const a = (i++ / n) * Math.PI * 2;
+      m.player.x = n > 1 ? Math.cos(a) * 1.5 : 0;
+      m.player.z = n > 1 ? Math.sin(a) * 1.5 : 0;
+      m.player.anim = 'Idle';
+    }
+    room!.broadcastState();
+    for (const m of room!.members.values()) {
+      const c = this.byPlayerId.get(m.player.id);
+      if (c) this.enterWorld(c, room!);
+    }
+    this.broadcastLobby();
+  }
+
+  /** Manda o jogador para o mundo da sala e avisa quem já está lá. */
+  private enterWorld(conn: Connection, room: Room): void {
+    this.send(conn, { type: 'game_start', seed: env.WORLD_SEED, players: room.snapshots() });
+    room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
+  }
+
+  /** Tira a conexão da sala atual (saída voluntária ou desconexão). */
+  private async leaveRoom(conn: Connection, reason: string): Promise<void> {
+    const room = conn.room;
+    const player = conn.player;
+    if (!room || !player) return;
+    conn.room = null;
+    room.members.delete(player.id);
+    const remaining = [...room.members.keys()];
+    const result = await this.roomService.leave(player.id, room.view(), remaining);
+    if (result.deleted) {
+      this.rooms.delete(room.id);
+      log.info(`sala "${room.name}" ficou vazia e foi apagada`);
+    } else {
+      if (result.newOwnerId) room.ownerId = result.newOwnerId;
+      room.broadcast({ type: 'player_left', id: player.id });
+      room.broadcastState();
+    }
+    log.info(`${player.name} ${reason} da sala "${room.name}"`);
+    this.broadcastLobby();
+  }
+
+  /** Lista de salas para quem está no lobby (identificado e sem sala). */
+  private broadcastLobby(): void {
+    const msg: ServerMessage = { type: 'lobby_state', rooms: this.roomSummaries() };
+    const data = JSON.stringify(msg);
+    for (const c of this.byPlayerId.values()) {
+      if (!c.room && c.socket.readyState === WebSocket.OPEN) c.socket.send(data);
+    }
+  }
+
   private async leave(conn: Connection, reason: string): Promise<void> {
     if (!this.connections.delete(conn)) return;
     const { player, sessionId } = conn;
     if (!player || !sessionId) return;
     this.byPlayerId.delete(player.id);
-    this.broadcast({ type: 'player_left', id: player.id });
+    try {
+      await this.leaveRoom(conn, 'desconectou');
+    } catch (err) {
+      log.error(`falha ao tirar ${player.name} da sala`, err);
+    }
     log.info(`${player.name} saiu (${reason}; ${this.onlineCount} online)`);
     try {
       await this.players.leave(player.id, sessionId, { posX: player.x, posZ: player.z, hp: player.hp, kills: player.kills });
@@ -199,15 +335,19 @@ export class GameServer {
   // ---------- loop ----------
 
   private tick(): void {
-    if (this.byPlayerId.size === 0) return;
-    const all = this.onlinePlayers();
     const now = Date.now();
+    for (const room of this.rooms.values()) {
+      if (room.status === 'LOBBY') continue;
+      const all = room.snapshots();
+      for (const m of room.members.values()) {
+        const others = all
+          .filter((p) => p.id !== m.player.id)
+          .map(({ id, x, z, yaw, anim, crouching }) => ({ id, x, z, yaw, anim, crouching }));
+        room.send(m, { type: 'state', players: others });
+      }
+    }
     for (const conn of this.byPlayerId.values()) {
       const me = conn.player!;
-      const others = all.filter((p) => p.id !== me.id).map(({ id, x, z, yaw, anim, crouching }) => ({ id, x, z, yaw, anim, crouching }));
-      // mesmo sem "others" enviamos para o client saber que o servidor está vivo
-      this.send(conn, { type: 'state', players: others });
-
       if (conn.dirty && now - conn.lastSaveAt > AUTOSAVE_MS) {
         conn.dirty = false;
         conn.lastSaveAt = now;
@@ -235,11 +375,9 @@ export class GameServer {
     if (conn.socket.readyState === WebSocket.OPEN) conn.socket.send(JSON.stringify(msg));
   }
 
-  private broadcast(msg: ServerMessage, except?: Connection): void {
-    const data = JSON.stringify(msg);
-    for (const conn of this.byPlayerId.values()) {
-      if (conn !== except && conn.socket.readyState === WebSocket.OPEN) conn.socket.send(data);
-    }
+  /** Limpeza no boot: salas não sobrevivem a restart. */
+  static async resetPersistedRooms(): Promise<number> {
+    return RoomModel.deleteAll();
   }
 }
 

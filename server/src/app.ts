@@ -19,9 +19,21 @@ export function createApp(game: GameServer): express.Express {
   app.use('/api', apiRouter(game));
 
   if (env.isProd) {
-    app.use(express.static(CLIENT_DIST, { maxAge: '1h', index: 'index.html' }));
+    // assets do Vite têm hash no nome (cache longo); o index.html nunca pode ficar preso no cache
+    app.use(
+      express.static(CLIENT_DIST, {
+        maxAge: '1h',
+        index: 'index.html',
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+        },
+      }),
+    );
     // SPA fallback: qualquer rota que não seja /api nem asset devolve o index
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+    app.get(/^(?!\/api\/).*/, (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(path.join(CLIENT_DIST, 'index.html'));
+    });
   }
 
   app.use('/api', notFound);

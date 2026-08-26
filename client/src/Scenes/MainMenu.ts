@@ -1,5 +1,4 @@
 import { BaseScene } from './BaseScene';
-import { CONFIG } from '@/config';
 import { isValidName, NAME_MAX } from '@shared/protocol';
 
 const NAME_STORAGE_KEY = 'warzombie:name';
@@ -54,11 +53,8 @@ export class MainMenu extends BaseScene {
         const { state } = this.game;
         state.playerId = welcome.you.id;
         state.playerName = welcome.you.name;
-        state.seed = welcome.seed;
-        state.hp = welcome.you.hp > 0 ? welcome.you.hp : CONFIG.player.MAX_HP;
         state.kills = welcome.you.kills;
-        state.playerPosition = { x: welcome.you.x, y: 0, z: welcome.you.z };
-        this.game.bus.emit('scene:change', { scene: 'world' });
+        this.game.bus.emit('scene:change', { scene: 'lobby' });
       } catch (err) {
         console.error('Falha ao entrar:', err);
         status.textContent = err instanceof Error ? err.message : 'Erro ao entrar no jogo.';
