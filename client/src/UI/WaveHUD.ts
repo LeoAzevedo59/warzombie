@@ -9,6 +9,7 @@ export class WaveHUD {
   private state: WaveState;
   private boss: { hp: number; maxHp: number } | null = null;
   private bannerTimer: number | null = null;
+  private collapsed = false;
 
   constructor(
     parent: HTMLElement,
@@ -20,6 +21,21 @@ export class WaveHUD {
     this.el = document.createElement('div');
     this.el.className = 'hud-wave';
     parent.appendChild(this.el);
+    try {
+      this.collapsed = localStorage.getItem('warzombie:missionCollapsed') === '1';
+    } catch {
+      /* sem storage */
+    }
+    this.el.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('.mission-toggle')) return;
+      this.collapsed = !this.collapsed;
+      try {
+        localStorage.setItem('warzombie:missionCollapsed', this.collapsed ? '1' : '0');
+      } catch {
+        /* sem storage */
+      }
+      this.render();
+    });
     this.banner = document.createElement('div');
     this.banner.className = 'wave-banner';
     parent.appendChild(this.banner);
@@ -87,7 +103,20 @@ export class WaveHUD {
       s.phase === 'boss' && this.boss
         ? `<div class="bar boss"><div style="width:${((100 * this.boss.hp) / this.boss.maxHp).toFixed(1)}%"></div></div>`
         : '';
-    this.el.innerHTML = `<span class="mission">Missão</span>${line}${bossBar}`;
+    this.el.classList.toggle('collapsed', this.collapsed);
+    const toggle = `<button class="mission-toggle" title="${this.collapsed ? 'Maximizar' : 'Minimizar'}">${this.collapsed ? '＋' : '－'}</button>`;
+    // minimizado: só o essencial numa linha (wave/tempo ou ícone)
+    const short =
+      s.phase === 'wave' || s.phase === 'boss'
+        ? `${s.phase === 'boss' ? 'CHEFÃO' : `Wave ${s.wave}/${s.total}`} · ${s.timeLeft ?? 0}s`
+        : s.phase === 'countdown'
+          ? `Próxima em ${s.nextIn ?? 0}s`
+          : s.phase === 'complete'
+            ? 'Fase concluída'
+            : 'Sem bateria';
+    this.el.innerHTML = this.collapsed
+      ? `<span class="mission">Missão</span><span class="short">${short}</span>${toggle}`
+      : `<span class="mission">Missão</span>${toggle}${line}${bossBar}`;
   }
 
   dispose(): void {
