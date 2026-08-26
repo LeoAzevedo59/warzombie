@@ -57,6 +57,8 @@ export class ShopUI {
   }
 
   private render(): void {
+    // re-render preserva a rolagem da aba (comprar não pode voltar ao topo)
+    const prevScroll = this.panel.querySelector<HTMLElement>('.tab-body')?.scrollTop ?? 0;
     const total = this.sellTotal();
     const money = this.state.money;
     const items = `
@@ -83,11 +85,15 @@ export class ShopUI {
         <button class="tab ${this.tab === 'upgrades' ? 'active' : ''}" data-tab="upgrades">UPGRADES</button>
       </div>
       <div class="tab-body">${this.tab === 'items' ? items : upgrades}</div>`;
+    const body = this.panel.querySelector<HTMLElement>('.tab-body');
+    if (body) body.scrollTop = prevScroll;
     this.panel.querySelector<HTMLButtonElement>('.close')!.onclick = () => this.setOpen(false);
     this.panel.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => {
       b.onclick = () => {
         this.tab = b.dataset.tab as 'items' | 'upgrades';
         this.render();
+        const tb = this.panel.querySelector<HTMLElement>('.tab-body');
+        if (tb) tb.scrollTop = 0;
       };
     });
     const sell = this.panel.querySelector<HTMLButtonElement>('.sell');
