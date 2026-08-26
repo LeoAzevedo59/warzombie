@@ -75,6 +75,7 @@ const baseSchema = z.discriminatedUnion('type', [
   activateBatterySchema,
   upgradeSchema,
   placeWallSchema,
+  buyFeatureSchema,
   roomListSchema,
   roomCreateSchema,
   roomJoinSchema,
