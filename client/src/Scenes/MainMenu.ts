@@ -20,7 +20,7 @@ export class MainMenu extends BaseScene {
       <div class="status" id="status"></div>
       <div class="controls">
         WASD / Setas — mover · Shift — correr · Ctrl — agachar<br/>
-        Mouse — mirar · Clique — atirar (Glock) · R — recarregar · E — coletar / negociar<br/>
+        Mouse — mirar · Clique — atirar (Glock) · R — recarregar · E — coletar / negociar · B — colocar parede<br/>
         1-5 — equipar item da hotbar (machado/picareta precisam estar equipados) · Esc — fechar loja
       </div>`;
     this.game.ui.appendChild(this.el);

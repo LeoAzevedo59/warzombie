@@ -20,6 +20,8 @@ export class HubStructure {
   private highlightMark: pc.Entity;
   private highlighted = false;
   private anim: AnimatedModel | null = null;
+  private hpFill: pc.Entity | null = null;
+  private hpBar: pc.Entity | null = null;
 
   constructor(
     readonly kind: HubKind,
@@ -51,6 +53,12 @@ export class HubStructure {
       const socket = makeBox({ color: '#2b2f36', scale: [0.7, 0.4, 0.7], position: [0, 2.9, 0] });
       const antenna = makeCylinder({ color: '#8e939a', scale: [0.08, 1.2, 0.08], position: [0, 3.6, 0] });
       for (const e of [base, column, socket, antenna]) this.entity.addChild(e);
+      this.hpBar = new pc.Entity('hpbar');
+      this.hpBar.setLocalPosition(0, 4.6, 0);
+      this.hpBar.addChild(makeBox({ color: '#111', scale: [2.4, 0.12, 0.1], emissive: 0.6 }));
+      this.hpFill = makeBox({ color: '#4db8ff', scale: [2.34, 0.09, 0.12], emissive: 1 });
+      this.hpBar.addChild(this.hpFill);
+      this.entity.addChild(this.hpBar);
     }
 
     this.highlightMark = makeGroundX('#ffd34d', 2.2);
@@ -74,6 +82,18 @@ export class HubStructure {
       });
       r.meshInstances.forEach((mi, i) => (mi.material = cloned[i]));
     }
+  }
+
+  /** Vida da torre (0..1) na barra 3D. */
+  setHpRatio(ratio: number): void {
+    if (!this.hpFill) return;
+    const r = Math.max(0, Math.min(1, ratio));
+    this.hpFill.setLocalScale(2.34 * r, 0.09, 0.12);
+    this.hpFill.setLocalPosition(-1.17 * (1 - r), 0, 0);
+  }
+
+  update(): void {
+    this.hpBar?.setEulerAngles(0, 45, 0);
   }
 
   get position(): pc.Vec3 {

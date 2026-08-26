@@ -4,6 +4,10 @@ import type { EventBus } from '@/Core/EventBus';
 import { GameMap, chunkKey, type Chunk } from './Map';
 import type { WorldObject } from './WorldObject';
 import { HubStructure } from './Hub';
+import { Wall } from './Wall';
+import { WorldObject } from './WorldObject';
+import { generateChunk } from '@shared/worldgen';
+import type { StructureSnapshot } from '@shared/protocol';
 import { isChunkInBounds, mapBounds, toChunkCoord } from '@shared/worldgen';
 
 /** Mantém os chunks ativos ao redor de um ponto focal (o player) e as estruturas fixas do hub. */
@@ -13,11 +17,13 @@ export class World {
   private lastCenter = { cx: NaN, cz: NaN };
   readonly vendor: HubStructure;
   readonly tower: HubStructure;
+  readonly walls = new Map<number, Wall>();
 
   constructor(
     private map: GameMap,
     private bus: EventBus,
     towerPos: { x: number; z: number },
+    private seed: number,
   ) {
     this.root = new pc.Entity('world');
     this.vendor = new HubStructure('vendor');
@@ -88,6 +94,42 @@ export class World {
   *obstacles(): IterableIterator<{ position: pc.Vec3; solidRadius: number }> {
     yield* this.objects();
     yield* this.structures();
+    yield* this.walls.values();
+  }
+
+  addWall(s: StructureSnapshot): void {
+    if (this.walls.has(s.id)) return;
+    const w = new Wall(s);
+    this.root.addChild(w.entity);
+    this.walls.set(s.id, w);
+  }
+
+  setWallHp(id: number, hp: number): void {
+    this.walls.get(id)?.setHp(hp);
+  }
+
+  removeWall(id: number): void {
+    const w = this.walls.get(id);
+    if (!w) return;
+    w.destroy();
+    this.walls.delete(id);
+  }
+
+  /** Recurso renasceu: instancia de novo se o chunk dele está carregado. */
+  respawnObject(id: number): void {
+    for (const c of this.chunks.values()) {
+      if (c.objects.some((o) => o.id === id)) return;
+      const spec = generateChunk(this.seed, c.cx, c.cz).find((o) => o.id === id);
+      if (!spec) continue;
+      const obj = new WorldObject(spec);
+      c.root.addChild(obj.entity);
+      c.objects.push(obj);
+      return;
+    }
+  }
+
+  updateWalls(): void {
+    for (const w of this.walls.values()) w.update();
   }
 
   findObject(id: number): WorldObject | null {
@@ -113,5 +155,7 @@ export class World {
   dispose(): void {
     this.vendor.destroy();
     this.tower.destroy();
+    for (const w of this.walls.values()) w.destroy();
+    this.walls.clear();
   }
 }

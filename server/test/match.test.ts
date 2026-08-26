@@ -17,6 +17,7 @@ function setup() {
       onMoneyChanged: (a) => money.push(a),
       onWaveChanged: () => undefined,
       onPhaseComplete: () => undefined,
+      onGameOver: () => undefined,
     },
     () => now,
     () => 0.5, // recoil determinístico: desvio zero
@@ -171,4 +172,39 @@ test('peso: não pega além da capacidade; upgrade aumenta', () => {
   a.upgrades.weight = 1; // +10
   m.pickup('A', stone2.id);
   assert.equal(a.hotbar.find((s) => s?.itemId === 'stone')?.count, 2);
+});
+
+test('parede: coloca perto, bloqueia lugar ocupado, e zumbi derruba; torre zerada = game over', () => {
+  const { m, snap, sent } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  a.hotbar[0] = { itemId: 'wall_wood', count: 2 };
+  m.placeWall('A', 2, 0, 0);
+  assert.equal(m.structures.size, 1);
+  assert.equal(a.hotbar[0]?.count, 1);
+  assert.throws(() => m.placeWall('A', 2.2, 0, 0), (e: MatchError) => e.code === 'blocked');
+  assert.throws(() => m.placeWall('A', 20, 0, 0), (e: MatchError) => e.code === 'too_far');
+  const id = [...m.structures.keys()][0];
+  m.damageStructure(id, 149);
+  assert.equal(m.structures.get(id)?.hp, 1);
+  m.damageStructure(id, 5);
+  assert.equal(m.structures.size, 0);
+  assert.ok(sent.some((s) => s.msg.type === 'structure_removed'));
+  m.damageTower(99999);
+  assert.ok(m.gameOver);
+  assert.ok(sent.some((s) => s.msg.type === 'game_over'));
+});
+
+test('recurso coletado renasce depois do tempo', () => {
+  const { m, snap, advance, sent } = setup();
+  const stick = [...m.objects.values()].find((o) => o.kind === 'stick')!;
+  m.addPlayer(snap('A', stick.x + 1, stick.z));
+  m.pickup('A', stick.id);
+  assert.ok(m.removed.has(stick.id));
+  advance(GAME.respawn.SMALL * 1000 - 1);
+  m.tick();
+  assert.ok(m.removed.has(stick.id));
+  advance(2);
+  m.tick();
+  assert.ok(!m.removed.has(stick.id));
+  assert.ok(sent.some((s) => s.msg.type === 'object_respawned'));
 });

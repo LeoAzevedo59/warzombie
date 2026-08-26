@@ -43,6 +43,7 @@ export class InputSystem implements System {
     if (!this.enabled) return;
     if (e.code === 'KeyE') this.bus.emit('input:interact');
     if (e.code === 'KeyR') this.bus.emit('input:reload');
+    if (e.code === 'KeyB') this.bus.emit('input:place');
     const digitIndex = DIGIT_CODES.indexOf(e.code);
     if (digitIndex >= 0 && digitIndex < CONFIG.inventory.HOTBAR_SLOTS) {
       this.bus.emit('input:selectSlot', { index: digitIndex });

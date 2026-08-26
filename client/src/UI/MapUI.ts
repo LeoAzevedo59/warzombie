@@ -47,6 +47,8 @@ export class MapUI {
       const s = obj.isNode ? 4 : 2;
       ctx.fillRect(sx(o.x) - s / 2, sz(o.z) - s / 2, s, s);
     }
+    ctx.fillStyle = '#9fc2ff';
+    for (const w of this.world.walls.values()) ctx.fillRect(sx(w.position.x) - 2, sz(w.position.z) - 2, 4, 4);
     for (const st of this.world.structures()) {
       ctx.fillStyle = st.kind === 'vendor' ? '#ffd34d' : '#4db8ff';
       const s = st.kind === 'tower' ? 8 : 6;

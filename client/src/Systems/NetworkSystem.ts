@@ -6,6 +6,7 @@ import type { NetworkClient } from '@/Net/NetworkClient';
 import type { Player } from '@/Entities/Player/Player';
 import { RemotePlayer } from '@/Entities/Player/RemotePlayer';
 import type { NetAnim, PlayerSnapshot, ServerMessage } from '@shared/protocol';
+import { applyGameStart } from '@/Core/GameStart';
 
 /** Envio da própria pose ao servidor (Hz). Independe do tick do servidor. */
 const SEND_RATE = 20;
@@ -129,6 +130,32 @@ export class NetworkSystem implements System {
       case 'upgrade_prices':
         this.state.upgradePrices = { ...msg.prices };
         this.bus.emit('net:upgradePrices', { prices: msg.prices });
+        break;
+      case 'tower_hp':
+        this.state.towerHp = msg.hp;
+        this.state.towerMaxHp = msg.maxHp;
+        this.bus.emit('net:towerHp', { hp: msg.hp, maxHp: msg.maxHp });
+        break;
+      case 'game_over':
+        this.bus.emit('net:gameOver', { restartIn: msg.restartIn });
+        break;
+      case 'game_start':
+        // reinício após derrota (ou nova partida): recarrega o mundo
+        applyGameStart(this.state, msg);
+        this.bus.emit('scene:change', { scene: 'world' });
+        break;
+      case 'structure_added':
+        this.bus.emit('net:structureAdded', { structure: msg.structure });
+        break;
+      case 'structure_hp':
+        this.bus.emit('net:structureHp', { id: msg.id, hp: msg.hp });
+        break;
+      case 'structure_removed':
+        this.bus.emit('net:structureRemoved', { id: msg.id });
+        break;
+      case 'object_respawned':
+        this.state.collectedObjectIds.delete(msg.objectId);
+        this.bus.emit('net:objectRespawned', { objectId: msg.objectId });
         break;
       case 'wave_failed':
         this.bus.emit('wave:failed', { wave: msg.wave, boss: msg.boss });

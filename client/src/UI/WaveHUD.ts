@@ -8,6 +8,7 @@ export class WaveHUD {
   private unsubs: Array<() => void> = [];
   private state: WaveState;
   private boss: { hp: number; maxHp: number } | null = null;
+  private tower = { hp: 1, maxHp: 1 };
   private bannerTimer: number | null = null;
   private collapsed = false;
 
@@ -16,8 +17,10 @@ export class WaveHUD {
     bus: EventBus,
     initial: WaveState,
     private bossHp: () => { hp: number; maxHp: number } | null,
+    tower: { hp: number; maxHp: number },
   ) {
     this.state = initial;
+    this.tower = tower;
     this.el = document.createElement('div');
     this.el.className = 'hud-wave';
     parent.appendChild(this.el);
@@ -46,6 +49,11 @@ export class WaveHUD {
       }),
       bus.on('wave:started', ({ wave, count }) => this.showBanner(`WAVE ${wave}`, `${count} zumbis a caminho`)),
       bus.on('boss:spawned', () => this.showBanner('CHEFÃO', 'Ele está vindo. Não deixe ele chegar perto.')),
+      bus.on('net:towerHp', ({ hp, maxHp }) => {
+        this.tower = { hp, maxHp };
+        this.render();
+      }),
+      bus.on('net:gameOver', ({ restartIn }) => this.showBanner('VOCÊ PERDEU!', `A torre foi destruída. Tudo recomeça do zero em ${restartIn}s…`, restartIn * 1000)),
       bus.on('wave:failed', ({ wave, boss }) =>
         this.showBanner('TEMPO ESGOTADO', boss ? 'O chefão venceu. A bateria foi perdida — compre outra e recomece.' : `A wave ${wave} não foi limpa a tempo. A bateria foi perdida — compre outra e recomece.`, 6000),
       ),
@@ -114,9 +122,11 @@ export class WaveHUD {
           : s.phase === 'complete'
             ? 'Fase concluída'
             : 'Sem bateria';
+    const tr = this.tower.maxHp > 0 ? this.tower.hp / this.tower.maxHp : 1;
+    const towerBar = `<div class="tower-line ${tr <= 0.3 ? 'urgent' : ''}">Torre <b>${Math.round(this.tower.hp)}</b>/${this.tower.maxHp}<div class="bar tower"><div style="width:${(tr * 100).toFixed(1)}%"></div></div></div>`;
     this.el.innerHTML = this.collapsed
       ? `<span class="mission">Missão</span><span class="short">${short}</span>${toggle}`
-      : `<span class="mission">Missão</span>${toggle}${line}${bossBar}`;
+      : `<span class="mission">Missão</span>${toggle}${line}${bossBar}${towerBar}`;
   }
 
   dispose(): void {

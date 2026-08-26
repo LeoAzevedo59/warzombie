@@ -9,6 +9,7 @@ import {
   type ServerMessage,
 } from '../../../shared/protocol.js';
 import { env } from '../config/env.js';
+import { GAME } from '../../../shared/gameconfig.js';
 import { createLogger } from '../lib/logger.js';
 import { RoomModel } from '../models/RoomModel.js';
 import { Match, MatchError } from '../game/Match.js';
@@ -159,6 +160,8 @@ export class GameServer {
           return this.match(conn).activateBattery(conn.player.id);
         case 'upgrade':
           return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
+        case 'place_wall':
+          return this.match(conn).placeWall(conn.player.id, msg.x, msg.z, msg.yaw);
         case 'dev':
           if (!env.devCheats) return this.send(conn, { type: 'error', code: 'dev_disabled', message: 'Cheats desligados neste servidor.' });
           log.warn(`[dev] ${conn.player.name}: ${msg.action}`);
@@ -330,6 +333,10 @@ export class GameServer {
         if (!this.rooms.has(room.id)) return;
         RoomModel.update(room.id, { wave }).catch((err) => log.error(`falha ao salvar wave da sala ${room.name}`, err));
       },
+      onGameOver: () => {
+        log.info(`sala "${room.name}": torre destruída — reiniciando do zero em 6s`);
+        setTimeout(() => this.restartMatch(room), 6000);
+      },
       onPhaseComplete: () => {
         room.status = 'FINISHED';
         log.info(`sala "${room.name}" concluiu a fase 1`);
@@ -339,6 +346,24 @@ export class GameServer {
         RoomModel.update(room.id, { status: 'FINISHED' }).catch((err) => log.error(`falha ao salvar status da sala ${room.name}`, err));
       },
     });
+  }
+
+  /** Torre destruída: partida nova (dinheiro 0, hotbars vazias, mundo/torre novos) para quem ainda está na sala. */
+  private restartMatch(room: Room): void {
+    if (!this.rooms.has(room.id) || room.members.size === 0) return;
+    room.money = 0;
+    room.wave = 0;
+    room.status = 'PLAYING';
+    room.match = this.createMatch(room);
+    RoomModel.update(room.id, { money: 0, wave: 0, status: 'PLAYING' }).catch((err) => log.error('falha ao resetar sala', err));
+    for (const m of room.members.values()) {
+      m.player.x = 0;
+      m.player.z = 0;
+      m.player.anim = 'Idle';
+      const c = this.byPlayerId.get(m.player.id);
+      if (c) this.enterWorld(c, room);
+    }
+    room.broadcastState();
   }
 
   /** Manda o jogador para o mundo da sala e avisa quem já está lá. */
@@ -359,6 +384,9 @@ export class GameServer {
       magSize: match.magSizeOf(mp),
       ammo: mp.mag,
       tower: match.towerPos,
+      towerHp: match.towerHp,
+      towerMaxHp: GAME.hub.TOWER_HP,
+      structures: [...match.structures.values()],
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

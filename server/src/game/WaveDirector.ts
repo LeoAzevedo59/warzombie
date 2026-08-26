@@ -43,7 +43,7 @@ export class WaveDirector {
       phase: this.phase,
       wave: this.wave,
       total: GAME.waves.TOTAL,
-      alive: this.sim.aliveCount,
+      alive: this.sim.aliveHunters,
       nextIn: this.nextAt === null ? null : Math.max(0, Math.round(this.nextAt - now)),
       timeLeft: this.deadline === null ? null : Math.max(0, Math.round(this.deadline - now)),
     };
@@ -70,7 +70,7 @@ export class WaveDirector {
         }
         return false;
       case 'wave':
-        if (this.sim.aliveCount === 0) {
+        if (this.sim.aliveHunters === 0) {
           // limpou: respiro e próxima (ou chefão)
           this.phase = 'countdown';
           this.deadline = null;

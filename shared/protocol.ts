@@ -6,9 +6,20 @@
  * o server valida o formato, persiste e retransmite. Zumbis, loot e craft ainda são locais.
  */
 
-import type { ItemId, ItemStack } from './items.js';
+import type { ItemId, ItemStack, WallKind } from './items.js';
 
-export const PROTOCOL_VERSION = 13;
+/** Parede colocada por um jogador. */
+export interface StructureSnapshot {
+  id: number;
+  kind: WallKind;
+  x: number;
+  z: number;
+  yaw: number;
+  hp: number;
+  maxHp: number;
+}
+
+export const PROTOCOL_VERSION = 14;
 
 export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight' | 'vision';
 export interface WeaponUpgrades {
@@ -185,6 +196,14 @@ export type DevAction =
   | { action: 'spawn_boss' };
 export type DevMessage = { type: 'dev' } & DevAction;
 
+/** Coloca a parede equipada na hotbar em (x,z) com rotação `yaw` (perto do jogador, em lugar livre). */
+export interface PlaceWallMessage {
+  type: 'place_wall';
+  x: number;
+  z: number;
+  yaw: number;
+}
+
 /** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
 export interface ActivateBatteryMessage {
   type: 'activate_battery';
@@ -203,6 +222,7 @@ export type ClientMessage =
   | ReloadMessage
   | ActivateBatteryMessage
   | UpgradeMessage
+  | PlaceWallMessage
   | DevMessage
   | RoomListMessage
   | RoomCreateMessage
@@ -252,6 +272,9 @@ export interface GameStartMessage {
   ammo: number;
   /** onde a torre nasceu nesta sala */
   tower: { x: number; z: number };
+  towerHp: number;
+  towerMaxHp: number;
+  structures: StructureSnapshot[];
 }
 
 // ---------- partida (server -> client) ----------
@@ -449,6 +472,36 @@ export interface WaveFailedMessage {
   wave: number;
   boss: boolean;
 }
+export interface TowerHpMessage {
+  type: 'tower_hp';
+  hp: number;
+  maxHp: number;
+}
+/** Torre destruída: a partida recomeça do zero em `restartIn` s. */
+export interface GameOverMessage {
+  type: 'game_over';
+  reason: 'tower_destroyed';
+  restartIn: number;
+}
+export interface StructureAddedMessage {
+  type: 'structure_added';
+  structure: StructureSnapshot;
+}
+export interface StructureHpMessage {
+  type: 'structure_hp';
+  id: number;
+  hp: number;
+}
+export interface StructureRemovedMessage {
+  type: 'structure_removed';
+  id: number;
+}
+/** Recurso voltou ao mapa. */
+export interface ObjectRespawnedMessage {
+  type: 'object_respawned';
+  objectId: number;
+}
+
 /** Preços atuais (da sala) dos upgrades; muda a cada compra de qualquer jogador. */
 export interface UpgradePricesMessage {
   type: 'upgrade_prices';
@@ -486,6 +539,8 @@ export interface ErrorMessage {
     | 'no_battery'
     | 'already_active'
     | 'too_heavy'
+    | 'blocked'
+    | 'no_wall'
     | 'dev_disabled';
   message: string;
 }
@@ -520,6 +575,12 @@ export type ServerMessage =
   | PhaseCompleteMessage
   | WaveFailedMessage
   | UpgradePricesMessage
+  | TowerHpMessage
+  | GameOverMessage
+  | StructureAddedMessage
+  | StructureHpMessage
+  | StructureRemovedMessage
+  | ObjectRespawnedMessage
   | KnockbackMessage
   | SlowedMessage
   | ShieldMessage

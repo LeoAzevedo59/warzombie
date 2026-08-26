@@ -1,9 +1,9 @@
 import { GAME } from '../../../shared/gameconfig.js';
-import type { ItemId } from '../../../shared/items.js';
+import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
-import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
+import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
 import { WaveDirector } from './WaveDirector.js';
@@ -44,7 +44,9 @@ export class MatchError extends Error {
       | 'invalid_message'
       | 'no_battery'
       | 'already_active'
-      | 'too_heavy',
+      | 'too_heavy'
+      | 'blocked'
+      | 'no_wall',
     message: string,
   ) {
     super(message);
@@ -60,6 +62,8 @@ export interface MatchIO {
   onWaveChanged(wave: number): void;
   /** boss morto: fase concluída */
   onPhaseComplete(): void;
+  /** torre destruída: a sala deve recomeçar a partida do zero */
+  onGameOver(): void;
 }
 
 /**
@@ -69,6 +73,13 @@ export interface MatchIO {
 export class Match {
   readonly objects: Map<number, WorldObjectSpec>;
   readonly removed = new Set<number>();
+  /** instante (ms) em que cada recurso removido renasce */
+  private respawnAt = new Map<number, number>();
+  towerHp: number = GAME.hub.TOWER_HP;
+  readonly structures = new Map<number, StructureSnapshot>();
+  private nextStructureId = 1;
+  private nextAmbientAt: number;
+  gameOver = false;
   private hits = new Map<number, number>();
   readonly players = new Map<string, MatchPlayer>();
   money: number;
@@ -93,11 +104,14 @@ export class Match {
     this.money = money;
     this.lastTick = now();
     this.startedAt = now();
+    this.nextAmbientAt = now() + GAME.ambient.FIRST_DELAY * 1000;
     this.towerPos = this.pickTowerPos();
     this.zombies = new ZombieSim(
       {
-        damagePlayer: (playerId, amount, byZombie) => {
-          const p = this.players.get(playerId);
+        damagePlayer: (targetId, amount, byZombie) => {
+          if (targetId === 'tower') return this.damageTower(amount);
+          if (targetId.startsWith('wall:')) return this.damageStructure(Number(targetId.slice(5)), amount);
+          const p = this.players.get(targetId);
           if (p) this.damagePlayer(p, amount, undefined, byZombie);
         },
         knockback: (playerId, dx, dz, force) => this.io.send(playerId, { type: 'knockback', dx, dz, force }),
@@ -167,6 +181,7 @@ export class Match {
       }
       list.push({ position: GAME.hub.VENDOR, solidRadius: GAME.hub.VENDOR_RADIUS });
       list.push({ position: this.towerPos, solidRadius: GAME.hub.TOWER_RADIUS });
+      for (const s of this.structures.values()) list.push({ position: s, solidRadius: GAME.walls.WIDTH / 2 });
       this.obstacleCache = list;
     }
     return this.obstacleCache;
@@ -324,6 +339,7 @@ export class Match {
       this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
     }
     this.removed.add(o.id);
+    this.respawnAt.set(o.id, this.now() + (def.requiredTool ? GAME.respawn.NODE : GAME.respawn.SMALL) * 1000);
     this.obstacleCache = null;
     this.io.broadcast({ type: 'object_removed', objectId: o.id });
     this.sendHotbar(p);
@@ -382,6 +398,57 @@ export class Match {
     this.sendHotbar(p);
     this.waves.activate();
     this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+  }
+
+  // ---------- torre / paredes ----------
+
+  damageTower(amount: number): void {
+    if (this.gameOver || this.towerHp <= 0) return;
+    this.towerHp = Math.max(0, this.towerHp - amount);
+    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: GAME.hub.TOWER_HP });
+    if (this.towerHp <= 0) {
+      this.gameOver = true;
+      this.zombies.clear();
+      this.io.broadcast({ type: 'game_over', reason: 'tower_destroyed', restartIn: 6 });
+      this.io.onGameOver();
+    }
+  }
+
+  damageStructure(id: number, amount: number): void {
+    const s = this.structures.get(id);
+    if (!s) return;
+    s.hp = Math.max(0, s.hp - amount);
+    if (s.hp <= 0) {
+      this.structures.delete(id);
+      this.obstacleCache = null;
+      this.io.broadcast({ type: 'structure_removed', id });
+    } else {
+      this.io.broadcast({ type: 'structure_hp', id, hp: s.hp });
+    }
+  }
+
+  /** Coloca a parede equipada perto do jogador, num ponto livre. */
+  placeWall(playerId: string, x: number, z: number, yaw: number): void {
+    const p = this.alive(playerId);
+    const item = this.equippedItem(p);
+    if (!item || !(item in WALL_HP)) throw new MatchError('no_wall', 'Equipe uma parede na hotbar.');
+    const kind = item as WallKind;
+    if (dist(p.snapshot, { x, z }) > GAME.walls.PLACE_DIST + 0.5) throw new MatchError('too_far', 'Muito longe para colocar.');
+    const b = mapBounds();
+    if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) throw new MatchError('blocked', 'Fora do mapa.');
+    const r = GAME.walls.WIDTH / 2;
+    const blockers = [...this.obstacles(), ...[...this.players.values()].map((o) => ({ position: o.snapshot, solidRadius: GAME.player.RADIUS }))];
+    if (!isClearOfCircles(x, z, blockers, r * 0.6)) throw new MatchError('blocked', 'Lugar ocupado.');
+    if (dist({ x, z }, GAME.hub.VENDOR) < 3) throw new MatchError('blocked', 'Não dá para bloquear o vendedor.');
+    const slot = p.hotbar.findIndex((s) => s?.itemId === kind);
+    const stack = p.hotbar[slot]!;
+    stack.count--;
+    if (stack.count <= 0) p.hotbar[slot] = null;
+    const s: StructureSnapshot = { id: this.nextStructureId++, kind, x, z, yaw, hp: WALL_HP[kind], maxHp: WALL_HP[kind] };
+    this.structures.set(s.id, s);
+    this.obstacleCache = null;
+    this.io.broadcast({ type: 'structure_added', structure: s });
+    this.sendHotbar(p);
   }
 
   private setMoney(amount: number, delta: number): void {
@@ -506,9 +573,29 @@ export class Match {
     const dt = Math.min(0.1, Math.max(0, (now - this.lastTick) / 1000));
     this.lastTick = now;
 
+    if (this.gameOver) return;
     if (this.waves.active || this.zombies.zombies.size > 0) {
-      const targets = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead }));
+      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead, radius: GAME.player.RADIUS, kind: 'player' as const }));
+      targets.push({ id: 'tower', position: this.towerPos, dead: this.towerHp <= 0, radius: GAME.hub.TOWER_RADIUS, kind: 'tower' });
+      for (const s of this.structures.values()) targets.push({ id: `wall:${s.id}`, position: s, dead: false, radius: GAME.walls.WIDTH / 2, kind: 'wall' });
       this.zombies.tick(dt, targets);
+    }
+    // recursos renascem
+    for (const [id, at] of this.respawnAt) {
+      if (now < at) continue;
+      this.respawnAt.delete(id);
+      this.removed.delete(id);
+      this.obstacleCache = null;
+      this.io.broadcast({ type: 'object_respawned', objectId: id });
+    }
+    // zumbis ambientais: sempre alguns no mapa, mesmo sem wave
+    if (now >= this.nextAmbientAt) {
+      this.nextAmbientAt = now + GAME.ambient.INTERVAL * 1000;
+      const max = GAME.ambient.BASE_MAX + GAME.ambient.PER_PLAYER * this.players.size;
+      if (this.players.size > 0 && this.zombies.aliveAmbient < max) {
+        const sp = this.zombies.pickSpawnPoint();
+        this.zombies.spawn(this.rand() < GAME.zombie.SPITTER_RATIO ? 'spitter' : 'zombie', sp.x, sp.z, 1, 1, false);
+      }
     }
     if (this.waves.tick()) this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
     for (const p of this.players.values()) {

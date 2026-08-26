@@ -1,7 +1,7 @@
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
-import type { PlayerSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
+import type { PlayerSnapshot, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
 import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
 import { totalWeight } from '@shared/items';
 
@@ -67,6 +67,10 @@ export class GameState {
 
   /** Posição da torre nesta sala (vem do servidor). */
   tower = { x: 4, z: 4 };
+  towerHp = 1500;
+  towerMaxHp = 1500;
+  /** paredes colocadas na sala (snapshot inicial; depois mantidas pelo World) */
+  structures: StructureSnapshot[] = [];
 
   /** Estado das waves da sala (vem do servidor). */
   wave: WaveState = { phase: 'idle', wave: 0, total: 5, alive: 0, nextIn: null, timeLeft: null };

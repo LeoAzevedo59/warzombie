@@ -37,13 +37,20 @@ export interface Zombie {
   chargeDir: XZ;
   /** jogadores já atingidos nesta investida */
   chargeHits: Set<string>;
+  /** posição no último check de "travado" e tempo parado em chase */
+  lastX: number;
+  lastZ: number;
+  stuckTime: number;
 }
 
-/** Alvo visto pela IA: jogador vivo com posição. */
+/** Alvo visto pela IA: jogador, torre ou parede. */
 export interface Target {
   id: string;
   position: XZ;
   dead: boolean;
+  /** raio do alvo (jogador = GAME.player.RADIUS; estruturas maiores) */
+  radius?: number;
+  kind?: 'player' | 'tower' | 'wall';
 }
 
 export interface Obstacle {
@@ -68,7 +75,8 @@ export interface Projectile {
 }
 
 export interface ZombieSimIO {
-  damagePlayer(playerId: string, amount: number, byZombie: number): void;
+  /** dano em jogador ('uuid'), torre ('tower') ou parede ('wall:id') */
+  damagePlayer(targetId: string, amount: number, byZombie: number): void;
   knockback(playerId: string, dx: number, dz: number, force: number): void;
   slowPlayer(playerId: string, factor: number, seconds: number): void;
   bossSlam(x: number, z: number, radius: number, windup: number): void;
@@ -99,6 +107,19 @@ export class ZombieSim {
   get aliveCount(): number {
     let n = 0;
     for (const z of this.zombies.values()) if (z.state !== 'dead') n++;
+    return n;
+  }
+
+  /** Só a horda das waves (caçadores); ambientais não contam para limpar a wave. */
+  get aliveHunters(): number {
+    let n = 0;
+    for (const z of this.zombies.values()) if (z.state !== 'dead' && z.hunter) n++;
+    return n;
+  }
+
+  get aliveAmbient(): number {
+    let n = 0;
+    for (const z of this.zombies.values()) if (z.state !== 'dead' && !z.hunter) n++;
     return n;
   }
 
@@ -145,6 +166,9 @@ export class ZombieSim {
       targetId: null,
       chargeDir: { x: 0, z: 1 },
       chargeHits: new Set(),
+      lastX: x,
+      lastZ: z,
+      stuckTime: 0,
     };
     zb.hp = zb.maxHp;
     this.zombies.set(zb.id, zb);
@@ -210,6 +234,7 @@ export class ZombieSim {
       p.z += p.dz * p.speed * dt;
       let hit = false;
       for (const t of living) {
+        if (t.kind && t.kind !== 'player') continue;
         if (dist(p, t.position) <= p.radius + GAME.player.RADIUS) {
           this.io.damagePlayer(t.id, p.damage, p.from);
           this.io.slowPlayer(t.id, p.slowFactor, p.slowTime);
@@ -252,17 +277,37 @@ export class ZombieSim {
     }
   }
 
+  /** Alvo mais próximo. Caçadores consideram a torre (com preferência); paredes só quando travados. */
   private nearest(z: Zombie, living: Target[]): { t: Target; d: number } | null {
     let best: Target | null = null;
     let bd = Infinity;
+    let bs = Infinity;
     for (const t of living) {
-      const d = dist(z, t.position);
-      if (d < bd) {
+      if (t.kind === 'wall') continue;
+      if (t.kind === 'tower' && !z.hunter) continue;
+      const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
+      const score = t.kind === 'tower' ? d * GAME.zombie.TOWER_BIAS : d;
+      if (score < bs) {
+        bs = score;
         bd = d;
         best = t;
       }
     }
     return best ? { t: best, d: bd } : null;
+  }
+
+  private nearestWall(z: Zombie, living: Target[], maxDist: number): Target | null {
+    let best: Target | null = null;
+    let bd = maxDist;
+    for (const t of living) {
+      if (t.kind !== 'wall') continue;
+      const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
+      if (d < bd) {
+        bd = d;
+        best = t;
+      }
+    }
+    return best;
   }
 
   private think(z: Zombie, living: Target[], dt: number): void {
@@ -299,7 +344,7 @@ export class ZombieSim {
             this.startSlam(z);
             break;
           }
-          if (z.spitCooldown <= 0 && near.d > GAME.boss.SLAM.RANGE && near.d <= GAME.boss.VOLLEY.RANGE) {
+          if (near.t.kind !== 'tower' && z.spitCooldown <= 0 && near.d > GAME.boss.SLAM.RANGE && near.d <= GAME.boss.VOLLEY.RANGE) {
             this.setState(z, 'volley');
             z.vx = z.vz = 0;
             z.spitCooldown = GAME.boss.VOLLEY.COOLDOWN;
@@ -309,7 +354,7 @@ export class ZombieSim {
             this.startCharge(z, near.t.position);
             break;
           }
-        } else if (z.kind === 'spitter' && z.spitCooldown <= 0 && near.d >= cfg.SPIT.RANGE_MIN && near.d <= cfg.SPIT.RANGE_MAX) {
+        } else if (z.kind === 'spitter' && near.t.kind !== 'tower' && z.spitCooldown <= 0 && near.d >= cfg.SPIT.RANGE_MIN && near.d <= cfg.SPIT.RANGE_MAX) {
           this.setState(z, 'spit');
           z.vx = z.vz = 0;
           z.spitCooldown = cfg.SPIT.COOLDOWN;
@@ -319,6 +364,20 @@ export class ZombieSim {
           break;
         }
         const reach = cfg.ATTACK.RANGE + (boss ? z.radius : 0);
+        // travado numa parede? bate nela
+        const moved = Math.hypot(z.x - z.lastX, z.z - z.lastZ);
+        z.stuckTime = moved < 0.15 * dt * 10 ? z.stuckTime + dt : 0;
+        z.lastX = z.x;
+        z.lastZ = z.z;
+        if (z.stuckTime > 0.8 && near.d > reach) {
+          const wall = this.nearestWall(z, living, reach + 0.6);
+          if (wall && z.attackCooldown <= 0) {
+            z.targetId = wall.id;
+            this.lookAt(z, wall.position);
+            this.startAttack(z, 'attack');
+            break;
+          }
+        }
         if (z.attackCooldown <= 0 && near.d <= reach) {
           this.startAttack(z, 'attack');
           break;
@@ -346,7 +405,7 @@ export class ZombieSim {
         if (target && z.stateTime < c.DURATION * c.HIT_AT) this.lookAt(z, target.position);
         if (!z.hitApplied && z.stateTime >= c.DURATION * c.HIT_AT) {
           z.hitApplied = true;
-          const reach = c.RANGE + (boss ? z.radius : 0) + 0.3;
+          const reach = c.RANGE + (boss ? z.radius : 0) + (target?.radius ?? 0) + 0.3;
           if (target && dist(z, target.position) <= reach) this.hitPlayer(z, target, special);
         }
         if (z.stateTime >= c.DURATION) this.setState(z, 'chase');
@@ -358,7 +417,7 @@ export class ZombieSim {
         const bossShot = z.state === 'volley';
         const c = bossShot ? GAME.boss.VOLLEY : cfg.SPIT;
         z.vx = z.vz = 0;
-        const target = living.find((t) => t.id === z.targetId) ?? near?.t;
+        const target = living.find((t) => t.id === z.targetId && (!t.kind || t.kind === 'player')) ?? living.find((t) => !t.kind || t.kind === 'player');
         if (target && z.stateTime < c.DURATION * c.FIRE_AT) this.lookAt(z, target.position);
         if (!z.hitApplied && z.stateTime >= c.DURATION * c.FIRE_AT) {
           z.hitApplied = true;
@@ -385,6 +444,7 @@ export class ZombieSim {
         if (!z.hitApplied && z.stateTime >= s.WINDUP) {
           z.hitApplied = true;
           for (const t of living) {
+            if (t.kind && t.kind !== 'player') continue;
             if (dist(z, t.position) <= s.RADIUS) {
               this.io.damagePlayer(t.id, s.DAMAGE, z.id);
               const dx = t.position.x - z.x;
@@ -403,6 +463,7 @@ export class ZombieSim {
         z.vx = z.chargeDir.x * c.SPEED;
         z.vz = z.chargeDir.z * c.SPEED;
         for (const t of living) {
+          if (t.kind && t.kind !== 'player') continue;
           if (z.chargeHits.has(t.id)) continue;
           if (dist(z, t.position) <= z.radius + GAME.player.RADIUS + 0.3) {
             z.chargeHits.add(t.id);
@@ -456,8 +517,10 @@ export class ZombieSim {
   }
 
   private hitPlayer(z: Zombie, t: Target, special: boolean): void {
-    const dmg = special ? Math.round(z.damage * GAME.zombie.SPECIAL.DAMAGE_MULT) : z.damage;
+    let dmg = special ? Math.round(z.damage * GAME.zombie.SPECIAL.DAMAGE_MULT) : z.damage;
+    if (t.kind === 'tower' || t.kind === 'wall') dmg = Math.round(dmg * GAME.zombie.STRUCTURE_DAMAGE_MULT);
     this.io.damagePlayer(t.id, dmg, z.id);
+    if (t.kind && t.kind !== 'player') return;
     if (special) {
       const dx = t.position.x - z.x;
       const dz = t.position.z - z.z;
@@ -540,6 +603,7 @@ export class ZombieSim {
       }
       if (a.state === 'charge') continue; // investida atravessa (o dano é por contato)
       for (const t of living) {
+        if (t.kind && t.kind !== 'player') continue;
         const p = pushOutCircle(a.x, a.z, t.position.x, t.position.z, a.radius + GAME.player.RADIUS);
         if (p) {
           a.x = p.x;

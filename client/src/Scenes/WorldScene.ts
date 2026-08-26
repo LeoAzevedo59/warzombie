@@ -19,6 +19,7 @@ import { EffectsSystem } from '@/Systems/EffectsSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
 import { SummaryUI } from '@/UI/SummaryUI';
+import { BuildSystem } from '@/Systems/BuildSystem';
 import { cameraOrthoHeight } from '@shared/upgrades';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
@@ -70,9 +71,11 @@ export class WorldScene extends BaseScene {
     this.root.addChild(this.camera.entity);
 
     const map = new GameMap(state.seed, (id) => state.collectedObjectIds.has(id));
-    this.world = new World(map, bus, state.tower);
+    this.world = new World(map, bus, state.tower, state.seed);
     this.root.addChild(this.world.root);
     this.world.init();
+    for (const s of state.structures) this.world.addWall(s);
+    this.world.tower.setHpRatio(state.towerHp / state.towerMaxHp);
 
     // --- player ---
     const stats = new PlayerStats(state, bus);
@@ -107,6 +110,7 @@ export class WorldScene extends BaseScene {
       .register(network)
       .register(zombies)
       .register(new EffectsSystem(bus, this.player, this.root, state, (id) => network.positionOf(id)))
+      .register(new BuildSystem(bus, this.player, equipment, net, this.world, this.root))
       .start();
 
     // --- UI ---
@@ -129,7 +133,7 @@ export class WorldScene extends BaseScene {
       wave: new WaveHUD(uiRoot, bus, state.wave, () => {
         for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
         return null;
-      }),
+      }, { hp: state.towerHp, maxHp: state.towerMaxHp }),
       dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
       summary: new SummaryUI(uiRoot, bus, state.playerId),
     };
@@ -142,6 +146,7 @@ export class WorldScene extends BaseScene {
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
+      bus.on('net:towerHp', ({ hp, maxHp }) => this.world.tower.setHpRatio(hp / maxHp)),
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);

@@ -1,5 +1,6 @@
 import { BaseScene } from './BaseScene';
 import { isValidRoomName, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
+import { applyGameStart } from '@/Core/GameStart';
 
 /**
  * Lobby em DOM: lista de salas (criar/entrar) e, dentro de uma sala, a lista de membros com
@@ -65,21 +66,7 @@ export class LobbyScene extends BaseScene {
         state.isOwner = false;
         break;
       case 'game_start':
-        state.seed = msg.seed;
-        state.roomPlayers = msg.players;
-        const me = msg.players.find((p) => p.id === state.playerId);
-        state.playerPosition = { x: me?.x ?? 0, y: 0, z: me?.z ?? 0 };
-        state.hp = me?.hp ?? state.hp;
-        state.collectedObjectIds = new Set(msg.removedObjects);
-        state.money = msg.money;
-        state.inventory = msg.hotbar.map((s) => (s ? { ...s } : null));
-        state.equippedSlot = msg.equipped;
-        state.wave = msg.wave;
-        state.upgrades = { ...msg.upgrades };
-        state.magSize = msg.magSize;
-        state.ammo = msg.ammo;
-        state.upgradePrices = { ...msg.upgradePrices };
-        state.tower = { ...msg.tower };
+        applyGameStart(state, msg);
         bus.emit('scene:change', { scene: 'world' });
         return;
       case 'error':

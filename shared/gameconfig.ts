@@ -23,6 +23,12 @@ export const GAME = {
   camera: { ORTHO_HEIGHT: 6.5, VISION_STEP: 1.2 },
   /** vigor gasto por hit em árvore/rocha (client) */
   farming: { STAMINA_PER_HIT: 8 },
+  /** recursos renascem depois de coletados (s) */
+  respawn: { SMALL: 60, NODE: 180 },
+  /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
+  walls: { PLACE_DIST: 3, WIDTH: 2, THICK: 0.4 },
+  /** zumbis ambientais fora das waves: máximo vivo (+ por jogador) e intervalo de spawn */
+  ambient: { BASE_MAX: 2, PER_PLAYER: 1, INTERVAL: 20, FIRST_DELAY: 15 },
   upgrades: {
     PRICE_GROWTH: 1.35,
     /** +20% de dano por nível */
@@ -51,6 +57,10 @@ export const GAME = {
     LOSE_RADIUS: 34,
     /** soco: alcance, cooldown, duração da animação e fração em que o dano aplica */
     ATTACK: { RANGE: 1.4, COOLDOWN: 1.1, DURATION: 1.0, HIT_AT: 0.45 },
+    /** dano em estruturas (torre/paredes) = dano × este fator */
+    STRUCTURE_DAMAGE_MULT: 3,
+    /** preferência pela torre: distância até a torre é multiplicada por isso ao escolher alvo */
+    TOWER_BIAS: 0.7,
     /** chute: mais dano (x2.75), knockback, cooldown longo */
     SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 2.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
     /** fração da horda que nasce como cuspidor (ataque à distância que dá lentidão) */
@@ -102,6 +112,8 @@ export const GAME = {
     TOWER: { x: 4, z: 4 },
     TOWER_MIN_DIST: 14,
     TOWER_MAX_DIST: 34,
+    /** vida da torre; zero = derrota e a partida recomeça do zero */
+    TOWER_HP: 1500,
     /** raio de colisão das estruturas */
     VENDOR_RADIUS: 1.4,
     TOWER_RADIUS: 0.9,
