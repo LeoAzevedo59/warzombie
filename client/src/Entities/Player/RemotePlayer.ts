@@ -44,7 +44,7 @@ export class RemotePlayer {
 
   /** Chame só depois de `entity` estar na cena. */
   initAnimation(): void {
-    this.anim.init([{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Death', loop: false }], 'Idle');
+    this.anim.init([{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Punch_Left', loop: false }, { name: 'Death', loop: false }], 'Idle');
   }
 
   private tint(): void {
@@ -68,6 +68,10 @@ export class RemotePlayer {
 
   playShoot(): void {
     if (!this.dead) this.anim.play('Gun_Shoot', 0.05, true);
+  }
+
+  playMelee(): void {
+    if (!this.dead) this.anim.play('Punch_Left', 0.05, true);
   }
 
   die(): void {

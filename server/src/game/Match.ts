@@ -552,6 +552,36 @@ export class Match {
     this.io.broadcast({ type: 'zombie_died', id: z.id, kind: z.kind, killerId });
   }
 
+  /** Faca: acerta o alvo mais próximo dentro do arco à frente (zumbi ou jogador). */
+  melee(playerId: string, dx: number, dz: number): void {
+    const p = this.alive(playerId);
+    const k = GAME.weapon.knife;
+    if (this.equippedItem(p) !== 'knife') throw new MatchError('no_weapon', 'Equipe a Faca.');
+    const now = this.now();
+    if (now < p.nextFireAt) return;
+    p.nextFireAt = now + k.COOLDOWN * 1000;
+    const dir = normalize2(dx, dz);
+    const cosArc = Math.cos(((k.ARC_DEG / 2) * Math.PI) / 180);
+    type Hit = { d: number; mp?: MatchPlayer; zb?: Zombie };
+    let best: Hit | null = null;
+    const consider = (pos: { x: number; z: number }, radius: number, h: Hit) => {
+      const ox = pos.x - p.snapshot.x;
+      const oz = pos.z - p.snapshot.z;
+      const d = Math.hypot(ox, oz);
+      if (d - radius > k.RANGE) return;
+      if (d > 0.05 && (ox * dir.dx + oz * dir.dz) / d < cosArc) return;
+      h.d = d;
+      if (!best || d < best.d) best = h;
+    };
+    for (const o of this.players.values()) if (o !== p && !o.dead) consider(o.snapshot, GAME.player.RADIUS, { d: 0, mp: o });
+    for (const zb of this.zombies.alive()) consider(zb, zb.radius, { d: 0, zb });
+    const hit = best as Hit | null;
+    this.io.broadcast({ type: 'melee_swing', playerId, hitPlayerId: hit?.mp?.snapshot.id, hitZombieId: hit?.zb?.id });
+    const dmg = Math.round(k.DAMAGE * p.damageMult * damageMultiplier(p.upgrades));
+    if (hit?.mp) this.damagePlayer(hit.mp, dmg, playerId);
+    if (hit?.zb) this.zombies.damage(hit.zb, dmg, playerId);
+  }
+
   reload(playerId: string): void {
     const p = this.alive(playerId);
     const w = GAME.weapon.glock;

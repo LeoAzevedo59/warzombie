@@ -208,3 +208,17 @@ test('recurso coletado renasce depois do tempo', () => {
   assert.ok(!m.removed.has(stick.id));
   assert.ok(sent.some((s) => s.msg.type === 'object_respawned'));
 });
+
+test('faca acerta o zumbi à frente, não o de trás', () => {
+  const { m, snap, advance } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
+  a.hotbar[0] = { itemId: 'knife', count: 1 };
+  const front = m.zombies.spawn('zombie', 1.2, 0);
+  const back = m.zombies.spawn('zombie', -1.2, 0);
+  m.melee('A', 1, 0);
+  assert.equal(front.hp, GAME.zombie.MAX_HP - GAME.weapon.knife.DAMAGE);
+  assert.equal(back.hp, GAME.zombie.MAX_HP);
+  m.melee('A', 1, 0); // cooldown: ignorado
+  assert.equal(front.hp, GAME.zombie.MAX_HP - GAME.weapon.knife.DAMAGE);
+});

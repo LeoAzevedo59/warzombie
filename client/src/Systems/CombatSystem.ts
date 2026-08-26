@@ -71,6 +71,19 @@ export class CombatSystem implements System {
   }
 
   private fire(): void {
+    if (this.equipment.equippedItem() === 'knife' && !this.player.stats.dead && this.cooldown <= 0) {
+      this.cooldown = GAME.weapon.knife.COOLDOWN;
+      const from = this.player.position;
+      const aim = this.input.state.aimPoint;
+      if (aim) {
+        this.dir.set(aim.x - from.x, 0, aim.z - from.z);
+        if (this.dir.lengthSq() < 1e-4) this.player.forward(this.dir);
+        else this.dir.normalize();
+        this.player.lookAt(aim);
+      } else this.player.forward(this.dir);
+      this.net.send({ type: 'melee', dx: this.dir.x, dz: this.dir.z });
+      return;
+    }
     if (!this.canFire) return;
     if (this.state.ammo <= 0) {
       this.bus.emit('ui:toast', { text: 'Sem munição — aperte R para recarregar' });

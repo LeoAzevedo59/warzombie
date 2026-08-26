@@ -49,7 +49,7 @@ export class Player {
   /** Chame só depois de `entity` já estar na árvore da cena. */
   initAnimation(): void {
     this.anim.init(
-      [{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Death', loop: false }],
+      [{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Punch_Left', loop: false }, { name: 'Death', loop: false }],
       'Idle',
     );
   }
@@ -78,6 +78,12 @@ export class Player {
     const base = MODEL_SCALE.player;
     const s = on ? 0.6 : 1;
     this.model.setLocalScale(base, base * s, base);
+  }
+
+  /** Golpe de faca. */
+  playMelee(): void {
+    this.shootPoseTimer = 0.4;
+    this.anim.play('Punch_Left', 0.05, true);
   }
 
   /** Dispara a animação de tiro por um curto período. */

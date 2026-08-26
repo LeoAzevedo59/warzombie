@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 export type RoomFeature = 'minimap';
 export type RoomFeatures = Record<RoomFeature, boolean>;
@@ -182,6 +182,12 @@ export interface FireMessage {
 export interface ReloadMessage {
   type: 'reload';
 }
+/** Golpe de faca na direção (dx,dz). */
+export interface MeleeMessage {
+  type: 'melee';
+  dx: number;
+  dz: number;
+}
 /** Compra um nível de upgrade da arma (precisa estar perto do vendedor). */
 export interface UpgradeMessage {
   type: 'upgrade';
@@ -229,6 +235,7 @@ export type ClientMessage =
   | BuyMessage
   | FireMessage
   | ReloadMessage
+  | MeleeMessage
   | ActivateBatteryMessage
   | UpgradeMessage
   | PlaceWallMessage
@@ -333,6 +340,13 @@ export interface ShotMessage {
 export interface UpgradesMessage {
   type: 'upgrades';
   upgrades: WeaponUpgrades;
+}
+/** Alguém golpeou com a faca (animação para todos). */
+export interface MeleeSwingMessage {
+  type: 'melee_swing';
+  playerId: string;
+  hitPlayerId?: string;
+  hitZombieId?: number;
 }
 export interface AmmoMessage {
   type: 'ammo';
@@ -578,6 +592,7 @@ export type ServerMessage =
   | ObjectRemovedMessage
   | NodeHitMessage
   | ShotMessage
+  | MeleeSwingMessage
   | AmmoMessage
   | UpgradesMessage
   | HpMessage

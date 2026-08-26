@@ -45,6 +45,7 @@ export interface GameEvents {
   'net:money': { amount: number; delta: number };
   'net:objectRemoved': { objectId: number };
   'net:nodeHit': { objectId: number; hits: number; required: number };
+  'net:melee': { playerId: string; hitPlayerId: string | null; hitZombieId: number | null };
   'net:shot': { playerId: string; dx: number; dz: number; length: number; hitPlayerId: string | null };
   'net:ammo': { mag: number; magSize: number; reloading: boolean };
   'net:zombies': { zombies: ZombieSnapshot[] };

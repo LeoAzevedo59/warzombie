@@ -1,6 +1,6 @@
 /** Itens do jogo e economia. Fonte única para client (UI) e server (regras). */
 
-export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'wall_wood' | 'wall_stone' | 'wall_iron';
+export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'knife' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'wall_wood' | 'wall_stone' | 'wall_iron';
 export type ItemCategory = 'resource' | 'tool' | 'weapon' | 'device' | 'wall';
 
 export type WallKind = 'wall_wood' | 'wall_stone' | 'wall_iron';
@@ -34,6 +34,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   stone: { id: 'stone', name: 'Pedra', category: 'resource', stackMax: 20, color: '#8e939a', sell: 2, weight: 2 },
   wood: { id: 'wood', name: 'Tronco', category: 'resource', stackMax: 20, color: '#6b4226', sell: 5, weight: 3 },
   bigstone: { id: 'bigstone', name: 'Pedra Grande', category: 'resource', stackMax: 20, color: '#5c6670', sell: 6, weight: 4 },
+  knife: { id: 'knife', name: 'Faca', category: 'weapon', stackMax: 1, color: '#c0c8d0', buy: 10, weight: 1 },
   axe: { id: 'axe', name: 'Machado', category: 'tool', stackMax: 1, color: '#c8742a', buy: 30, weight: 3 },
   pickaxe: { id: 'pickaxe', name: 'Picareta', category: 'tool', stackMax: 1, color: '#5f7fa8', buy: 30, weight: 3 },
   glock: { id: 'glock', name: 'Glock', category: 'weapon', stackMax: 1, color: '#2b2f36', buy: 100, weight: 2 },
@@ -57,6 +58,6 @@ export const ItemDatabase = {
   },
   /** Itens à venda no vendedor, na ordem da loja. */
   shop(): ItemDef[] {
-    return (['axe', 'pickaxe', 'glock', 'battery', 'wall_wood', 'wall_stone', 'wall_iron'] as ItemId[]).map((id) => ITEMS[id]);
+    return (['knife', 'axe', 'pickaxe', 'glock', 'battery', 'wall_wood', 'wall_stone', 'wall_iron'] as ItemId[]).map((id) => ITEMS[id]);
   },
 };

@@ -165,6 +165,11 @@ export class NetworkSystem implements System {
       case 'wave_failed':
         this.bus.emit('wave:failed', { wave: msg.wave, boss: msg.boss });
         break;
+      case 'melee_swing':
+        this.bus.emit('net:melee', { playerId: msg.playerId, hitPlayerId: msg.hitPlayerId ?? null, hitZombieId: msg.hitZombieId ?? null });
+        if (msg.playerId === this.state.playerId) this.player.playMelee();
+        else this.remotes.get(msg.playerId)?.playMelee();
+        break;
       case 'ammo':
         this.state.ammo = msg.mag;
         this.state.magSize = msg.magSize;

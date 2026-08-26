@@ -156,6 +156,8 @@ export class GameServer {
           return this.match(conn).fire(conn.player.id, msg.dx, msg.dz);
         case 'reload':
           return this.match(conn).reload(conn.player.id);
+        case 'melee':
+          return this.match(conn).melee(conn.player.id, msg.dx, msg.dz);
         case 'activate_battery':
           return this.match(conn).activateBattery(conn.player.id);
         case 'upgrade':

@@ -12,6 +12,8 @@ export const GAME = {
   weapon: {
     /** START_MAG: balas ao comprar a arma (o pente cheio só depois de recarregar) */
     glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 10, START_MAG: 5, RELOAD: 1.5 },
+    /** faca: corpo a corpo num arco à frente */
+    knife: { DAMAGE: 18, COOLDOWN: 0.5, RANGE: 1.8, ARC_DEG: 100 },
   },
   /**
    * Upgrades comprados no vendedor. Níveis são por jogador, mas o PREÇO é da sala:
