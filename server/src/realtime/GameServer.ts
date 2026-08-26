@@ -154,6 +154,8 @@ export class GameServer {
           return this.match(conn).reload(conn.player.id);
         case 'activate_battery':
           return this.match(conn).activateBattery(conn.player.id);
+        case 'upgrade':
+          return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
         case 'dev':
           if (!env.devCheats) return this.send(conn, { type: 'error', code: 'dev_disabled', message: 'Cheats desligados neste servidor.' });
           log.warn(`[dev] ${conn.player.name}: ${msg.action}`);
@@ -347,6 +349,8 @@ export class GameServer {
       hotbar: mp.hotbar,
       equipped: mp.equipped,
       wave: match.waveState(),
+      upgrades: { ...mp.upgrades },
+      magSize: match.magSizeOf(mp),
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

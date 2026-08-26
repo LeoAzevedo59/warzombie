@@ -120,8 +120,14 @@ export class NetworkSystem implements System {
       case 'shot':
         this.bus.emit('net:shot', { playerId: msg.playerId, dx: msg.dx, dz: msg.dz, length: msg.length, hitPlayerId: msg.hitPlayerId ?? null });
         break;
+      case 'upgrades':
+        this.state.upgrades = { ...msg.upgrades };
+        this.bus.emit('net:upgrades', { upgrades: msg.upgrades });
+        this.bus.emit('ui:toast', { text: 'Upgrade comprado!' });
+        break;
       case 'ammo':
         this.state.ammo = msg.mag;
+        this.state.magSize = msg.magSize;
         this.state.reloading = msg.reloading;
         this.bus.emit('net:ammo', { mag: msg.mag, magSize: msg.magSize, reloading: msg.reloading });
         break;

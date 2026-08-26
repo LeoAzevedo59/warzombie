@@ -19,6 +19,7 @@ function setup() {
       onPhaseComplete: () => undefined,
     },
     () => now,
+    () => 0.5, // recoil determinístico: desvio zero
   );
   const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
   return { m, sent, money, snap, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
@@ -121,4 +122,27 @@ test('recarga volta o pente cheio depois de RELOAD', () => {
   advance(GAME.weapon.glock.RELOAD * 1000 + 1);
   m.tick();
   assert.equal(a.mag, GAME.weapon.glock.MAG);
+});
+
+test('upgrades: dano, pente e recoil', () => {
+  const { m, snap, advance } = setup();
+  const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  const b = m.addPlayer(snap('B', GAME.hub.VENDOR.x + 5, GAME.hub.VENDOR.z + 1));
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
+  a.hotbar[0] = { itemId: 'glock', count: 1 };
+  m.money = 10;
+  assert.throws(() => m.buyUpgrade('A', 'damage'), (e: MatchError) => e.code === 'not_enough_money');
+  m.money = 1000;
+  m.buyUpgrade('A', 'damage');
+  m.buyUpgrade('A', 'ammo');
+  m.buyUpgrade('A', 'recoil');
+  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1 });
+  assert.equal(m.money, 1000 - 40 - 30 - 40);
+  a.mag = 0;
+  m.reload('A');
+  advance(GAME.weapon.glock.RELOAD * 1000 + 1);
+  m.tick();
+  assert.equal(a.mag, GAME.weapon.glock.MAG + 4);
+  m.fire('A', 1, 0);
+  assert.equal(b.snapshot.hp, 100 - Math.round(25 * 1.2));
 });

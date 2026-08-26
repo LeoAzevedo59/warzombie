@@ -120,7 +120,7 @@ export class WorldScene extends BaseScene {
       economy: new EconomyHUD(uiRoot, bus, state.money),
       map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values(), () => zombies.alive()),
       toasts: new ToastUI(uiRoot, bus),
-      combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills),
+      combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills, state.upgrades),
       players: new PlayersHUD(uiRoot, bus, state.playerName, () => network.remotes.values(), () => this.camera.component),
       wave: new WaveHUD(uiRoot, bus, state.wave, () => {
         for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
@@ -147,7 +147,7 @@ export class WorldScene extends BaseScene {
     stats.notify();
     inventory.notify();
     bus.emit('equip:changed', { slotIndex: state.equippedSlot, itemId: equipment.equippedItem() });
-    bus.emit('net:ammo', { mag: state.ammo, magSize: 10, reloading: false });
+    bus.emit('net:ammo', { mag: state.ammo, magSize: state.magSize, reloading: false });
   }
 
   update(dt: number): void {

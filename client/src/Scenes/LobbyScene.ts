@@ -60,6 +60,9 @@ export class LobbyScene extends BaseScene {
         state.inventory = msg.hotbar.map((s) => (s ? { ...s } : null));
         state.equippedSlot = msg.equipped;
         state.wave = msg.wave;
+        state.upgrades = { ...msg.upgrades };
+        state.magSize = msg.magSize;
+        state.ammo = msg.magSize;
         bus.emit('scene:change', { scene: 'world' });
         return;
       case 'error':

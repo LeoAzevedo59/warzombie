@@ -47,6 +47,7 @@ const buySchema = z.object({ type: z.literal('buy'), itemId: z.enum(Object.keys(
 const fireSchema = z.object({ type: z.literal('fire'), dx: finite, dz: finite });
 const reloadSchema = z.object({ type: z.literal('reload') });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
+const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil']) });
 const itemIdSchema = z.enum(Object.keys(ITEMS) as [ItemId, ...ItemId[]]);
 const devSchema = z.discriminatedUnion('action', [
   z.object({ type: z.literal('dev'), action: z.literal('money'), amount: z.number().int().min(-100000).max(100000) }),
@@ -70,6 +71,7 @@ const baseSchema = z.discriminatedUnion('type', [
   fireSchema,
   reloadSchema,
   activateBatterySchema,
+  upgradeSchema,
   roomListSchema,
   roomCreateSchema,
   roomJoinSchema,

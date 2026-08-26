@@ -8,7 +8,14 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
+
+export type UpgradeKind = 'damage' | 'ammo' | 'recoil';
+export interface WeaponUpgrades {
+  damage: number;
+  ammo: number;
+  recoil: number;
+}
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -136,6 +143,12 @@ export interface FireMessage {
 export interface ReloadMessage {
   type: 'reload';
 }
+/** Compra um nível de upgrade da arma (precisa estar perto do vendedor). */
+export interface UpgradeMessage {
+  type: 'upgrade';
+  kind: UpgradeKind;
+}
+
 /** Cheats de desenvolvimento — só aceitos quando o servidor roda com DEV_CHEATS ligado. */
 export type DevAction =
   | { action: 'money'; amount: number }
@@ -164,6 +177,7 @@ export type ClientMessage =
   | FireMessage
   | ReloadMessage
   | ActivateBatteryMessage
+  | UpgradeMessage
   | DevMessage
   | RoomListMessage
   | RoomCreateMessage
@@ -207,6 +221,8 @@ export interface GameStartMessage {
   hotbar: Array<ItemStack | null>;
   equipped: number;
   wave: WaveState;
+  upgrades: WeaponUpgrades;
+  magSize: number;
 }
 
 // ---------- partida (server -> client) ----------
@@ -249,6 +265,11 @@ export interface ShotMessage {
   length: number;
   hitPlayerId?: string;
   hitZombieId?: number;
+}
+/** Níveis atuais de upgrade do destinatário. */
+export interface UpgradesMessage {
+  type: 'upgrades';
+  upgrades: WeaponUpgrades;
 }
 export interface AmmoMessage {
   type: 'ammo';
@@ -440,6 +461,7 @@ export type ServerMessage =
   | NodeHitMessage
   | ShotMessage
   | AmmoMessage
+  | UpgradesMessage
   | HpMessage
   | PlayerDiedMessage
   | PlayerRespawnedMessage

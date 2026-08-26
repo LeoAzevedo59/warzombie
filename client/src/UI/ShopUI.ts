@@ -2,6 +2,8 @@ import type { EventBus } from '@/Core/EventBus';
 import type { GameState } from '@/Core/GameState';
 import { ItemDatabase } from '@/Items/ItemDatabase';
 import type { NetworkClient } from '@/Net/NetworkClient';
+import { accuracyPercent, damageMultiplier, magSize, upgradePrice } from '@shared/upgrades';
+import type { UpgradeKind } from '@shared/protocol';
 
 /** Painel do vendedor: vender todos os recursos da hotbar e comprar ferramentas/armas. Regras no server. */
 export class ShopUI {
@@ -24,6 +26,7 @@ export class ShopUI {
       bus.on('input:closePanel', () => this.setOpen(false)),
       bus.on('inventory:changed', () => this.renderIfOpen()),
       bus.on('net:money', () => this.renderIfOpen()),
+      bus.on('net:upgrades', () => this.renderIfOpen()),
     );
   }
 
@@ -65,12 +68,33 @@ export class ShopUI {
           (d) => `<div class="recipe"><span class="recipe-label"><span class="toast-icon" style="background:${d.color};display:inline-block;vertical-align:middle;margin-right:6px"></span><b>${d.name}</b></span><button class="buy" data-id="${d.id}" ${money >= (d.buy ?? 0) ? '' : 'disabled'}>$${d.buy}</button></div>`,
         )
         .join('')}</div>
+      <h2>Upgrades da Glock</h2>
+      <div class="recipes">${this.upgradeRows(money)}</div>
       <p class="hint">Gravetos $1 · Pedras $2 · Troncos $5 · Pedras grandes $6</p>`;
     this.panel.querySelector<HTMLButtonElement>('.close')!.onclick = () => this.setOpen(false);
     this.panel.querySelector<HTMLButtonElement>('.sell')!.onclick = () => this.net.send({ type: 'sell' });
     this.panel.querySelectorAll<HTMLButtonElement>('.buy').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
     });
+    this.panel.querySelectorAll<HTMLButtonElement>('.upgrade').forEach((b) => {
+      b.onclick = () => this.net.send({ type: 'upgrade', kind: b.dataset.kind as UpgradeKind });
+    });
+  }
+
+  private upgradeRows(money: number): string {
+    const u = this.state.upgrades;
+    const rows: Array<[UpgradeKind, string, string]> = [
+      ['damage', 'Dano', `+${Math.round((damageMultiplier(u) - 1) * 100)}%`],
+      ['ammo', 'Munição', `pente ${magSize(u)}`],
+      ['recoil', 'Recoil', `precisão ${accuracyPercent(u)}%`],
+    ];
+    return rows
+      .map(([kind, name, effect]) => {
+        const price = upgradePrice(kind, u[kind]);
+        const btn = price === null ? '<button disabled>MAX</button>' : `<button class="upgrade" data-kind="${kind}" ${money >= price ? '' : 'disabled'}>$${price}</button>`;
+        return `<div class="recipe"><span class="recipe-label"><b>${name}</b> <span class="lvl">Lv ${u[kind]}/5</span> · ${effect}</span>${btn}</div>`;
+      })
+      .join('');
   }
 
   dispose(): void {

@@ -12,6 +12,15 @@ export const GAME = {
   weapon: {
     glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 10, RELOAD: 1.5 },
   },
+  /** Upgrades da arma comprados no vendedor (por jogador, por partida). Preço por nível. */
+  upgrades: {
+    /** +20% de dano por nível */
+    damage: { MAX_LEVEL: 5, STEP: 0.2, PRICES: [40, 60, 90, 130, 180] },
+    /** +4 balas no pente por nível */
+    ammo: { MAX_LEVEL: 5, STEP: 4, PRICES: [30, 50, 70, 100, 140] },
+    /** recoil = dispersão (graus) do tiro em torno da mira; cada nível reduz STEP graus */
+    recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, PRICES: [40, 60, 90, 130, 180] },
+  },
   zombie: {
     MAX_HP: 60,
     DAMAGE: 16,

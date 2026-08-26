@@ -1,7 +1,8 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import { damageMultiplier, emptyUpgrades, magSize, spreadDegrees, upgradePrice } from '../../../shared/upgrades.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -23,6 +24,7 @@ export interface MatchPlayer {
   damageMult: number;
   /** invulnerável (sem dano/lentidão) até este instante (ms) */
   shieldUntil: number;
+  upgrades: WeaponUpgrades;
 }
 
 export class MatchError extends Error {
@@ -74,6 +76,7 @@ export class Match {
     money: number,
     private io: MatchIO,
     private now: () => number = Date.now,
+    private rand: () => number = Math.random,
   ) {
     this.objects = generateWorld(seed);
     this.money = money;
@@ -158,6 +161,7 @@ export class Match {
       lastHitAt: -Infinity,
       damageMult: 1,
       shieldUntil: 0,
+      upgrades: emptyUpgrades(),
     };
     this.players.set(snapshot.id, p);
     this.grantShield(p);
@@ -196,7 +200,24 @@ export class Match {
   }
 
   private sendAmmo(p: MatchPlayer): void {
-    this.io.send(p.snapshot.id, { type: 'ammo', mag: p.mag, magSize: GAME.weapon.glock.MAG, reloading: p.reloadUntil > this.now() });
+    this.io.send(p.snapshot.id, { type: 'ammo', mag: p.mag, magSize: magSize(p.upgrades), reloading: p.reloadUntil > this.now() });
+  }
+
+  magSizeOf(p: MatchPlayer): number {
+    return magSize(p.upgrades);
+  }
+
+  /** Compra um nível de upgrade da arma (dinheiro da sala; efeito só para este jogador). */
+  buyUpgrade(playerId: string, kind: UpgradeKind): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    const price = upgradePrice(kind, p.upgrades[kind]);
+    if (price === null) throw new MatchError('invalid_message', 'Upgrade já está no máximo.');
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    p.upgrades[kind]++;
+    this.setMoney(this.money - price, -price);
+    this.io.send(playerId, { type: 'upgrades', upgrades: { ...p.upgrades } });
+    if (kind === 'ammo') this.sendAmmo(p);
   }
 
   equippedItem(p: MatchPlayer): ItemId | null {
@@ -324,7 +345,11 @@ export class Match {
     }
     p.mag--;
     p.nextFireAt = now + w.COOLDOWN * 1000;
-    const dir = normalize2(dx, dz);
+    // recoil: o tiro sai desviado da mira por até ±spread graus (menos com upgrade)
+    const aim = normalize2(dx, dz);
+    const spread = (spreadDegrees(p.upgrades) * Math.PI) / 180;
+    const angle = Math.atan2(aim.dx, aim.dz) + (this.rand() * 2 - 1) * spread;
+    const dir = { dx: Math.sin(angle), dz: Math.cos(angle) };
     const from = p.snapshot;
 
     type Hit = { position: { x: number; z: number }; mp?: MatchPlayer; zb?: Zombie };
@@ -341,7 +366,7 @@ export class Match {
       hitZombieId: hit.target?.zb?.id,
     });
     this.sendAmmo(p);
-    const dmg = Math.round(w.DAMAGE * p.damageMult);
+    const dmg = Math.round(w.DAMAGE * p.damageMult * damageMultiplier(p.upgrades));
     if (hit.target?.mp) this.damagePlayer(hit.target.mp, dmg, playerId);
     if (hit.target?.zb) this.zombies.damage(hit.target.zb, dmg, playerId);
   }
@@ -387,7 +412,7 @@ export class Match {
   reload(playerId: string): void {
     const p = this.alive(playerId);
     const w = GAME.weapon.glock;
-    if (this.equippedItem(p) !== 'glock' || p.mag === w.MAG || p.reloadUntil > this.now()) return;
+    if (this.equippedItem(p) !== 'glock' || p.mag === magSize(p.upgrades) || p.reloadUntil > this.now()) return;
     p.reloadUntil = this.now() + w.RELOAD * 1000;
     this.sendAmmo(p);
   }
@@ -420,7 +445,7 @@ export class Match {
     for (const p of this.players.values()) {
       if (p.reloadUntil && now >= p.reloadUntil) {
         p.reloadUntil = 0;
-        p.mag = GAME.weapon.glock.MAG;
+        p.mag = magSize(p.upgrades);
         this.sendAmmo(p);
       }
       if (p.dead && now >= p.respawnAt) {

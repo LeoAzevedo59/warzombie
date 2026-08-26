@@ -24,6 +24,9 @@ export class CombatSystem implements System {
   private dir = new pc.Vec3();
   private tmp = new pc.Vec3();
   private tracers: Array<{ entity: pc.Entity; ttl: number }> = [];
+  /** mira laser: da arma até o alcance máximo, na direção do mouse (o recoil desvia o tiro real disso) */
+  private laser: pc.Entity | null = null;
+  private laserDir = new pc.Vec3();
 
   constructor(
     private bus: EventBus,
@@ -52,6 +55,7 @@ export class CombatSystem implements System {
 
   update(dt: number): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
+    this.updateLaser();
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
       t.ttl -= dt;
@@ -93,6 +97,28 @@ export class CombatSystem implements System {
     this.net.send({ type: 'reload' });
   }
 
+  private updateLaser(): void {
+    const show = this.equipment.equippedItem() === 'glock' && !this.player.stats.dead && !!this.input.state.aimPoint;
+    if (!show) {
+      if (this.laser) this.laser.enabled = false;
+      return;
+    }
+    const range = GAME.weapon.glock.RANGE;
+    if (!this.laser) {
+      this.laser = makeBox({ color: '#ff2a2a', scale: [0.02, 0.02, range], emissive: 2 });
+      this.sceneRoot.addChild(this.laser);
+    }
+    this.laser.enabled = true;
+    const from = this.player.position;
+    const aim = this.input.state.aimPoint!;
+    this.laserDir.set(aim.x - from.x, 0, aim.z - from.z);
+    if (this.laserDir.lengthSq() < 1e-4) this.player.forward(this.laserDir);
+    else this.laserDir.normalize();
+    const mid = this.tmp.copy(this.laserDir).mulScalar(range / 2).add(from);
+    this.laser.setPosition(mid.x, MUZZLE_HEIGHT, mid.z);
+    this.laser.setEulerAngles(0, Math.atan2(this.laserDir.x, this.laserDir.z) * pc.math.RAD_TO_DEG, 0);
+  }
+
   private spawnTracer(from: pc.Vec3, length: number): void {
     const e = makeBox({ color: '#ffd34d', scale: [0.035, 0.035, length], emissive: 1.5 });
     const mid = this.tmp.copy(this.dir).mulScalar(length / 2).add(from);
@@ -106,5 +132,7 @@ export class CombatSystem implements System {
     this.unsubs.forEach((u) => u());
     for (const t of this.tracers) t.entity.destroy();
     this.tracers = [];
+    this.laser?.destroy();
+    this.laser = null;
   }
 }
