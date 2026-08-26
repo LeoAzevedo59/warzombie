@@ -1,4 +1,4 @@
-import { HOTBAR_SLOTS, ITEMS, type ItemId, type ItemStack } from '../../../shared/items.js';
+import { HOTBAR_SLOTS, ITEMS, totalWeight, type ItemId, type ItemStack } from '../../../shared/items.js';
 
 /** Regras puras de hotbar/economia (sem I/O) — fáceis de testar. */
 
@@ -34,6 +34,12 @@ export function addItem(hotbar: Hotbar, itemId: ItemId, count: number): number {
 export function canFit(hotbar: Hotbar, stacks: ItemStack[]): boolean {
   const copy: Hotbar = hotbar.map((s) => (s ? { ...s } : null));
   return stacks.every((st) => addItem(copy, st.itemId, st.count) === 0);
+}
+
+/** Peso total dos stacks cabe na capacidade junto com o que já está na hotbar? */
+export function fitsWeight(hotbar: Hotbar, stacks: ItemStack[], capacity: number): boolean {
+  const extra = stacks.reduce((n, s) => n + ITEMS[s.itemId].weight * s.count, 0);
+  return totalWeight(hotbar) + extra <= capacity;
 }
 
 export function hasItem(hotbar: Hotbar, itemId: ItemId): boolean {

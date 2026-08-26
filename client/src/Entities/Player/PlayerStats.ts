@@ -45,6 +45,12 @@ export class PlayerStats {
     if (Math.abs(this.state.stamina - before) > 0.01) this.notify();
   }
 
+  /** Gasta vigor (farmar); trava a regeneração por um instante como ao correr. */
+  spend(amount: number): void {
+    this.state.stamina = Math.max(0, this.state.stamina - amount);
+    this.notify();
+  }
+
   get dead(): boolean {
     return this.state.hp <= 0;
   }

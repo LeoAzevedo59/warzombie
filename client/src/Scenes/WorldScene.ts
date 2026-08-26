@@ -18,6 +18,7 @@ import { ZombieSystem } from '@/Systems/ZombieSystem';
 import { EffectsSystem } from '@/Systems/EffectsSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
+import { cameraOrthoHeight } from '@shared/upgrades';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
@@ -80,11 +81,12 @@ export class WorldScene extends BaseScene {
     this.root.addChild(this.player.entity);
     this.player.initAnimation();
     this.camera.follow(this.player.entity);
+    this.camera.setOrthoHeight(cameraOrthoHeight(state.upgrades));
     this.world.update(this.player.position);
 
     // --- systems (ordem = ordem de execução) ---
     this.input = new InputSystem(bus, app.graphicsDevice.canvas as HTMLCanvasElement, () => this.camera.component);
-    const controller = new PlayerController(this.player, this.camera);
+    const controller = new PlayerController(this.player, this.camera, () => state.weightSpeedMult);
     const inventory = new InventorySystem(state, bus);
     const equipment = new EquipmentSystem(bus, state, net);
     const network = new NetworkSystem(net, bus, state, this.player, this.root);
@@ -114,14 +116,14 @@ export class WorldScene extends BaseScene {
     shop.onOpenChanged = updateInputEnabled;
 
     this.ui = {
-      healthBar: new HealthBar(uiRoot, bus),
+      healthBar: new HealthBar(uiRoot, bus, state),
       hotbar: new HotbarUI(uiRoot, bus),
       shop,
       economy: new EconomyHUD(uiRoot, bus, state.money),
       map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values(), () => zombies.alive()),
       toasts: new ToastUI(uiRoot, bus),
       combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills, state.upgrades),
-      players: new PlayersHUD(uiRoot, bus, state.playerName, () => network.remotes.values(), () => this.camera.component),
+      players: new PlayersHUD(uiRoot, bus, state.playerName, state, () => network.remotes.values(), () => this.camera.component),
       wave: new WaveHUD(uiRoot, bus, state.wave, () => {
         for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
         return null;
@@ -136,6 +138,7 @@ export class WorldScene extends BaseScene {
         else this.ui?.players.toggle();
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
+      bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);

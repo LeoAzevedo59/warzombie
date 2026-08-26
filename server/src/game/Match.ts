@@ -2,9 +2,9 @@ import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { damageMultiplier, emptyUpgrades, isMaxed, magSize, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
+import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
-import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
+import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
 import { WaveDirector } from './WaveDirector.js';
 
@@ -38,7 +38,8 @@ export class MatchError extends Error {
       | 'dead'
       | 'invalid_message'
       | 'no_battery'
-      | 'already_active',
+      | 'already_active'
+      | 'too_heavy',
     message: string,
   ) {
     super(message);
@@ -67,7 +68,7 @@ export class Match {
   readonly players = new Map<string, MatchPlayer>();
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
-  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0 };
+  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0, vision: 0 };
   readonly zombies: ZombieSim;
   readonly waves: WaveDirector;
   private lastTick: number;
@@ -267,6 +268,7 @@ export class Match {
     const hits = (this.hits.get(objectId) ?? 0) + 1;
     if (hits >= def.hitsRequired) {
       if (!canFit(p.hotbar, def.drops)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+      if (!fitsWeight(p.hotbar, def.drops, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
       this.hits.delete(objectId);
       this.harvest(p, o);
       return;
@@ -278,6 +280,7 @@ export class Match {
   private harvest(p: MatchPlayer, o: WorldObjectSpec): void {
     const def = WORLD_OBJECTS[o.kind];
     if (!canFit(p.hotbar, def.drops)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+    if (!fitsWeight(p.hotbar, def.drops, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
     for (const d of def.drops) {
       addItem(p.hotbar, d.itemId, d.count);
       this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
@@ -313,6 +316,7 @@ export class Match {
   buy(playerId: string, itemId: ItemId): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
+    if (!fitsWeight(p.hotbar, [{ itemId, count: 1 }], maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais para carregar isso.');
     const r = buy(p.hotbar, this.money, itemId);
     if (!r.ok) {
       const msg = r.code === 'not_enough_money' ? 'Dinheiro insuficiente.' : r.code === 'hotbar_full' ? 'Hotbar cheia.' : 'Item não está à venda.';

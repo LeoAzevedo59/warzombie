@@ -138,7 +138,7 @@ test('upgrades: dano, pente e recoil', () => {
   m.buyUpgrade('A', 'damage');
   m.buyUpgrade('A', 'ammo');
   m.buyUpgrade('A', 'recoil');
-  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0, laser: 0 });
+  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0, laser: 0, weight: 0, vision: 0 });
   assert.equal(m.money, 1000 - 40 - 30 - 40);
   // preço sobe para a sala: B paga mais caro pelo primeiro nível de dano
   assert.equal(m.upgradePrices().damage, Math.round(40 * 1.35));
@@ -154,4 +154,19 @@ test('upgrades: dano, pente e recoil', () => {
   assert.equal(a.mag, GAME.weapon.glock.MAG + 4);
   m.fire('A', 1, 0);
   assert.equal(b.snapshot.hp, 100 - Math.round(25 * 1.2));
+});
+
+test('peso: não pega além da capacidade; upgrade aumenta', () => {
+  const { m, snap } = setup();
+  const stone = [...m.objects.values()].find((o) => o.kind === 'stone')!;
+  const a = m.addPlayer(snap('A', stone.x + 1, stone.z));
+  a.hotbar[0] = { itemId: 'bigstone', count: 7 }; // 28 de 30
+  m.pickup('A', stone.id); // +2 = 30, cabe
+  const stone2 = [...m.objects.values()].find((o) => o.kind === 'stone' && o.id !== stone.id)!;
+  a.snapshot.x = stone2.x + 1;
+  a.snapshot.z = stone2.z;
+  assert.throws(() => m.pickup('A', stone2.id), (e: MatchError) => e.code === 'too_heavy');
+  a.upgrades.weight = 1; // +10
+  m.pickup('A', stone2.id);
+  assert.equal(a.hotbar.find((s) => s?.itemId === 'stone')?.count, 2);
 });

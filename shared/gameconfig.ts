@@ -17,6 +17,12 @@ export const GAME = {
    * Upgrades comprados no vendedor. Níveis são por jogador, mas o PREÇO é da sala:
    * cada compra de um tipo (por qualquer jogador) multiplica o próximo preço por PRICE_GROWTH.
    */
+  /** Peso: capacidade base e quanto o personagem desacelera carregado (no limite: velocidade × (1 - SLOW_AT_FULL)) */
+  weight: { BASE_CAPACITY: 30, SLOW_AT_FULL: 0.5 },
+  /** Câmera: altura ortográfica base (menor = mais perto) e ganho por nível do upgrade Visão */
+  camera: { ORTHO_HEIGHT: 6.5, VISION_STEP: 1.2 },
+  /** vigor gasto por hit em árvore/rocha (client) */
+  farming: { STAMINA_PER_HIT: 8 },
   upgrades: {
     PRICE_GROWTH: 1.35,
     /** +20% de dano por nível */
@@ -29,6 +35,10 @@ export const GAME = {
     stamina: { MAX_LEVEL: 5, STEP: 0.25, BASE: 35 },
     /** mira laser (mostra a linha de tiro); nível único */
     laser: { MAX_LEVEL: 1, STEP: 1, BASE: 60 },
+    /** +10 de capacidade de peso por nível */
+    weight: { MAX_LEVEL: 5, STEP: 10, BASE: 35 },
+    /** visão: amplia a câmera por nível */
+    vision: { MAX_LEVEL: 5, STEP: 1, BASE: 35 },
   },
   zombie: {
     MAX_HP: 60,

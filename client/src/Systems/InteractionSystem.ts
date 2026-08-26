@@ -1,4 +1,5 @@
 import { CONFIG } from '@/config';
+import { GAME } from '@shared/gameconfig';
 import type { System } from '@/Core/GameLoop';
 import type { EventBus } from '@/Core/EventBus';
 import type { Player } from '@/Entities/Player/Player';
@@ -96,7 +97,22 @@ export class InteractionSystem implements System {
     c.elapsed += dt;
     if (c.elapsed < CONFIG.interaction.HIT_INTERVAL) return;
     c.elapsed -= CONFIG.interaction.HIT_INTERVAL;
+    if (!this.spendStamina()) {
+      this.channel = null;
+      return;
+    }
     this.net.send({ type: 'hit_node', objectId: c.target.id });
+  }
+
+  /** Cada golpe em árvore/rocha gasta vigor; sem vigor não dá para farmar. */
+  private spendStamina(): boolean {
+    const cost = GAME.farming.STAMINA_PER_HIT;
+    if (this.player.stats.stamina < cost) {
+      this.bus.emit('ui:toast', { text: 'Sem vigor! Descanse um pouco para continuar.' });
+      return false;
+    }
+    this.player.stats.spend(cost);
+    return true;
   }
 
   private refreshLabel(): void {
@@ -122,6 +138,7 @@ export class InteractionSystem implements System {
     if (t.isNode) {
       // hits acontecem automaticamente em tickChannel; o primeiro sai na hora
       if (this.channel?.target !== t) {
+        if (!this.spendStamina()) return;
         this.channel = { target: t, elapsed: 0 };
         this.net.send({ type: 'hit_node', objectId: t.id });
       }

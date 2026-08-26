@@ -1,6 +1,5 @@
 import type { EventBus } from '@/Core/EventBus';
 import type { ItemId } from '@/Items/Item';
-import { accuracyPercent } from '@shared/upgrades';
 import type { WeaponUpgrades } from '@shared/protocol';
 
 /** Contador de zumbis/abates, munição, flash de dano e tela de morte com contagem de respawn. */
@@ -17,7 +16,6 @@ export class CombatHUD {
   private countdown: number | null = null;
   private slowedUntil = 0;
   private shieldUntil = 0;
-  private upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0 };
   private shieldTimer: number | null = null;
 
   constructor(
@@ -28,7 +26,7 @@ export class CombatHUD {
     initialUpgrades?: WeaponUpgrades,
   ) {
     this.kills = initialKills;
-    if (initialUpgrades) this.upgrades = initialUpgrades;
+    void initialUpgrades;
     this.panel = document.createElement('div');
     this.panel.className = 'hud-zombies';
     parent.appendChild(this.panel);
@@ -53,10 +51,6 @@ export class CombatHUD {
       }),
       bus.on('equip:changed', ({ itemId }) => {
         this.equipped = itemId;
-        this.render();
-      }),
-      bus.on('net:upgrades', ({ upgrades }) => {
-        this.upgrades = upgrades;
         this.render();
       }),
       bus.on('net:ammo', (a) => {
@@ -115,9 +109,7 @@ export class CombatHUD {
   private render(): void {
     let hint: string;
     if (this.equipped === 'glock') {
-      hint = this.ammo.reloading
-        ? '<span class="hud-cooldown">Recarregando...</span>'
-        : `Munição: <b>${this.ammo.mag}/${this.ammo.magSize}</b> · Precisão: <b>${accuracyPercent(this.upgrades)}%</b> <span class="hud-cooldown">· R recarrega</span>`;
+      hint = this.ammo.reloading ? '<span class="hud-cooldown">Recarregando...</span>' : `Munição: <b>${this.ammo.mag}/${this.ammo.magSize}</b>`;
     } else {
       hint = '';
     }

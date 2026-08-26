@@ -20,6 +20,8 @@
       .ring .fill { fill: none; stroke-width: 5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .15s; }
       .ring.hp .fill { stroke: #d63d3d; }
       .ring.stamina .fill { stroke: #3da0d6; }
+      .ring.weight .fill { stroke: #c9a06a; }
+      .hud-vitals.heavy .ring.weight .fill { stroke: #ff9f43; }
       .ring .icon { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; transform: translate(-50%, -58%); fill: #e6edf3; }
       .ring .value { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 10px; font-weight: 700; color: #e6edf3; }
       .hud-vitals.low-hp .ring.hp .fill { stroke: #ff5a4d; animation: pulse .8s infinite; }
@@ -90,6 +92,11 @@
       .game-menu { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 300px; background: rgba(12,16,20,.95); border: 1px solid #2d3742; border-radius: 10px; padding: 18px 20px; font-size: 15px; line-height: 1.8; display: none; flex-direction: column; z-index: 6; }
       .game-menu.visible { display: flex; }
       .game-menu h2 { font-size: 18px; letter-spacing: 4px; margin-bottom: 6px; }
+      .game-menu h3 { font-size: 11px; letter-spacing: 2px; color: #8b98a5; text-transform: uppercase; margin-top: 8px; }
+      .game-menu .stats { list-style: none; font-size: 13px; line-height: 1.7; }
+      .game-menu .stats li { display: flex; gap: 6px; align-items: baseline; }
+      .game-menu .stats b { color: #e6edf3; }
+      .game-menu .stats .lvl { margin-left: auto; color: #ffd34d; font-size: 11px; }
       .game-menu b { color: #ffd34d; }
       .game-menu .count { color: #7ed957; font-weight: bold; }
       .game-menu button { margin-top: 8px; font-size: 15px; padding: 10px; border: 0; border-radius: 6px; cursor: pointer; color: #e6edf3; background: #2a323b; }
@@ -124,7 +131,12 @@
       .menu.lobby .back { margin-top: 16px; }
       .hud-money { position: absolute; left: 16px; bottom: 92px; background: rgba(12,16,20,.8); border: 2px solid #e6edf3; border-radius: 8px; padding: 4px 12px; font-size: 12px; color: #8b98a5; text-align: center; transition: border-color .2s; }
       .hud-money b { display: block; font-size: 20px; color: #ffd34d; letter-spacing: 1px; }
-      .hud-money.up { border-color: #7ed957; }
+      .hud-money.up { border-color: #7ed957; transform: scale(1.12); }
+      .hud-money { transition: border-color .2s, transform .2s; }
+      .money-float { position: absolute; left: 24px; bottom: 140px; font-size: 22px; font-weight: 800; pointer-events: none !important; text-shadow: 0 2px 6px rgba(0,0,0,.8); animation: moneyFloat 1.4s ease-out forwards; }
+      .money-float.gain { color: #7ed957; }
+      .money-float.loss { color: #ff5a4d; }
+      @keyframes moneyFloat { 0% { opacity: 0; transform: translateY(10px) scale(.8); } 15% { opacity: 1; transform: translateY(0) scale(1.1); } 100% { opacity: 0; transform: translateY(-60px) scale(1); } }
       .hud-money.down { border-color: #d63d3d; }
       .shop-panel .money-line { color: #8b98a5; font-size: 14px; font-weight: normal; }
       .shop-panel .tabs { display: flex; gap: 6px; margin: 12px 0; }

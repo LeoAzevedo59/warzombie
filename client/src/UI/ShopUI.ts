@@ -2,7 +2,7 @@ import type { EventBus } from '@/Core/EventBus';
 import type { GameState } from '@/Core/GameState';
 import { ItemDatabase } from '@/Items/ItemDatabase';
 import type { NetworkClient } from '@/Net/NetworkClient';
-import { accuracyPercent, damageMultiplier, isMaxed, magSize, staminaMultiplier } from '@shared/upgrades';
+import { accuracyPercent, damageMultiplier, isMaxed, magSize, maxWeight, staminaMultiplier } from '@shared/upgrades';
 import type { UpgradeKind } from '@shared/protocol';
 import { GAME } from '@shared/gameconfig';
 
@@ -102,6 +102,8 @@ export class ShopUI {
       ['recoil', 'Recoil', `precisão ${accuracyPercent(u)}%`],
       ['stamina', 'Vigor de corrida', `+${Math.round((staminaMultiplier(u) - 1) * 100)}%`],
       ['laser', 'Mira laser', u.laser ? 'ativa' : 'mostra a linha de tiro'],
+      ['weight', 'Peso', `capacidade ${maxWeight(u)}`],
+      ['vision', 'Visão', `campo de visão +${u.vision * 15}%`],
     ];
     return rows
       .map(([kind, name, effect]) => {

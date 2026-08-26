@@ -16,6 +16,8 @@ export class PlayerController {
   constructor(
     private player: Player,
     private camera: IsoCamera,
+    /** multiplicador extra de velocidade (peso carregado) */
+    private extraSpeedMult: () => number = () => 1,
   ) {}
 
   apply(input: InputState): void {
@@ -25,7 +27,7 @@ export class PlayerController {
     player.setCrouch(input.crouch);
     player.running = input.run && !input.crouch && player.stats.canRun && (input.moveX !== 0 || input.moveY !== 0);
 
-    const speed = (player.crouching ? p.CROUCH_SPEED : player.running ? p.RUN_SPEED : p.WALK_SPEED) * player.speedMult;
+    const speed = (player.crouching ? p.CROUCH_SPEED : player.running ? p.RUN_SPEED : p.WALK_SPEED) * player.speedMult * this.extraSpeedMult();
 
     // eixos da câmera projetados no plano do chão: W = "para cima na tela"
     this.camera.groundAxes(this.forward, this.right);

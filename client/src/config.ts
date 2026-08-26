@@ -26,7 +26,7 @@ export const CONFIG = {
   camera: {
     PITCH: 35.264, // ângulo isométrico clássico
     YAW: 45,
-    ORTHO_HEIGHT: 9,
+    ORTHO_HEIGHT: GAME.camera.ORTHO_HEIGHT,
     DISTANCE: 30,
     FOLLOW_LERP: 8,
   },

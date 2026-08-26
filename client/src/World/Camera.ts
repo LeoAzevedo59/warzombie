@@ -29,6 +29,13 @@ export class IsoCamera {
     return this.entity.camera!;
   }
 
+  private targetOrtho: number = CONFIG.camera.ORTHO_HEIGHT;
+
+  /** Altura ortográfica desejada (upgrade Visão amplia); a transição é suave no update. */
+  setOrthoHeight(h: number): void {
+    this.targetOrtho = h;
+  }
+
   follow(target: pc.Entity, snap = true): void {
     this.target = target;
     if (snap) {
@@ -44,6 +51,8 @@ export class IsoCamera {
     const t = 1 - Math.exp(-CONFIG.camera.FOLLOW_LERP * dt);
     pos.lerp(pos, this.goal, t);
     this.entity.setPosition(pos);
+    const cam = this.component;
+    if (Math.abs(cam.orthoHeight - this.targetOrtho) > 0.01) cam.orthoHeight += (this.targetOrtho - cam.orthoHeight) * Math.min(1, dt * 3);
   }
 
   /** Eixos "frente" e "direita" da câmera projetados no plano XZ e normalizados. */

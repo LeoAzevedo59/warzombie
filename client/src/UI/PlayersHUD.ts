@@ -1,6 +1,9 @@
 import * as pc from 'playcanvas';
 import type { EventBus } from '@/Core/EventBus';
 import type { RemotePlayer } from '@/Entities/Player/RemotePlayer';
+import type { GameState } from '@/Core/GameState';
+import { accuracyPercent, damageMultiplier, magSize, maxWeight, staminaMultiplier } from '@shared/upgrades';
+import { GAME } from '@shared/gameconfig';
 
 /**
  * Contador de jogadores online + etiqueta com o nome flutuando sobre cada jogador remoto
@@ -18,6 +21,7 @@ export class PlayersHUD {
     parent: HTMLElement,
     private bus: EventBus,
     private myName: string,
+    private state: GameState,
     private remotes: () => Iterable<RemotePlayer>,
     private camera: () => pc.CameraComponent,
   ) {
@@ -50,6 +54,7 @@ export class PlayersHUD {
   setOpen(open: boolean): void {
     if (this._open === open) return;
     this._open = open;
+    if (open) this.render(this.count); // status atualizados na hora de abrir
     this.box.classList.toggle('visible', open);
     this.onOpenChanged?.(open);
   }
@@ -60,9 +65,25 @@ export class PlayersHUD {
 
   private render(count: number): void {
     this.count = count;
+    const u = this.state.upgrades;
+    const glock = GAME.weapon.glock;
     this.box.innerHTML = `<h2>MENU</h2>
-      <p>Você: <b></b></p>
-      <p>Online: <span class="count">${count}</span></p>
+      <p>Você: <b></b> · Online: <span class="count">${count}</span></p>
+      <h3>Arma (Glock)</h3>
+      <ul class="stats">
+        <li>Dano <b>${Math.round(glock.DAMAGE * damageMultiplier(u))}</b> <span class="lvl">Lv ${u.damage}</span></li>
+        <li>Pente <b>${this.state.ammo}/${magSize(u)}</b> <span class="lvl">Lv ${u.ammo}</span></li>
+        <li>Precisão <b>${accuracyPercent(u)}%</b> <span class="lvl">Lv ${u.recoil}</span></li>
+        <li>Mira laser <b>${u.laser ? 'sim' : 'não'}</b></li>
+      </ul>
+      <h3>Personagem</h3>
+      <ul class="stats">
+        <li>Vida <b>${Math.round(this.state.hp)}/${GAME.player.MAX_HP}</b></li>
+        <li>Vigor <b>${Math.round(this.state.stamina)}/${Math.round(this.state.maxStamina)}</b> <span class="lvl">Lv ${u.stamina} · +${Math.round((staminaMultiplier(u) - 1) * 100)}%</span></li>
+        <li>Peso <b>${this.state.carriedWeight}/${maxWeight(u)}</b> <span class="lvl">Lv ${u.weight}</span></li>
+        <li>Visão <b>+${u.vision * 15}%</b> <span class="lvl">Lv ${u.vision}</span></li>
+        <li>Abates <b>${this.state.kills}</b></li>
+      </ul>
       <button class="resume">Voltar ao jogo (Esc)</button>
       <button class="leave">Sair da sala</button>`;
     this.box.querySelector('b')!.textContent = this.myName;
