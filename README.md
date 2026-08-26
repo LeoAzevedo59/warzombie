@@ -60,6 +60,19 @@ Sala vazia → `rooms` é deletada com cascade (membros e tudo o que referenciar
 
 Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room_members` (room_id, player_id único).
 
+## Economia, hotbar e combate (M2)
+
+- **Sem craft e sem inventário**: só a hotbar de 5 slots, que pertence ao servidor (`hotbar` é enviada a cada mudança).
+- **Mundo compartilhado**: `shared/worldgen.ts` gera os objetos deterministicamente a partir da seed; o server valida
+  `pickup`/`hit_node` por distância e ferramenta equipada e faz broadcast de `object_removed`/`node_hit`.
+- **Centro do mapa**: vendedor (E abre a loja: vender todos os recursos da hotbar / comprar machado, picareta, Glock, bateria)
+  e a torre (bateria → waves, M3). Preços e valores em `shared/items.ts`; regras em `server/src/game/Economy.ts`.
+- **Dinheiro é da sala** (`rooms.money`), broadcast em `money` para todos.
+- **Glock** com pente de 10, recarga (R) de 1,5 s; `fire {dx,dz}` → o server faz o raycast (`shared/math.ts`) contra
+  outros jogadores (**fire friends**) e responde `shot` a todos (traçante) + `hp`/`player_died`/`player_respawned`.
+- **Morte**: respawn automático no centro após 5 s; morto não se move nem interage.
+- Simulação em `server/src/game/Match.ts` (uma por sala); testes em `server/test/` (`npm test -w server`).
+
 ## API HTTP
 
 | Rota | Descrição |
@@ -71,15 +84,14 @@ Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room
 
 ## Protocolo WebSocket (`/ws`) — ver `shared/protocol.ts`
 
-Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `stats {hp,kills}`, `ping`.
-Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[]}`, `room_left`, `player_joined`, `player_left`, `state {players[]}` (por sala, a `WS_TICK_RATE` Hz), `error {code}`, `pong`.
+Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `pickup`, `hit_node`, `select_slot`, `sell`, `buy {itemId}`, `fire {dx,dz}`, `reload`, `ping`.
+Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[], removedObjects[], money, hotbar, equipped}`, `room_left`, `player_joined`, `player_left`, `state {players[]}` (por sala, a `WS_TICK_RATE` Hz), `hotbar`, `money`, `item_gained`, `object_removed`, `node_hit`, `shot`, `ammo`, `hp`, `player_died`, `player_respawned`, `error {code}`, `pong`.
 
-Regras do passo 1:
+Regras:
 - Identidade = nome (2–16 chars, único sem diferenciar maiúsculas). Se o nome está online, o join é recusado (`name_taken`).
-- Client é autoritativo sobre a própria pose; o server valida formato (zod), guarda em memória, retransmite e persiste (ao sair + autosave a cada 15 s).
-- Posição, HP e abates são restaurados ao entrar de novo com o mesmo nome.
+- Client é autoritativo só sobre a própria **pose** (posição/rotação/animação); tudo o mais (hotbar, HP, dinheiro, tiros, objetos do mundo) é decidido no server.
+- Abates são restaurados ao entrar de novo com o mesmo nome.
 
-## O que ainda NÃO é sincronizado (próximos passos)
+## Próximo passo (M3)
 
-- Zumbis (cada client roda a própria IA), loot/objetos coletados, construções e craft.
-- Dano entre jogadores / zumbis compartilhados exigirá mover a simulação para o server (server-authoritative).
+- Bateria na torre → 5 waves de zumbis simuladas no server (dificuldade ×1.5 por jogador) e boss no final.

@@ -35,20 +35,14 @@ export class InputSystem implements System {
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return;
     this.keys.add(e.code);
-    // toggle do inventário funciona mesmo com input desabilitado (algum painel aberto)
-    if (e.code === 'Tab' || e.code === 'KeyI') {
-      e.preventDefault();
-      this.bus.emit('input:toggleInventory');
-      return;
-    }
-    // Esc fecha qualquer painel aberto (inventário ou mesa de marceneiro)
-    if (e.code === 'Escape' && !this.enabled) {
+    // Esc fecha qualquer painel aberto (loja)
+    if (e.code === 'Escape') {
       this.bus.emit('input:closePanel');
       return;
     }
     if (!this.enabled) return;
     if (e.code === 'KeyE') this.bus.emit('input:interact');
-    if (e.code === 'KeyB') this.bus.emit('input:place');
+    if (e.code === 'KeyR') this.bus.emit('input:reload');
     const digitIndex = DIGIT_CODES.indexOf(e.code);
     if (digitIndex >= 0 && digitIndex < CONFIG.inventory.HOTBAR_SLOTS) {
       this.bus.emit('input:selectSlot', { index: digitIndex });

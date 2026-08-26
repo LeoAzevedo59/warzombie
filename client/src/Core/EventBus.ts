@@ -1,37 +1,26 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
-import type { RecipeId } from '@/Items/Recipes';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
 export interface GameEvents {
   'input:interact': void;
   'input:fire': void;
-  'input:toggleInventory': void;
+  'input:reload': void;
   'input:closePanel': void;
-  'input:place': void;
   'input:selectSlot': { index: number };
 
   'equip:changed': { slotIndex: number; itemId: ItemId | null };
 
   'item:collected': { itemId: ItemId; count: number };
-  'item:crafted': { itemId: ItemId };
-  'node:hit': { kind: string; hits: number; hitsRequired: number };
   'inventory:changed': { stacks: ReadonlyArray<ItemStack | null> };
 
-  'workbench:interact': { workbenchId: number };
-  'workbench:jobStarted': { workbenchId: number; output: ItemId; duration: number };
-  'workbench:jobProgress': { workbenchId: number; remaining: number; total: number };
-  'workbench:jobComplete': { workbenchId: number; output: ItemId };
-
-  'craft:jobStarted': { recipeId: RecipeId; duration: number };
-  'craft:jobProgress': { recipeId: RecipeId; remaining: number; total: number };
-  'craft:jobComplete': { recipeId: RecipeId };
+  'shop:open': void;
 
   'player:statsChanged': { hp: number; stamina: number; maxHp: number; maxStamina: number };
   'player:damaged': { amount: number; special: boolean };
-  'player:died': void;
+  'player:died': { killerName: string | null; respawnIn: number };
   'player:respawned': void;
 
-  'weapon:fired': { itemId: ItemId; hit: boolean };
+  'remote:shot': { playerId: string };
   'zombie:damaged': { id: number; hp: number; maxHp: number };
   'zombie:killed': { id: number; kills: number };
   'zombie:countChanged': { alive: number };
@@ -41,6 +30,7 @@ export interface GameEvents {
 
   'interaction:targetChanged': { label: string | null };
   'ui:toast': { text: string };
+  'ui:leaveRoom': void;
   'scene:change': { scene: 'menu' | 'lobby' | 'world' };
 
   'net:playerJoined': { name: string };
@@ -48,7 +38,12 @@ export interface GameEvents {
   'net:onlineCount': { count: number };
   'net:disconnected': { reason: string };
   'net:roomLeft': { reason: string };
-  'ui:leaveRoom': void;
+  'net:hotbar': { slots: ReadonlyArray<ItemStack | null>; equipped: number };
+  'net:money': { amount: number; delta: number };
+  'net:objectRemoved': { objectId: number };
+  'net:nodeHit': { objectId: number; hits: number; required: number };
+  'net:shot': { playerId: string; dx: number; dz: number; length: number; hitPlayerId: string | null };
+  'net:ammo': { mag: number; magSize: number; reloading: boolean };
 }
 
 type Handler<T> = (payload: T) => void;

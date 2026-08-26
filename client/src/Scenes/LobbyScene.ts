@@ -54,7 +54,11 @@ export class LobbyScene extends BaseScene {
         state.roomPlayers = msg.players;
         const me = msg.players.find((p) => p.id === state.playerId);
         state.playerPosition = { x: me?.x ?? 0, y: 0, z: me?.z ?? 0 };
-        state.hp = me && me.hp > 0 ? me.hp : state.hp;
+        state.hp = me?.hp ?? state.hp;
+        state.collectedObjectIds = new Set(msg.removedObjects);
+        state.money = msg.money;
+        state.inventory = msg.hotbar.map((s) => (s ? { ...s } : null));
+        state.equippedSlot = msg.equipped;
         bus.emit('scene:change', { scene: 'world' });
         return;
       case 'error':

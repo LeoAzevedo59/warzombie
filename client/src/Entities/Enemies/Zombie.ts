@@ -29,13 +29,6 @@ export class Zombie {
   state: ZombieState = 'wander';
   /** tempo (s) no estado atual */
   stateTime = 0;
-  /** alvo de wander */
-  wanderTarget = new pc.Vec3();
-  wanderWait = 0;
-  attackCooldown = 0;
-  specialCooldown: number = CONFIG.zombie.SPECIAL.COOLDOWN * 0.5; // primeiro especial demora metade
-  /** dano do golpe atual já foi aplicado? */
-  hitApplied = false;
   velocity = new pc.Vec3();
 
   constructor(
@@ -103,7 +96,6 @@ export class Zombie {
     if (this.state === s) return;
     this.state = s;
     this.stateTime = 0;
-    this.hitApplied = false;
   }
 
   play(name: CharacterAnimName, restart = false): void {

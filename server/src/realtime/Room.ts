@@ -10,6 +10,7 @@ import {
 } from '../../../shared/protocol.js';
 import type { Room as RoomRow } from '../models/RoomModel.js';
 import type { RoomView } from '../services/RoomService.js';
+import type { Match } from '../game/Match.js';
 
 /** Conexão de um jogador já identificado (subset do Connection do GameServer). */
 export interface Member {
@@ -32,6 +33,20 @@ export class Room {
   wave: number;
   /** ordem de inserção = ordem de entrada (usada para transferir o owner) */
   readonly members = new Map<string, Member>();
+  /** simulação da partida; existe a partir do room_start */
+  match: Match | null = null;
+  /** operações de entrada/saída/owner são serializadas por sala (evita corrida ao apagar) */
+  private lock: Promise<void> = Promise.resolve();
+
+  /** Executa  depois das operações anteriores da sala terminarem. */
+  serialize<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.lock.then(op);
+    this.lock = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
 
   constructor(row: RoomRow) {
     this.id = row.id;

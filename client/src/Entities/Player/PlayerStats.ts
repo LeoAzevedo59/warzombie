@@ -49,12 +49,10 @@ export class PlayerStats {
     return this.state.hp <= 0;
   }
 
-  /** Aplica dano; retorna true se este golpe matou o player. */
-  damage(amount: number): boolean {
-    if (this.dead) return false;
-    this.state.hp = Math.max(0, this.state.hp - amount);
+  /** HP vem do servidor (mensagens `hp`/`player_died`/`player_respawned`). */
+  setHp(hp: number): void {
+    this.state.hp = Math.max(0, Math.min(CONFIG.player.MAX_HP, hp));
     this.notify();
-    return this.dead;
   }
 
   /** Vida e vigor cheios (respawn). */
@@ -62,11 +60,6 @@ export class PlayerStats {
     this.state.hp = CONFIG.player.MAX_HP;
     this.state.stamina = CONFIG.player.MAX_STAMINA;
     this.exhausted = false;
-    this.notify();
-  }
-
-  heal(amount: number): void {
-    this.state.hp = Math.min(CONFIG.player.MAX_HP, this.state.hp + amount);
     this.notify();
   }
 

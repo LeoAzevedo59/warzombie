@@ -3,7 +3,7 @@ import { ItemDatabase } from '@/Items/ItemDatabase';
 
 const LIFETIME_MS = 2200;
 
-/** Toasts no canto inferior direito para itens coletados/craftados. */
+/** Toasts no canto inferior direito para itens coletados e avisos. */
 export class ToastUI {
   private container: HTMLElement;
   private unsubs: Array<() => void> = [];
@@ -15,7 +15,6 @@ export class ToastUI {
 
     this.unsubs.push(
       bus.on('item:collected', ({ itemId, count }) => this.push(itemId, count)),
-      bus.on('item:crafted', ({ itemId }) => this.push(itemId, 1)),
       bus.on('ui:toast', ({ text }) => this.pushText(text)),
     );
   }

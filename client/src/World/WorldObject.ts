@@ -1,56 +1,25 @@
 import * as pc from 'playcanvas';
-import type { ItemId, ItemStack } from '@/Items/Item';
 import { ItemDatabase } from '@/Items/ItemDatabase';
 import { makeBox, makeGroundX, makeSphere, setEntityColor } from '@/Assets/Primitives';
 import { instantiateModel } from '@/Assets/ModelAssets';
+import { WORLD_OBJECTS, type WorldObjectDef, type WorldObjectKind, type WorldObjectSpec } from '@shared/worldgen';
 
-export type WorldObjectKind = 'stick' | 'stone' | 'tree' | 'rock' | 'pistol';
-
-interface WorldObjectDef {
-  name: string;
-  /** null = pegar direto com E; senão exige ferramenta e vários hits */
-  requiredTool: ItemId | null;
-  hitsRequired: number;
-  drops: ItemStack[];
-  verb: string;
-  /** gerúndio usado enquanto o canal de hits automáticos está ativo (só nós usam) */
-  verbing?: string;
-}
-
-export const WORLD_OBJECTS: Record<WorldObjectKind, WorldObjectDef> = {
-  stick: { name: 'Graveto', requiredTool: null, hitsRequired: 1, drops: [{ itemId: 'stick', count: 1 }], verb: 'Pegar' },
-  stone: { name: 'Pedra', requiredTool: null, hitsRequired: 1, drops: [{ itemId: 'stone', count: 1 }], verb: 'Pegar' },
-  pistol: { name: 'Pistola', requiredTool: null, hitsRequired: 1, drops: [{ itemId: 'pistol', count: 1 }], verb: 'Pegar' },
-  tree: {
-    name: 'Árvore',
-    requiredTool: 'axe',
-    hitsRequired: 3,
-    drops: [{ itemId: 'wood', count: 3 }],
-    verb: 'Cortar',
-    verbing: 'Cortando',
-  },
-  rock: {
-    name: 'Rocha',
-    requiredTool: 'pickaxe',
-    hitsRequired: 4,
-    drops: [{ itemId: 'stone', count: 3 }],
-    verb: 'Minerar',
-    verbing: 'Minerando',
-  },
-};
+export type { WorldObjectKind };
 
 const COLORS: Record<WorldObjectKind, string> = {
   stick: ItemDatabase.get('stick').color,
   stone: ItemDatabase.get('stone').color,
   tree: '#2e6b2a',
   rock: '#6f757c',
-  pistol: ItemDatabase.get('pistol').color,
 };
 
-/** Objeto interativo no mundo: coletável simples ou nó de recurso (árvore/rocha). */
+/** Objeto interativo no mundo: coletável simples ou nó de recurso (árvore/rocha). Visual apenas — regras no server. */
 export class WorldObject {
+  readonly id: number;
+  readonly kind: WorldObjectKind;
   readonly entity: pc.Entity;
   readonly def: WorldObjectDef;
+  /** hits conhecidos (o server é a fonte; atualizado por node_hit) */
   hits = 0;
   private highlighted = false;
   /** partes que recebem highlight (recoloridas); usado por stick/stone com primitivas */
@@ -58,17 +27,13 @@ export class WorldObject {
   /** anel de destaque no chão; usado por tree/rock (modelos GLB importados) */
   private highlightMark: pc.Entity | null = null;
 
-  constructor(
-    readonly id: number,
-    readonly kind: WorldObjectKind,
-    x: number,
-    z: number,
-    rotY: number,
-  ) {
-    this.def = WORLD_OBJECTS[kind];
-    this.entity = new pc.Entity(`${kind}#${id}`);
-    this.entity.setLocalPosition(x, 0, z);
-    this.entity.setLocalEulerAngles(0, rotY, 0);
+  constructor(spec: WorldObjectSpec) {
+    this.id = spec.id;
+    this.kind = spec.kind;
+    this.def = WORLD_OBJECTS[spec.kind];
+    this.entity = new pc.Entity(`${spec.kind}#${spec.id}`);
+    this.entity.setLocalPosition(spec.x, 0, spec.z);
+    this.entity.setLocalEulerAngles(0, spec.rotY, 0);
     this.build();
   }
 
@@ -81,15 +46,6 @@ export class WorldObject {
       case 'stone':
         this.parts = [makeSphere({ color: c, scale: [0.35, 0.25, 0.3], position: [0, 0.12, 0] })];
         break;
-      case 'pistol': {
-        // cano + cabo, deitada no chão
-        const barrel = makeBox({ color: c, scale: [0.45, 0.08, 0.1], position: [0.05, 0.06, 0] });
-        const grip = makeBox({ color: '#5a3a1e', scale: [0.1, 0.08, 0.22], position: [-0.12, 0.06, 0.1] });
-        const glow = makeGroundX('#ffd34d', 0.8);
-        this.parts = [barrel, grip];
-        this.entity.addChild(glow);
-        break;
-      }
       case 'tree':
         this.entity.addChild(instantiateModel('tree'));
         this.addHighlightMark(0.9);
@@ -115,28 +71,22 @@ export class WorldObject {
 
   /** Raio de interação extra para objetos grandes. */
   get radius(): number {
-    return this.kind === 'tree' || this.kind === 'rock' ? 1.2 : 0;
+    return this.def.radius;
   }
 
   /** Raio sólido pra colisão física (0 = não bloqueia, o player anda por cima). */
   get solidRadius(): number {
-    if (this.kind === 'tree') return 0.4; // tronco
-    if (this.kind === 'rock') return 0.9;
-    return 0;
+    return this.def.solidRadius;
   }
 
   get isNode(): boolean {
     return this.def.requiredTool !== null;
   }
 
-  get broken(): boolean {
-    return this.hits >= this.def.hitsRequired;
-  }
-
-  /** Registra um hit e dá feedback visual (encolhe um pouco). */
-  hit(): void {
-    this.hits++;
-    const s = 1 - 0.08 * this.hits;
+  /** Feedback visual de hit confirmado pelo server (encolhe um pouco). */
+  setHits(hits: number): void {
+    this.hits = hits;
+    const s = 1 - 0.08 * hits;
     this.entity.setLocalScale(s, s, s);
   }
 

@@ -13,7 +13,8 @@ const SEND_RATE = 20;
 /**
  * Ponte entre o jogo local e o servidor:
  * - envia a pose do player local a SEND_RATE Hz (só se mudou);
- * - recebe `state`/`player_joined`/`player_left` e mantém os RemotePlayers na cena.
+ * - recebe `state`/`player_joined`/`player_left` e mantém os RemotePlayers na cena;
+ * - traduz as mensagens de partida (hotbar, dinheiro, tiros, HP, morte) em eventos do EventBus.
  */
 export class NetworkSystem implements System {
   readonly name = 'Network';
@@ -21,7 +22,6 @@ export class NetworkSystem implements System {
   private unsubs: Array<() => void> = [];
   private sendAccum = 0;
   private lastSent = { x: NaN, z: NaN, yaw: NaN, anim: '' as string, crouching: false };
-  private lastStats = { hp: NaN, kills: NaN };
 
   constructor(
     private net: NetworkClient,
@@ -33,7 +33,19 @@ export class NetworkSystem implements System {
     for (const p of state.roomPlayers) if (p.id !== state.playerId) this.addRemote(p);
     this.unsubs.push(net.onMessage((m) => this.onMessage(m)));
     this.unsubs.push(net.onClose((reason) => bus.emit('net:disconnected', { reason })));
+    this.unsubs.push(bus.on('remote:shot', ({ playerId }) => this.remotes.get(playerId)?.playShoot()));
     this.emitCount();
+  }
+
+  /** Posição de qualquer jogador da partida. */
+  positionOf(id: string): pc.Vec3 | null {
+    if (id === this.state.playerId) return this.player.position;
+    return this.remotes.get(id)?.position ?? null;
+  }
+
+  nameOf(id: string): string {
+    if (id === this.state.playerId) return this.state.playerName;
+    return this.remotes.get(id)?.name ?? '?';
   }
 
   private onMessage(msg: ServerMessage): void {
@@ -55,11 +67,65 @@ export class NetworkSystem implements System {
         this.emitCount();
         break;
       }
+      case 'hotbar':
+        this.bus.emit('net:hotbar', { slots: msg.slots, equipped: msg.equipped });
+        break;
+      case 'money':
+        this.state.money = msg.amount;
+        this.bus.emit('net:money', { amount: msg.amount, delta: msg.delta });
+        break;
+      case 'item_gained':
+        this.bus.emit('item:collected', { itemId: msg.itemId, count: msg.count });
+        break;
+      case 'object_removed':
+        this.bus.emit('net:objectRemoved', { objectId: msg.objectId });
+        break;
+      case 'node_hit':
+        this.bus.emit('net:nodeHit', { objectId: msg.objectId, hits: msg.hits, required: msg.required });
+        break;
+      case 'shot':
+        this.bus.emit('net:shot', { playerId: msg.playerId, dx: msg.dx, dz: msg.dz, length: msg.length, hitPlayerId: msg.hitPlayerId ?? null });
+        break;
+      case 'ammo':
+        this.state.ammo = msg.mag;
+        this.state.reloading = msg.reloading;
+        this.bus.emit('net:ammo', { mag: msg.mag, magSize: msg.magSize, reloading: msg.reloading });
+        break;
+      case 'hp':
+        if (msg.playerId === this.state.playerId) {
+          const before = this.state.hp;
+          this.player.stats.setHp(msg.hp);
+          if (msg.hp < before) this.bus.emit('player:damaged', { amount: before - msg.hp, special: false });
+        } else {
+          const r = this.remotes.get(msg.playerId);
+          if (r) r.hp = msg.hp;
+        }
+        break;
+      case 'player_died':
+        if (msg.playerId === this.state.playerId) {
+          this.player.stats.setHp(0);
+          this.player.anim.play('Death', 0.1, true);
+          this.bus.emit('player:died', { killerName: msg.killerId ? this.nameOf(msg.killerId) : null, respawnIn: msg.respawnIn });
+        } else {
+          this.remotes.get(msg.playerId)?.die();
+          this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} morreu${msg.killerId ? ` (${this.nameOf(msg.killerId)})` : ''}` });
+        }
+        break;
+      case 'player_respawned':
+        if (msg.playerId === this.state.playerId) {
+          this.player.setPosition(msg.x, 0, msg.z);
+          this.player.stats.setHp(msg.hp);
+          this.player.anim.play('Idle', 0.1, true);
+          this.bus.emit('player:respawned');
+        } else {
+          this.remotes.get(msg.playerId)?.respawn(msg.x, msg.z);
+        }
+        break;
       case 'room_left':
         this.bus.emit('net:roomLeft', { reason: msg.reason });
         break;
       case 'error':
-        this.bus.emit('ui:toast', { text: `Servidor: ${msg.message}` });
+        this.bus.emit('ui:toast', { text: msg.message });
         break;
       default:
         break;
@@ -80,6 +146,7 @@ export class NetworkSystem implements System {
 
   update(dt: number): void {
     for (const r of this.remotes.values()) r.update(dt);
+    if (this.player.stats.dead) return; // morto não manda pose (o servidor ignoraria)
 
     this.sendAccum += dt;
     if (this.sendAccum < 1 / SEND_RATE) return;
@@ -97,10 +164,6 @@ export class NetworkSystem implements System {
       l.anim = anim;
       l.crouching = crouching;
       this.net.send({ type: 'move', x: pos.x, z: pos.z, yaw, anim, crouching });
-    }
-    if (this.lastStats.hp !== this.state.hp || this.lastStats.kills !== this.state.kills) {
-      this.lastStats = { hp: this.state.hp, kills: this.state.kills };
-      this.net.send({ type: 'stats', hp: Math.round(this.state.hp), kills: this.state.kills });
     }
   }
 

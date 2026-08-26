@@ -1,8 +1,9 @@
 import { CONFIG } from '@/config';
+import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
 import type { PlayerSnapshot } from '@shared/protocol';
 
-/** Fonte única de verdade dos dados de jogo. Serializável para save/load futuro. */
+/** Espelho local do estado de jogo. O servidor é a fonte da verdade para hotbar, HP, dinheiro e munição. */
 export class GameState {
   seed: number = CONFIG.world.SEED;
 
@@ -18,7 +19,7 @@ export class GameState {
   hp: number = CONFIG.player.MAX_HP;
   stamina: number = CONFIG.player.MAX_STAMINA;
 
-  /** Inventário por slots; null = vazio. Os primeiros HOTBAR_SLOTS aparecem na hotbar. */
+  /** Hotbar (5 slots); null = vazio. Vem do servidor. */
   inventory: (ItemStack | null)[] = Array.from({ length: CONFIG.inventory.SLOTS }, () => null);
 
   playerPosition = { x: 0, y: 0, z: 0 };
@@ -26,8 +27,13 @@ export class GameState {
   /** Índice do slot da hotbar (0..HOTBAR_SLOTS-1) equipado na mão. */
   equippedSlot = 0;
 
-  /** ids de WorldObjects já coletados, para não respawnar ao recarregar o chunk */
+  /** ids de WorldObjects já coletados/quebrados na sala (não instanciar ao carregar o chunk) */
   collectedObjectIds = new Set<number>();
+
+  /** Dinheiro compartilhado da sala. */
+  money = 0;
+  ammo: number = GAME.weapon.glock.MAG;
+  reloading = false;
 
   /** Zumbis abatidos na sessão. */
   kills = 0;
@@ -37,12 +43,15 @@ export class GameState {
       seed: this.seed,
       playerId: this.playerId,
       playerName: this.playerName,
+      roomId: this.roomId,
       hp: this.hp,
       stamina: this.stamina,
       inventory: this.inventory,
       playerPosition: this.playerPosition,
       equippedSlot: this.equippedSlot,
       collectedObjectIds: [...this.collectedObjectIds],
+      money: this.money,
+      ammo: this.ammo,
       kills: this.kills,
     };
   }

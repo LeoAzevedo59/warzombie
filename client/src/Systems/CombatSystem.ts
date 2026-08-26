@@ -1,25 +1,25 @@
 import * as pc from 'playcanvas';
-import { CONFIG } from '@/config';
+import { GAME } from '@shared/gameconfig';
 import type { System } from '@/Core/GameLoop';
 import type { EventBus } from '@/Core/EventBus';
+import type { GameState } from '@/Core/GameState';
 import type { Player } from '@/Entities/Player/Player';
 import { makeBox } from '@/Assets/Primitives';
 import type { InputSystem } from './InputSystem';
 import type { EquipmentSystem } from './EquipmentSystem';
-import type { ZombieSystem } from './ZombieSystem';
-import type { Zombie } from '@/Entities/Enemies/Zombie';
+import type { NetworkClient } from '@/Net/NetworkClient';
 
 const TRACER_TIME = 0.07;
 const MUZZLE_HEIGHT = 1.2;
 
 /**
- * Tiro com a pistola equipada: clique dispara um "raio" no plano do chão, do player em direção
- * ao ponto do mouse. Acerta o zumbi vivo mais próximo cujo centro passe a menos de HIT_RADIUS
- * do raio, dentro de RANGE. Cooldown por arma.
+ * Tiro com a Glock equipada: clique manda `fire {dx,dz}` (player -> mouse no chão) para o servidor,
+ * que decide acerto/dano e responde `shot` para todos — é aí que o traçante é desenhado
+ * (inclusive o nosso), garantindo que todos vejam o mesmo tiro. R recarrega.
  */
 export class CombatSystem implements System {
   readonly name = 'Combat';
-  private unsub: () => void;
+  private unsubs: Array<() => void> = [];
   private cooldown = 0;
   private dir = new pc.Vec3();
   private tmp = new pc.Vec3();
@@ -27,13 +27,27 @@ export class CombatSystem implements System {
 
   constructor(
     private bus: EventBus,
+    private state: GameState,
     private player: Player,
     private input: InputSystem,
     private equipment: EquipmentSystem,
-    private zombies: ZombieSystem,
+    private net: NetworkClient,
     private sceneRoot: pc.Entity,
+    /** posição atual de qualquer jogador da partida (local ou remoto) */
+    private playerPosition: (id: string) => pc.Vec3 | null,
   ) {
-    this.unsub = bus.on('input:fire', () => this.fire());
+    this.unsubs.push(
+      bus.on('input:fire', () => this.fire()),
+      bus.on('input:reload', () => this.reload()),
+      bus.on('net:shot', ({ playerId, dx, dz, length }) => {
+        const from = this.playerPosition(playerId);
+        if (!from) return;
+        this.dir.set(dx, 0, dz);
+        this.spawnTracer(from, length);
+        if (playerId === this.state.playerId) this.player.playShoot();
+        else this.bus.emit('remote:shot', { playerId });
+      }),
+    );
   }
 
   update(dt: number): void {
@@ -49,13 +63,16 @@ export class CombatSystem implements System {
   }
 
   get canFire(): boolean {
-    return this.equipment.equippedItem() === 'pistol' && this.cooldown <= 0 && !this.player.stats.dead;
+    return this.equipment.equippedItem() === 'glock' && this.cooldown <= 0 && !this.player.stats.dead && !this.state.reloading;
   }
 
   private fire(): void {
     if (!this.canFire) return;
-    const w = CONFIG.weapon.pistol;
-    this.cooldown = w.COOLDOWN;
+    if (this.state.ammo <= 0) {
+      this.bus.emit('ui:toast', { text: 'Sem munição — aperte R para recarregar' });
+      return;
+    }
+    this.cooldown = GAME.weapon.glock.COOLDOWN;
 
     // direção: player -> mouse no chão; sem mouse válido, pra onde está olhando
     const from = this.player.position;
@@ -68,25 +85,12 @@ export class CombatSystem implements System {
     } else {
       this.player.forward(this.dir);
     }
-    this.player.playShoot();
+    this.net.send({ type: 'fire', dx: this.dir.x, dz: this.dir.z });
+  }
 
-    // hit test: zumbi vivo mais próximo ao longo do raio
-    let best: Zombie | null = null;
-    let bestT: number = w.RANGE;
-    for (const z of this.zombies.alive()) {
-      this.tmp.copy(z.position).sub(from);
-      this.tmp.y = 0;
-      const t = this.tmp.dot(this.dir);
-      if (t < 0 || t > bestT) continue;
-      const perp2 = this.tmp.lengthSq() - t * t;
-      if (perp2 > w.HIT_RADIUS * w.HIT_RADIUS) continue;
-      best = z;
-      bestT = t;
-    }
-
-    this.spawnTracer(from, bestT);
-    if (best) this.zombies.damage(best, w.DAMAGE);
-    this.bus.emit('weapon:fired', { itemId: 'pistol', hit: best !== null });
+  private reload(): void {
+    if (this.equipment.equippedItem() !== 'glock' || this.player.stats.dead) return;
+    this.net.send({ type: 'reload' });
   }
 
   private spawnTracer(from: pc.Vec3, length: number): void {
@@ -99,7 +103,7 @@ export class CombatSystem implements System {
   }
 
   dispose(): void {
-    this.unsub();
+    this.unsubs.forEach((u) => u());
     for (const t of this.tracers) t.entity.destroy();
     this.tracers = [];
   }

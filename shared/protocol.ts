@@ -6,7 +6,9 @@
  * o server valida o formato, persiste e retransmite. Zumbis, loot e craft ainda são locais.
  */
 
-export const PROTOCOL_VERSION = 2;
+import type { ItemId, ItemStack } from './items.js';
+
+export const PROTOCOL_VERSION = 3;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -38,7 +40,7 @@ export interface RoomDetail extends RoomSummary {
 }
 
 /** Nome de animação que os outros clientes reproduzem no modelo remoto. */
-export type NetAnim = 'Idle' | 'Walk' | 'Run' | 'Gun_Shoot';
+export type NetAnim = 'Idle' | 'Walk' | 'Run' | 'Gun_Shoot' | 'Death';
 
 /** Estado dinâmico de um jogador, atualizado a cada tick. */
 export interface PlayerPose {
@@ -68,12 +70,6 @@ export interface JoinMessage {
 
 export interface MoveMessage extends PlayerPose {
   type: 'move';
-}
-
-export interface StatsMessage {
-  type: 'stats';
-  hp: number;
-  kills: number;
 }
 
 export interface PingMessage {
@@ -107,11 +103,51 @@ export interface RoomStartMessage {
   type: 'room_start';
 }
 
+// ---------- partida (client -> server) ----------
+
+/** Pegar coletável simples (graveto/pedra) — validado por distância e slot livre. */
+export interface PickupMessage {
+  type: 'pickup';
+  objectId: number;
+}
+/** Um hit em árvore/rocha (o client manda a cada HIT_INTERVAL enquanto segura o canal). */
+export interface HitNodeMessage {
+  type: 'hit_node';
+  objectId: number;
+}
+export interface SelectSlotMessage {
+  type: 'select_slot';
+  index: number;
+}
+/** Vende todos os recursos da hotbar (precisa estar perto do vendedor). */
+export interface SellMessage {
+  type: 'sell';
+}
+export interface BuyMessage {
+  type: 'buy';
+  itemId: ItemId;
+}
+/** Tiro na direção unitária (dx,dz) no plano do chão. */
+export interface FireMessage {
+  type: 'fire';
+  dx: number;
+  dz: number;
+}
+export interface ReloadMessage {
+  type: 'reload';
+}
+
 export type ClientMessage =
   | JoinMessage
   | MoveMessage
-  | StatsMessage
   | PingMessage
+  | PickupMessage
+  | HitNodeMessage
+  | SelectSlotMessage
+  | SellMessage
+  | BuyMessage
+  | FireMessage
+  | ReloadMessage
   | RoomListMessage
   | RoomCreateMessage
   | RoomJoinMessage
@@ -146,6 +182,80 @@ export interface GameStartMessage {
   seed: number;
   /** jogadores já no mundo (o próprio destinatário incluso, com sua posição salva) */
   players: PlayerSnapshot[];
+  /** objetos já coletados/quebrados nesta sala (o client não os instancia) */
+  removedObjects: number[];
+  money: number;
+  hotbar: Array<ItemStack | null>;
+  equipped: number;
+}
+
+// ---------- partida (server -> client) ----------
+
+/** Hotbar do destinatário (o server é dono do inventário). */
+export interface HotbarMessage {
+  type: 'hotbar';
+  slots: Array<ItemStack | null>;
+  equipped: number;
+}
+/** Dinheiro compartilhado da sala. */
+export interface MoneyMessage {
+  type: 'money';
+  amount: number;
+  /** variação que causou a mensagem (+venda / -compra), para feedback */
+  delta: number;
+}
+export interface ItemGainedMessage {
+  type: 'item_gained';
+  itemId: ItemId;
+  count: number;
+}
+export interface ObjectRemovedMessage {
+  type: 'object_removed';
+  objectId: number;
+}
+export interface NodeHitMessage {
+  type: 'node_hit';
+  objectId: number;
+  hits: number;
+  required: number;
+}
+/** Alguém atirou: todos desenham o traçante a partir da posição desse jogador. */
+export interface ShotMessage {
+  type: 'shot';
+  playerId: string;
+  dx: number;
+  dz: number;
+  /** comprimento do traçante (até o alvo ou o alcance) */
+  length: number;
+  hitPlayerId?: string;
+  hitZombieId?: number;
+}
+export interface AmmoMessage {
+  type: 'ammo';
+  mag: number;
+  magSize: number;
+  reloading: boolean;
+}
+export interface HpMessage {
+  type: 'hp';
+  playerId: string;
+  hp: number;
+  /** quem causou (para flash/feedback) */
+  by?: string;
+}
+export interface PlayerDiedMessage {
+  type: 'player_died';
+  playerId: string;
+  killerId?: string;
+  /** segundos até renascer */
+  respawnIn: number;
+}
+export interface PlayerRespawnedMessage {
+  type: 'player_respawned';
+  playerId: string;
+  x: number;
+  z: number;
+  hp: number;
 }
 
 /** Servidor tirou o jogador da sala (sala fechada, etc.). */
@@ -185,7 +295,13 @@ export interface ErrorMessage {
     | 'not_owner'
     | 'not_in_room'
     | 'already_in_room'
-    | 'room_not_in_lobby';
+    | 'room_not_in_lobby'
+    | 'too_far'
+    | 'hotbar_full'
+    | 'no_tool'
+    | 'not_enough_money'
+    | 'no_weapon'
+    | 'dead';
   message: string;
 }
 
@@ -200,6 +316,16 @@ export type ServerMessage =
   | RoomStateMessage
   | GameStartMessage
   | RoomLeftMessage
+  | HotbarMessage
+  | MoneyMessage
+  | ItemGainedMessage
+  | ObjectRemovedMessage
+  | NodeHitMessage
+  | ShotMessage
+  | AmmoMessage
+  | HpMessage
+  | PlayerDiedMessage
+  | PlayerRespawnedMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | StateMessage

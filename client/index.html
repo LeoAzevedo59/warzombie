@@ -28,6 +28,7 @@
 
       .prompt { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); background: rgba(0,0,0,.6); padding: 6px 12px; border-radius: 6px; font-size: 14px; display: none; }
       .prompt.visible { display: block; }
+      #ui.shop-open .prompt { display: none; }
 
       .inventory-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 420px; background: rgba(12,16,20,.95); border: 1px solid #2d3742; border-radius: 10px; padding: 16px; display: none; }
       .inventory-panel.visible { display: block; }
@@ -108,6 +109,16 @@
       .menu.lobby .back { margin-top: 16px; }
       .hud-players .leave { margin-top: 6px; font-size: 12px; padding: 4px 10px; background: #2a323b; color: #e6edf3; border: 0; border-radius: 4px; cursor: pointer; }
       .hud-players .leave:hover { background: #d63d3d; }
+      .hud-money { position: absolute; right: 16px; top: 188px; width: 160px; background: rgba(12,16,20,.8); border: 1px solid #2d3742; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #8b98a5; text-align: center; transition: border-color .2s; }
+      .hud-money b { display: block; font-size: 20px; color: #ffd34d; }
+      .hud-money.up { border-color: #7ed957; }
+      .hud-money.down { border-color: #d63d3d; }
+      .shop-panel .money-line { color: #8b98a5; margin-bottom: 10px; }
+      .shop-panel .money-line b { color: #ffd34d; }
+      .shop-panel .sell-row { margin-bottom: 14px; }
+      .shop-panel .sell-row button { background: #d6a23d; }
+      .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
+      .death-screen .timer { color: #ffd34d; font-size: 20px; }
       .menu .controls { margin-top: 30px; font-size: 12px; color: #6b7681; line-height: 1.8; text-align: center; }
     </style>
   </head>

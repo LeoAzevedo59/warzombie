@@ -1,15 +1,14 @@
 import { CONFIG } from '@/config';
 import type { System } from '@/Core/GameLoop';
 import type { EventBus } from '@/Core/EventBus';
-import type { GameState } from '@/Core/GameState';
 import type { Player } from '@/Entities/Player/Player';
 import type { World } from '@/World/World';
 import type { WorldObject } from '@/World/WorldObject';
-import type { Workbench } from '@/World/Structure';
-import type { InventorySystem } from './InventorySystem';
+import type { HubStructure } from '@/World/Hub';
+import type { NetworkClient } from '@/Net/NetworkClient';
 import type { EquipmentSystem } from './EquipmentSystem';
 
-type Interactable = WorldObject | Workbench;
+type Interactable = WorldObject | HubStructure;
 
 interface HitChannel {
   target: WorldObject;
@@ -17,27 +16,36 @@ interface HitChannel {
 }
 
 /**
- * Encontra o objeto interativo mais próximo (coletável, nó de recurso ou mesa de
- * marceneiro), destaca e age ao pressionar E. Em árvore/rocha, o primeiro E inicia
- * um canal que aplica um hit a cada HIT_INTERVAL segundos até quebrar, sem exigir
- * pressionar E de novo.
+ * Encontra o objeto interativo mais próximo (coletável, nó de recurso, vendedor, torre),
+ * destaca e age ao pressionar E. Toda ação vai para o servidor (`pickup` / `hit_node`);
+ * em árvore/rocha o primeiro E abre um canal que manda um hit a cada HIT_INTERVAL.
  */
 export class InteractionSystem implements System {
   readonly name = 'Interaction';
   private target: Interactable | null = null;
   private channel: HitChannel | null = null;
   private lastLabel: string | null = null;
-  private unsub: () => void;
+  private unsubs: Array<() => void> = [];
 
   constructor(
     private bus: EventBus,
-    private state: GameState,
     private player: Player,
     private world: World,
-    private inventory: InventorySystem,
     private equipment: EquipmentSystem,
+    private net: NetworkClient,
   ) {
-    this.unsub = bus.on('input:interact', () => this.interact());
+    this.unsubs.push(
+      bus.on('input:interact', () => this.interact()),
+      bus.on('net:nodeHit', ({ objectId, hits }) => this.world.findObject(objectId)?.setHits(hits)),
+      bus.on('net:objectRemoved', ({ objectId }) => {
+        const obj = this.world.findObject(objectId);
+        if (!obj) return;
+        if (this.target === obj) this.target = null;
+        if (this.channel?.target === obj) this.channel = null;
+        this.world.removeObject(obj);
+        this.refreshLabel();
+      }),
+    );
   }
 
   update(dt: number): void {
@@ -45,7 +53,7 @@ export class InteractionSystem implements System {
     let best: Interactable | null = null;
     let bestScore = Infinity;
 
-    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.benches()];
+    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.structures()];
     for (const obj of candidates) {
       const p = obj.position;
       const dx = p.x - pos.x;
@@ -67,7 +75,11 @@ export class InteractionSystem implements System {
     this.refreshLabel();
   }
 
-  /** A ferramenta precisa estar equipada na mão (slot selecionado), não só no inventário. */
+  private isHub(t: Interactable): t is HubStructure {
+    return t.kind === 'vendor' || t.kind === 'tower';
+  }
+
+  /** A ferramenta precisa estar equipada na mão (slot selecionado), não só na hotbar. */
   private hasTool(obj: WorldObject): boolean {
     const tool = obj.def.requiredTool;
     return tool === null || this.equipment.equippedItem() === tool;
@@ -81,31 +93,17 @@ export class InteractionSystem implements System {
       this.channel = null;
       return;
     }
-
     c.elapsed += dt;
     if (c.elapsed < CONFIG.interaction.HIT_INTERVAL) return;
     c.elapsed -= CONFIG.interaction.HIT_INTERVAL;
-
-    // o hit que quebraria o nó só acontece se os drops couberem — senão eles seriam destruídos
-    if (c.target.hits + 1 >= c.target.def.hitsRequired && !this.inventory.canFit([...c.target.def.drops])) {
-      this.channel = null;
-      this.bus.emit('ui:toast', { text: 'Inventário cheio' });
-      return;
-    }
-
-    c.target.hit();
-    this.bus.emit('node:hit', { kind: c.target.kind, hits: c.target.hits, hitsRequired: c.target.def.hitsRequired });
-    if (c.target.broken) {
-      this.channel = null;
-      this.harvest(c.target);
-    }
+    this.net.send({ type: 'hit_node', objectId: c.target.id });
   }
 
   private refreshLabel(): void {
     const t = this.target;
     let label: string | null = null;
     if (t) {
-      label = t.kind === 'workbench' ? t.promptLabel() : t.promptLabel(this.hasTool(t), this.channel?.target === t);
+      label = this.isHub(t) ? t.promptLabel() : t.promptLabel(this.hasTool(t), this.channel?.target === t);
     }
     if (label === this.lastLabel) return;
     this.lastLabel = label;
@@ -115,39 +113,24 @@ export class InteractionSystem implements System {
   private interact(): void {
     const t = this.target;
     if (!t) return;
-
-    if (t.kind === 'workbench') {
-      this.bus.emit('workbench:interact', { workbenchId: t.id });
+    if (this.isHub(t)) {
+      if (t.kind === 'vendor') this.bus.emit('shop:open');
+      else this.bus.emit('ui:toast', { text: 'A torre precisa de uma Bateria (em breve).' });
       return;
     }
     if (!this.hasTool(t)) return;
-
     if (t.isNode) {
-      if (this.channel?.target !== t) this.channel = { target: t, elapsed: 0 };
-      return; // hits acontecem automaticamente em tickChannel, sem precisar de novo E
-    }
-    this.harvest(t);
-  }
-
-  /** Entrega os drops e remove o objeto do mundo. */
-  private harvest(t: WorldObject): void {
-    // coletável simples que não cabe: fica no chão (nós são bloqueados antes do hit final)
-    if (!t.isNode && !this.inventory.canFit([...t.def.drops])) {
-      this.bus.emit('ui:toast', { text: 'Inventário cheio' });
+      // hits acontecem automaticamente em tickChannel; o primeiro sai na hora
+      if (this.channel?.target !== t) {
+        this.channel = { target: t, elapsed: 0 };
+        this.net.send({ type: 'hit_node', objectId: t.id });
+      }
       return;
     }
-    for (const drop of t.def.drops) {
-      const leftover = this.inventory.add(drop.itemId, drop.count);
-      const gained = drop.count - Math.max(0, leftover);
-      if (gained > 0) this.bus.emit('item:collected', { itemId: drop.itemId, count: gained });
-    }
-    this.state.collectedObjectIds.add(t.id);
-    this.world.removeObject(t);
-    this.target = null;
-    this.refreshLabel();
+    this.net.send({ type: 'pickup', objectId: t.id });
   }
 
   dispose(): void {
-    this.unsub();
+    this.unsubs.forEach((u) => u());
   }
 }

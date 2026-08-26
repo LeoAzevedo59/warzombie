@@ -36,7 +36,7 @@ export class Player {
   /** Chame só depois de `entity` já estar na árvore da cena. */
   initAnimation(): void {
     this.anim.init(
-      [{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }],
+      [{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Death', loop: false }],
       'Idle',
     );
   }
@@ -75,6 +75,7 @@ export class Player {
 
   /** Troca Idle/Walk/Run conforme a velocidade atual. Chamado pelo MovementSystem a cada frame. */
   updateAnimation(dt: number): void {
+    if (this.stats.dead) return; // Death fica até o respawn
     if (this.shootPoseTimer > 0) {
       this.shootPoseTimer -= dt;
       return;

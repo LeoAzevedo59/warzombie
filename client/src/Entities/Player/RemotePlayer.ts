@@ -44,7 +44,7 @@ export class RemotePlayer {
 
   /** Chame só depois de `entity` estar na cena. */
   initAnimation(): void {
-    this.anim.init([{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }], 'Idle');
+    this.anim.init([{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Death', loop: false }], 'Idle');
   }
 
   private tint(): void {
@@ -64,7 +64,28 @@ export class RemotePlayer {
     return this.entity.getPosition();
   }
 
+  dead = false;
+
+  playShoot(): void {
+    if (!this.dead) this.anim.play('Gun_Shoot', 0.05, true);
+  }
+
+  die(): void {
+    this.dead = true;
+    this.anim.play('Death', 0.1, true);
+  }
+
+  respawn(x: number, z: number): void {
+    this.dead = false;
+    this.hp = 100;
+    this.entity.setPosition(x, 0, z);
+    this.target.set(x, 0, z);
+    this.targetAnim = 'Idle';
+    this.anim.play('Idle', 0.1, true);
+  }
+
   applyPose(pose: PlayerPose): void {
+    if (this.dead) return; // o servidor congela a pose de quem morreu
     this.target.set(pose.x, 0, pose.z);
     this.targetYaw = pose.yaw;
     if (pose.anim !== this.targetAnim) {

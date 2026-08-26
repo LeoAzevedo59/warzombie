@@ -14,7 +14,8 @@
     "db:deploy": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate deploy",
     "db:studio": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js studio",
     "postinstall": "prisma generate",
-    "db:status": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate status"
+    "db:status": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate status",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

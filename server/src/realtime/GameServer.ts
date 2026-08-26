@@ -11,6 +11,7 @@ import {
 import { env } from '../config/env.js';
 import { createLogger } from '../lib/logger.js';
 import { RoomModel } from '../models/RoomModel.js';
+import { Match, MatchError } from '../game/Match.js';
 import { PlayerService, PlayerServiceError } from '../services/PlayerService.js';
 import { RoomService, RoomServiceError } from '../services/RoomService.js';
 import { parseClientMessage } from './messages.js';
@@ -137,11 +138,20 @@ export class GameServer {
       switch (msg.type) {
         case 'move':
           return this.handleMove(conn, msg);
-        case 'stats':
-          conn.player.hp = msg.hp;
-          conn.player.kills = msg.kills;
-          conn.dirty = true;
-          return;
+        case 'pickup':
+          return this.match(conn).pickup(conn.player.id, msg.objectId);
+        case 'hit_node':
+          return this.match(conn).hitNode(conn.player.id, msg.objectId);
+        case 'select_slot':
+          return this.match(conn).selectSlot(conn.player.id, msg.index);
+        case 'sell':
+          return this.match(conn).sell(conn.player.id);
+        case 'buy':
+          return this.match(conn).buy(conn.player.id, msg.itemId);
+        case 'fire':
+          return this.match(conn).fire(conn.player.id, msg.dx, msg.dz);
+        case 'reload':
+          return this.match(conn).reload(conn.player.id);
         case 'room_list':
           return this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
         case 'room_create':
@@ -156,7 +166,7 @@ export class GameServer {
           return await this.handleRoomStart(conn);
       }
     } catch (err) {
-      if (err instanceof RoomServiceError) {
+      if (err instanceof RoomServiceError || err instanceof MatchError) {
         this.send(conn, { type: 'error', code: err.code, message: err.message });
       } else {
         log.error(`falha ao processar ${msg.type} de ${conn.player.name}`, err);
@@ -204,8 +214,17 @@ export class GameServer {
     }
   }
 
+  /** Partida da sala do jogador (erro se não estiver em partida). */
+  private match(conn: Connection): Match {
+    const m = conn.room?.match;
+    if (!m) throw new RoomServiceError('not_in_room', 'Você não está em uma partida.');
+    return m;
+  }
+
   private handleMove(conn: Connection, pose: PlayerPose): void {
     const p = conn.player!;
+    // morto não se move: o servidor mantém a pose do momento da morte até o respawn
+    if (conn.room?.match?.players.get(p.id)?.dead) return;
     p.x = pose.x;
     p.z = pose.z;
     p.yaw = pose.yaw;
@@ -231,7 +250,9 @@ export class GameServer {
   private async handleRoomJoin(conn: Connection, msg: Msg<'room_join'>): Promise<void> {
     const player = conn.player!;
     const room = this.rooms.get(msg.roomId);
-    await this.roomService.join(player.id, room?.view(), msg.code, conn.room?.view() ?? null);
+    if (!room) throw new RoomServiceError('room_not_found', 'Sala não encontrada.');
+    await room.serialize(() => this.roomService.join(player.id, room.view(), msg.code, conn.room?.view() ?? null));
+    if (!this.rooms.has(room.id)) throw new RoomServiceError('room_not_found', 'A sala foi fechada.');
     room!.members.set(player.id, { socket: conn.socket, player });
     conn.room = room!;
     log.info(`${player.name} entrou na sala "${room!.name}" (${room!.members.size}/${room!.members.size})`);
@@ -260,6 +281,7 @@ export class GameServer {
     const room = conn.room;
     await this.roomService.start(conn.player!.id, room?.view() ?? null);
     room!.status = 'PLAYING';
+    room!.match = this.createMatch(room!);
     log.info(`sala "${room!.name}" iniciou com ${room!.members.size} jogador(es)`);
     // partida começa com todos no centro do mapa, espalhados num círculo para não nascerem sobrepostos
     let i = 0;
@@ -278,9 +300,33 @@ export class GameServer {
     this.broadcastLobby();
   }
 
+  private createMatch(room: Room): Match {
+    return new Match(env.WORLD_SEED, room.money, {
+      send: (playerId, msg) => {
+        const m = room.members.get(playerId);
+        if (m) room.send(m, msg);
+      },
+      broadcast: (msg) => room.broadcast(msg),
+      onMoneyChanged: (amount) => {
+        room.money = amount;
+        RoomModel.update(room.id, { money: amount }).catch((err) => log.error(`falha ao salvar dinheiro da sala ${room.name}`, err));
+      },
+    });
+  }
+
   /** Manda o jogador para o mundo da sala e avisa quem já está lá. */
   private enterWorld(conn: Connection, room: Room): void {
-    this.send(conn, { type: 'game_start', seed: env.WORLD_SEED, players: room.snapshots() });
+    const match = room.match ?? (room.match = this.createMatch(room));
+    const mp = match.addPlayer(conn.player!);
+    this.send(conn, {
+      type: 'game_start',
+      seed: env.WORLD_SEED,
+      players: room.snapshots(),
+      removedObjects: [...match.removed],
+      money: match.money,
+      hotbar: mp.hotbar,
+      equipped: mp.equipped,
+    });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }
 
@@ -290,18 +336,22 @@ export class GameServer {
     const player = conn.player;
     if (!room || !player) return;
     conn.room = null;
-    room.members.delete(player.id);
-    const remaining = [...room.members.keys()];
-    const result = await this.roomService.leave(player.id, room.view(), remaining);
-    if (result.deleted) {
-      this.rooms.delete(room.id);
-      log.info(`sala "${room.name}" ficou vazia e foi apagada`);
-    } else {
-      if (result.newOwnerId) room.ownerId = result.newOwnerId;
-      room.broadcast({ type: 'player_left', id: player.id });
-      room.broadcastState();
-    }
-    log.info(`${player.name} ${reason} da sala "${room.name}"`);
+    // tudo dentro do lock da sala: saídas simultâneas não podem ver a sala "vazia" ao mesmo tempo
+    await room.serialize(async () => {
+      if (!room.members.delete(player.id)) return;
+      room.match?.removePlayer(player.id);
+      const remaining = [...room.members.keys()];
+      const result = await this.roomService.leave(player.id, room.view(), remaining);
+      if (result.deleted) {
+        this.rooms.delete(room.id);
+        log.info(`sala "${room.name}" ficou vazia e foi apagada`);
+      } else {
+        if (result.newOwnerId) room.ownerId = result.newOwnerId;
+        room.broadcast({ type: 'player_left', id: player.id });
+        room.broadcastState();
+      }
+      log.info(`${player.name} ${reason} da sala "${room.name}"`);
+    });
     this.broadcastLobby();
   }
 
@@ -338,6 +388,7 @@ export class GameServer {
     const now = Date.now();
     for (const room of this.rooms.values()) {
       if (room.status === 'LOBBY') continue;
+      room.match?.tick();
       const all = room.snapshots();
       for (const m of room.members.values()) {
         const others = all

@@ -12,19 +12,16 @@ import { CollisionSystem } from '@/Systems/CollisionSystem';
 import { InteractionSystem } from '@/Systems/InteractionSystem';
 import { InventorySystem } from '@/Systems/InventorySystem';
 import { EquipmentSystem } from '@/Systems/EquipmentSystem';
-import { CraftingSystem } from '@/Systems/CraftingSystem';
-import { RefiningSystem } from '@/Systems/RefiningSystem';
 import { CombatSystem } from '@/Systems/CombatSystem';
-import { BuildingSystem } from '@/Systems/BuildingSystem';
-import { ZombieSystem } from '@/Systems/ZombieSystem';
 import { NetworkSystem } from '@/Systems/NetworkSystem';
-import { PlayersHUD } from '@/UI/PlayersHUD';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
-import { InventoryUI } from '@/UI/InventoryUI';
-import { WorkbenchUI } from '@/UI/WorkbenchUI';
+import { HotbarUI } from '@/UI/HotbarUI';
+import { ShopUI } from '@/UI/ShopUI';
+import { EconomyHUD } from '@/UI/EconomyHUD';
 import { MapUI } from '@/UI/MapUI';
 import { ToastUI } from '@/UI/ToastUI';
+import { PlayersHUD } from '@/UI/PlayersHUD';
 
 /** Aviso de queda de conexão exibido por cima do menu (some sozinho). */
 function alertDisconnect(reason: string): void {
@@ -44,8 +41,9 @@ export class WorldScene extends BaseScene {
   private input!: InputSystem;
   private ui: {
     healthBar: HealthBar;
-    inventory: InventoryUI;
-    workbench: WorkbenchUI;
+    hotbar: HotbarUI;
+    shop: ShopUI;
+    economy: EconomyHUD;
     map: MapUI;
     toasts: ToastUI;
     combat: CombatHUD;
@@ -53,10 +51,9 @@ export class WorldScene extends BaseScene {
   } | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
-  private updateInputEnabled: (() => void) | null = null;
 
   enter(): void {
-    const { app, bus, state, ui: uiRoot } = this.game;
+    const { app, bus, state, net, ui: uiRoot } = this.game;
     this.addDefaultLighting();
 
     // --- mundo ---
@@ -66,6 +63,7 @@ export class WorldScene extends BaseScene {
     const map = new GameMap(state.seed, (id) => state.collectedObjectIds.has(id));
     this.world = new World(map, bus);
     this.root.addChild(this.world.root);
+    this.world.init();
 
     // --- player ---
     const stats = new PlayerStats(state, bus);
@@ -82,59 +80,49 @@ export class WorldScene extends BaseScene {
     this.input = new InputSystem(bus, app.graphicsDevice.canvas as HTMLCanvasElement, () => this.camera.component);
     const controller = new PlayerController(this.player, this.camera);
     const inventory = new InventorySystem(state, bus);
-    const equipment = new EquipmentSystem(bus, state);
-    const crafting = new CraftingSystem(bus, inventory);
-    const refining = new RefiningSystem(bus, inventory);
-    const zombies = new ZombieSystem(bus, state, this.player, this.world);
-    const network = new NetworkSystem(this.game.net, bus, state, this.player, this.root);
-    if (import.meta.env.DEV) {
-      // handle de debug pra testes manuais no console (só em dev)
-      (window as unknown as { __wz: unknown }).__wz = { app, zombies, player: this.player, state, world: this.world, bus };
-    }
+    const equipment = new EquipmentSystem(bus, state, net);
+    const network = new NetworkSystem(net, bus, state, this.player, this.root);
+    // handle de debug/teste no console (o servidor é autoritativo, então expor isso não dá vantagem)
+    (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net };
 
     this.loop
       .register(this.input)
       .register(new MovementSystem(this.input, controller, this.player, state))
       .register(new CollisionSystem(this.player, this.world))
       .register(equipment)
-      .register(new InteractionSystem(bus, state, this.player, this.world, inventory, equipment))
+      .register(new InteractionSystem(bus, this.player, this.world, equipment, net))
       .register(inventory)
-      .register(crafting)
-      .register(refining)
-      .register(zombies)
-      .register(new CombatSystem(bus, this.player, this.input, equipment, zombies, this.root))
-      .register(new BuildingSystem(bus, inventory, this.player, this.world))
+      .register(new CombatSystem(bus, state, this.player, this.input, equipment, net, this.root, (id) => network.positionOf(id)))
       .register(network)
       .start();
 
     // --- UI ---
-    const inventoryUI = new InventoryUI(uiRoot, bus, crafting);
-    const workbenchUI = new WorkbenchUI(uiRoot, bus, inventory, refining);
+    const shop = new ShopUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
-      this.input.enabled = !inventoryUI.open && !workbenchUI.open && !this.stats.dead;
+      this.input.enabled = !shop.open && !this.stats.dead;
     };
-    this.updateInputEnabled = updateInputEnabled;
-    inventoryUI.onOpenChanged = updateInputEnabled;
-    workbenchUI.onOpenChanged = updateInputEnabled;
+    shop.onOpenChanged = updateInputEnabled;
 
     this.ui = {
       healthBar: new HealthBar(uiRoot, bus),
-      inventory: inventoryUI,
-      workbench: workbenchUI,
-      map: new MapUI(uiRoot, this.world, this.player, zombies),
+      hotbar: new HotbarUI(uiRoot, bus),
+      shop,
+      economy: new EconomyHUD(uiRoot, bus, state.money),
+      map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values()),
       toasts: new ToastUI(uiRoot, bus),
-      combat: new CombatHUD(uiRoot, bus, () => this.respawn()),
+      combat: new CombatHUD(uiRoot, bus),
       players: new PlayersHUD(uiRoot, bus, state.playerName, () => network.remotes.values(), () => this.camera.component),
     };
     this.unsubs.push(
+      bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);
       }),
-      // caiu a conexão: volta pro menu (o próximo Entrar reconecta)
+      bus.on('player:respawned', () => updateInputEnabled()),
       // saiu/foi tirado da sala: volta ao lobby
-      bus.on('ui:leaveRoom', () => this.game.net.send({ type: 'room_leave' })),
+      bus.on('ui:leaveRoom', () => net.send({ type: 'room_leave' })),
       bus.on('net:roomLeft', () => bus.emit('scene:change', { scene: 'lobby' })),
       bus.on('net:disconnected', ({ reason }) => {
         console.warn('Desconectado do servidor:', reason);
@@ -145,14 +133,7 @@ export class WorldScene extends BaseScene {
     stats.notify();
     inventory.notify();
     bus.emit('equip:changed', { slotIndex: state.equippedSlot, itemId: equipment.equippedItem() });
-  }
-
-  /** Volta ao spawn com vida cheia; ZombieSystem limpa os zumbis ao ouvir player:respawned. */
-  private respawn(): void {
-    this.stats.restore();
-    this.player.setPosition(0, 0, 0);
-    this.game.bus.emit('player:respawned');
-    this.updateInputEnabled?.();
+    bus.emit('net:ammo', { mag: state.ammo, magSize: 10, reloading: false });
   }
 
   update(dt: number): void {
@@ -168,13 +149,8 @@ export class WorldScene extends BaseScene {
     this.unsubs = [];
     this.loop.dispose();
     this.player.dispose();
-    this.ui?.combat.dispose();
-    this.ui?.healthBar.dispose();
-    this.ui?.inventory.dispose();
-    this.ui?.workbench.dispose();
-    this.ui?.map.dispose();
-    this.ui?.toasts.dispose();
-    this.ui?.players.dispose();
+    this.world.dispose();
+    if (this.ui) for (const u of Object.values(this.ui)) u.dispose();
     this.ui = null;
     super.exit();
   }
