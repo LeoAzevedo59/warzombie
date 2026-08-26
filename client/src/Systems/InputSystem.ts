@@ -58,6 +58,9 @@ export class InputSystem implements System {
     if (e.button === 0 && this.enabled) this.bus.emit('input:fire');
   };
   private onBlur = () => this.keys.clear();
+  private onWheel = (e: WheelEvent) => {
+    if (this.enabled) this.bus.emit('input:wheel', { delta: Math.sign(e.deltaY) });
+  };
 
   constructor(
     private bus: EventBus,
@@ -68,6 +71,7 @@ export class InputSystem implements System {
     window.addEventListener('keyup', this.onKeyUp);
     window.addEventListener('mousemove', this.onMouseMove);
     canvas.addEventListener('mousedown', this.onMouseDown);
+    canvas.addEventListener('wheel', this.onWheel, { passive: true });
     window.addEventListener('blur', this.onBlur);
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
@@ -111,6 +115,7 @@ export class InputSystem implements System {
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('mousemove', this.onMouseMove);
     this.canvas.removeEventListener('mousedown', this.onMouseDown);
+    this.canvas.removeEventListener('wheel', this.onWheel);
     window.removeEventListener('blur', this.onBlur);
   }
 }

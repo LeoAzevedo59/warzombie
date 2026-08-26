@@ -71,6 +71,8 @@ export class CombatSystem implements System {
   }
 
   private fire(): void {
+    const eq = this.equipment.equippedItem();
+    if (eq && eq.startsWith('wall_')) return; // modo construção: o clique coloca a parede
     if (this.equipment.equippedItem() === 'knife' && !this.player.stats.dead && this.cooldown <= 0) {
       this.cooldown = GAME.weapon.knife.COOLDOWN;
       const from = this.player.position;

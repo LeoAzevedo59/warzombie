@@ -9,6 +9,8 @@ export interface GameEvents {
   'input:closePanel': void;
   'input:escape': void;
   'input:place': void;
+  /** roda do mouse (para girar a parede no modo construção) */
+  'input:wheel': { delta: number };
   'input:selectSlot': { index: number };
 
   'equip:changed': { slotIndex: number; itemId: ItemId | null };

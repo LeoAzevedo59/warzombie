@@ -28,7 +28,7 @@ export const GAME = {
   /** recursos renascem depois de coletados (s) */
   respawn: { SMALL: 60, NODE: 180 },
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
-  walls: { PLACE_DIST: 3, WIDTH: 2, THICK: 0.4 },
+  walls: { PLACE_DIST: 6, WIDTH: 2, THICK: 0.4, ROTATE_STEP_DEG: 15 },
   /** recursos da sala (comprados uma vez, valem para todos): preço */
   features: { MINIMAP_PRICE: 120 },
   /** reforço da torre (sala): +HP máximo por nível (e cura esse valor), preço base × GROWTH^nível */
