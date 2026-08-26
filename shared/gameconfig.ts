@@ -98,7 +98,10 @@ export const GAME = {
   /** Estruturas fixas no centro do mapa (chunk 0,0 fica livre de nós num raio de 6). */
   hub: {
     VENDOR: { x: 0, z: -3.5 },
+    /** posição padrão; na partida a torre nasce num ponto aleatório (Match.towerPos), entre TOWER_MIN_DIST e TOWER_MAX_DIST do centro */
     TOWER: { x: 4, z: 4 },
+    TOWER_MIN_DIST: 14,
+    TOWER_MAX_DIST: 34,
     /** raio de colisão das estruturas */
     VENDOR_RADIUS: 1.4,
     TOWER_RADIUS: 0.9,

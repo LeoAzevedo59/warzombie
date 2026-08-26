@@ -84,7 +84,7 @@ export class WaveHUD {
     let line: string;
     switch (s.phase) {
       case 'idle':
-        line = 'Compre uma <b>Bateria</b> no vendedor e coloque na torre (E) para iniciar as waves';
+        line = 'Compre uma <b>Bateria</b> no vendedor e leve até a <b>torre</b> (ponto azul no minimapa) — ela é pesada!';
         break;
       case 'countdown':
         line = s.wave === 0 ? `Primeira wave em <b>${s.nextIn ?? 0}s</b>` : s.wave < s.total ? `Wave ${s.wave} limpa! Próxima em <b>${s.nextIn ?? 0}s</b>` : `Wave ${s.wave} limpa! O chefão chega em <b>${s.nextIn ?? 0}s</b>`;

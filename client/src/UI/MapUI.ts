@@ -48,8 +48,9 @@ export class MapUI {
       ctx.fillRect(sx(o.x) - s / 2, sz(o.z) - s / 2, s, s);
     }
     for (const st of this.world.structures()) {
-      ctx.fillStyle = st.kind === 'vendor' ? '#ffd34d' : '#9fc2ff';
-      ctx.fillRect(sx(st.position.x) - 3, sz(st.position.z) - 3, 6, 6);
+      ctx.fillStyle = st.kind === 'vendor' ? '#ffd34d' : '#4db8ff';
+      const s = st.kind === 'tower' ? 8 : 6;
+      ctx.fillRect(sx(st.position.x) - s / 2, sz(st.position.z) - s / 2, s, s);
     }
 
     ctx.fillStyle = '#e23c3c';

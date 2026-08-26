@@ -65,6 +65,9 @@ export class GameState {
   /** Zumbis abatidos na sessão. */
   kills = 0;
 
+  /** Posição da torre nesta sala (vem do servidor). */
+  tower = { x: 4, z: 4 };
+
   /** Estado das waves da sala (vem do servidor). */
   wave: WaveState = { phase: 'idle', wave: 0, total: 5, alive: 0, nextIn: null, timeLeft: null };
 

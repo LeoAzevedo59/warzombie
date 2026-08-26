@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight' | 'vision';
 export interface WeaponUpgrades {
@@ -231,6 +231,8 @@ export interface GameStartMessage {
   upgradePrices: UpgradePrices;
   magSize: number;
   ammo: number;
+  /** onde a torre nasceu nesta sala */
+  tower: { x: number; z: number };
 }
 
 // ---------- partida (server -> client) ----------

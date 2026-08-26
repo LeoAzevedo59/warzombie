@@ -21,8 +21,10 @@ export class HubStructure {
   private highlighted = false;
   private anim: AnimatedModel | null = null;
 
-  constructor(readonly kind: HubKind) {
-    const spot = kind === 'vendor' ? GAME.hub.VENDOR : GAME.hub.TOWER;
+  constructor(
+    readonly kind: HubKind,
+    spot: { x: number; z: number } = kind === 'vendor' ? GAME.hub.VENDOR : GAME.hub.TOWER,
+  ) {
     this.solidRadius = kind === 'vendor' ? GAME.hub.VENDOR_RADIUS : GAME.hub.TOWER_RADIUS;
     this.entity = new pc.Entity(`hub:${kind}`);
     this.entity.setLocalPosition(spot.x, 0, spot.z);

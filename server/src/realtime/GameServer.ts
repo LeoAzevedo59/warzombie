@@ -353,6 +353,7 @@ export class GameServer {
       upgradePrices: match.upgradePrices(),
       magSize: match.magSizeOf(mp),
       ammo: mp.mag,
+      tower: match.towerPos,
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

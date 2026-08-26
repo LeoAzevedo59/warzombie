@@ -1,6 +1,6 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
-import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
+import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
@@ -69,6 +69,8 @@ export class Match {
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
   readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0, vision: 0 };
+  /** torre desta sala (ponto aleatório, longe do centro e livre de obstáculos) */
+  readonly towerPos: { x: number; z: number };
   readonly zombies: ZombieSim;
   readonly waves: WaveDirector;
   private lastTick: number;
@@ -84,6 +86,7 @@ export class Match {
     this.objects = generateWorld(seed);
     this.money = money;
     this.lastTick = now();
+    this.towerPos = this.pickTowerPos();
     this.zombies = new ZombieSim(
       {
         damagePlayer: (playerId, amount, byZombie) => {
@@ -123,6 +126,19 @@ export class Match {
     );
   }
 
+  private pickTowerPos(): { x: number; z: number } {
+    const { TOWER_MIN_DIST: min, TOWER_MAX_DIST: max, TOWER_RADIUS } = GAME.hub;
+    const solids = [...this.objects.values()].filter((o) => WORLD_OBJECTS[o.kind].solidRadius).map((o) => ({ position: o, solidRadius: WORLD_OBJECTS[o.kind].solidRadius }));
+    for (let i = 0; i < 60; i++) {
+      const a = this.rand() * Math.PI * 2;
+      const d = min + this.rand() * (max - min);
+      const x = Math.cos(a) * d;
+      const z = Math.sin(a) * d;
+      if (isClearOfCircles(x, z, solids, TOWER_RADIUS + 1.5)) return { x, z };
+    }
+    return { ...GAME.hub.TOWER };
+  }
+
   /** Árvores/rochas ainda de pé + estruturas do hub (cache invalidado quando algo é removido). */
   private obstacles(): Obstacle[] {
     if (!this.obstacleCache) {
@@ -132,7 +148,7 @@ export class Match {
         if (def.solidRadius && !this.removed.has(o.id)) list.push({ position: o, solidRadius: def.solidRadius });
       }
       list.push({ position: GAME.hub.VENDOR, solidRadius: GAME.hub.VENDOR_RADIUS });
-      list.push({ position: GAME.hub.TOWER, solidRadius: GAME.hub.TOWER_RADIUS });
+      list.push({ position: this.towerPos, solidRadius: GAME.hub.TOWER_RADIUS });
       this.obstacleCache = list;
     }
     return this.obstacleCache;
@@ -334,7 +350,7 @@ export class Match {
   /** Coloca a bateria na torre: consome o item e dispara as waves. */
   activateBattery(playerId: string): void {
     const p = this.alive(playerId);
-    if (dist(p.snapshot, GAME.hub.TOWER) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) {
+    if (dist(p.snapshot, this.towerPos) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) {
       throw new MatchError('too_far', 'Chegue mais perto da torre.');
     }
     if (this.waves.active) throw new MatchError('already_active', 'As waves já estão em andamento.');

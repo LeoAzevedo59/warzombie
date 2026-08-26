@@ -68,7 +68,7 @@ export class WorldScene extends BaseScene {
     this.root.addChild(this.camera.entity);
 
     const map = new GameMap(state.seed, (id) => state.collectedObjectIds.has(id));
-    this.world = new World(map, bus);
+    this.world = new World(map, bus, state.tower);
     this.root.addChild(this.world.root);
     this.world.init();
 

@@ -17,10 +17,11 @@ export class World {
   constructor(
     private map: GameMap,
     private bus: EventBus,
+    towerPos: { x: number; z: number },
   ) {
     this.root = new pc.Entity('world');
     this.vendor = new HubStructure('vendor');
-    this.tower = new HubStructure('tower');
+    this.tower = new HubStructure('tower', towerPos);
     this.root.addChild(this.vendor.entity);
     this.root.addChild(this.tower.entity);
   }

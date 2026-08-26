@@ -33,7 +33,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   axe: { id: 'axe', name: 'Machado', category: 'tool', stackMax: 1, color: '#c8742a', buy: 30, weight: 3 },
   pickaxe: { id: 'pickaxe', name: 'Picareta', category: 'tool', stackMax: 1, color: '#5f7fa8', buy: 30, weight: 3 },
   glock: { id: 'glock', name: 'Glock', category: 'weapon', stackMax: 1, color: '#2b2f36', buy: 100, weight: 2 },
-  battery: { id: 'battery', name: 'Bateria da Torre', category: 'device', stackMax: 1, color: '#ffd34d', buy: 150, weight: 5 },
+  battery: { id: 'battery', name: 'Bateria da Torre', category: 'device', stackMax: 1, color: '#ffd34d', buy: 150, weight: 22 }, // o item mais pesado: carregar até a torre é lento
 };
 
 /** Peso total carregado. */
