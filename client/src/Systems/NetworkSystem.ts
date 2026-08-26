@@ -53,6 +53,13 @@ export class NetworkSystem implements System {
       case 'state':
         for (const pose of msg.players) this.remotes.get(pose.id)?.applyPose(pose);
         this.bus.emit('net:zombies', { zombies: msg.zombies });
+        this.bus.emit('net:projectiles', { projectiles: msg.projectiles });
+        break;
+      case 'slowed':
+        if (msg.playerId === this.state.playerId) {
+          this.player.applySlow(msg.factor, msg.seconds);
+          this.bus.emit('player:slowed', { factor: msg.factor, seconds: msg.seconds });
+        }
         break;
       case 'wave_state':
         this.state.wave = msg.wave;

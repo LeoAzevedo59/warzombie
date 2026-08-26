@@ -1,9 +1,9 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { dist, isClearOfCircles, pushOutCircle, type XZ } from '../../../shared/math.js';
-import type { ZombieAnim, ZombieKind, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { ProjectileSnapshot, ZombieAnim, ZombieKind, ZombieSnapshot } from '../../../shared/protocol.js';
 import { mapBounds } from '../../../shared/worldgen.js';
 
-export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'slam' | 'charge' | 'dead';
+export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'spit' | 'volley' | 'slam' | 'charge' | 'dead';
 
 export interface Zombie {
   id: number;
@@ -20,6 +20,11 @@ export interface Zombie {
   attackCooldown: number;
   specialCooldown: number;
   chargeCooldown: number;
+  spitCooldown: number;
+  summonCooldown: number;
+  /** multiplicadores da wave (usados para os invocados do chefão) */
+  hpMult: number;
+  dmgMult: number;
   hitApplied: boolean;
   wanderTarget: XZ;
   wanderWait: number;
@@ -44,9 +49,26 @@ export interface Obstacle {
   solidRadius: number;
 }
 
+export interface Projectile {
+  id: number;
+  x: number;
+  z: number;
+  dx: number;
+  dz: number;
+  speed: number;
+  radius: number;
+  damage: number;
+  slowFactor: number;
+  slowTime: number;
+  ttl: number;
+  boss: boolean;
+  from: number;
+}
+
 export interface ZombieSimIO {
   damagePlayer(playerId: string, amount: number, byZombie: number): void;
   knockback(playerId: string, dx: number, dz: number, force: number): void;
+  slowPlayer(playerId: string, factor: number, seconds: number): void;
   bossSlam(x: number, z: number, radius: number, windup: number): void;
   zombieDied(z: Zombie, killerId?: string): void;
 }
@@ -58,7 +80,9 @@ export interface ZombieSimIO {
  */
 export class ZombieSim {
   readonly zombies = new Map<number, Zombie>();
+  readonly projectiles = new Map<number, Projectile>();
   private nextId = 1;
+  private nextProjectileId = 1;
   private bounds = mapBounds();
   private rand: () => number;
 
@@ -84,6 +108,10 @@ export class ZombieSim {
     return [...this.zombies.values()].map((z) => ({ id: z.id, kind: z.kind, x: z.x, z: z.z, yaw: z.yaw, anim: animFor(z), hp: z.hp, maxHp: z.maxHp }));
   }
 
+  projectileSnapshots(): ProjectileSnapshot[] {
+    return [...this.projectiles.values()].map((p) => ({ id: p.id, x: p.x, z: p.z, boss: p.boss }));
+  }
+
   spawn(kind: ZombieKind, x: number, z: number, hpMult = 1, dmgMult = 1): Zombie {
     const cfg = GAME.zombie;
     const boss = kind === 'boss';
@@ -102,6 +130,10 @@ export class ZombieSim {
       attackCooldown: 0,
       specialCooldown: cfg.SPECIAL.COOLDOWN * 0.5,
       chargeCooldown: 3,
+      spitCooldown: 1 + this.rand() * 2,
+      summonCooldown: GAME.boss.SUMMON.FIRST_DELAY,
+      hpMult,
+      dmgMult,
       hitApplied: false,
       wanderTarget: { x, z },
       wanderWait: 0,
@@ -142,6 +174,7 @@ export class ZombieSim {
 
   clear(): void {
     this.zombies.clear();
+    this.projectiles.clear();
   }
 
   // ---------- loop ----------
@@ -153,6 +186,8 @@ export class ZombieSim {
       z.attackCooldown = Math.max(0, z.attackCooldown - dt);
       z.specialCooldown = Math.max(0, z.specialCooldown - dt);
       z.chargeCooldown = Math.max(0, z.chargeCooldown - dt);
+      z.spitCooldown = Math.max(0, z.spitCooldown - dt);
+      z.summonCooldown = Math.max(0, z.summonCooldown - dt);
       if (z.state === 'dead') {
         if (z.stateTime >= GAME.zombie.DEATH_DURATION + GAME.zombie.CORPSE_TIME) this.zombies.delete(z.id);
         continue;
@@ -161,6 +196,57 @@ export class ZombieSim {
       this.integrate(z, dt);
     }
     this.separate(living);
+    this.tickProjectiles(dt, living);
+  }
+
+  private tickProjectiles(dt: number, living: Target[]): void {
+    const b = this.bounds;
+    for (const p of this.projectiles.values()) {
+      p.ttl -= dt;
+      p.x += p.dx * p.speed * dt;
+      p.z += p.dz * p.speed * dt;
+      let hit = false;
+      for (const t of living) {
+        if (dist(p, t.position) <= p.radius + GAME.player.RADIUS) {
+          this.io.damagePlayer(t.id, p.damage, p.from);
+          this.io.slowPlayer(t.id, p.slowFactor, p.slowTime);
+          hit = true;
+          break;
+        }
+      }
+      if (hit || p.ttl <= 0 || p.x < b.minX || p.x > b.maxX || p.z < b.minZ || p.z > b.maxZ) this.projectiles.delete(p.id);
+    }
+  }
+
+  private fireProjectile(z: Zombie, dx: number, dz: number, boss: boolean): void {
+    const c = boss ? GAME.boss.VOLLEY : GAME.zombie.SPIT;
+    const id = this.nextProjectileId++;
+    this.projectiles.set(id, {
+      id,
+      x: z.x + dx * (z.radius + 0.2),
+      z: z.z + dz * (z.radius + 0.2),
+      dx,
+      dz,
+      speed: c.SPEED,
+      radius: boss ? 0.7 : GAME.zombie.SPIT.RADIUS,
+      damage: Math.round(c.DAMAGE * z.dmgMult),
+      slowFactor: c.SLOW_FACTOR,
+      slowTime: c.SLOW_TIME,
+      ttl: c.TTL,
+      boss,
+      from: z.id,
+    });
+  }
+
+  /** Chefão invoca zumbis ao redor de si (mesma escala da wave). */
+  private summon(z: Zombie): void {
+    const n = GAME.boss.SUMMON.COUNT;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + this.rand();
+      const kind: ZombieKind = this.rand() < GAME.zombie.SPITTER_RATIO ? 'spitter' : 'zombie';
+      const m = this.spawn(kind, z.x + Math.cos(a) * 2.5, z.z + Math.sin(a) * 2.5, z.hpMult, z.dmgMult);
+      m.state = 'chase';
+    }
   }
 
   private nearest(z: Zombie, living: Target[]): { t: Target; d: number } | null {
@@ -201,14 +287,29 @@ export class ZombieSim {
         z.targetId = near.t.id;
         this.lookAt(z, near.t.position);
         if (boss) {
+          if (z.summonCooldown <= 0) {
+            z.summonCooldown = GAME.boss.SUMMON.COOLDOWN;
+            this.summon(z);
+          }
           if (z.specialCooldown <= 0 && near.d <= GAME.boss.SLAM.RANGE) {
             this.startSlam(z);
+            break;
+          }
+          if (z.spitCooldown <= 0 && near.d > GAME.boss.SLAM.RANGE && near.d <= GAME.boss.VOLLEY.RANGE) {
+            this.setState(z, 'volley');
+            z.vx = z.vz = 0;
+            z.spitCooldown = GAME.boss.VOLLEY.COOLDOWN;
             break;
           }
           if (z.chargeCooldown <= 0 && near.d >= GAME.boss.CHARGE.MIN_DIST) {
             this.startCharge(z, near.t.position);
             break;
           }
+        } else if (z.kind === 'spitter' && z.spitCooldown <= 0 && near.d >= cfg.SPIT.RANGE_MIN && near.d <= cfg.SPIT.RANGE_MAX) {
+          this.setState(z, 'spit');
+          z.vx = z.vz = 0;
+          z.spitCooldown = cfg.SPIT.COOLDOWN;
+          break;
         } else if (z.specialCooldown <= 0 && near.d <= cfg.SPECIAL.RANGE) {
           this.startAttack(z, 'special');
           break;
@@ -243,6 +344,32 @@ export class ZombieSim {
           z.hitApplied = true;
           const reach = c.RANGE + (boss ? z.radius : 0) + 0.3;
           if (target && dist(z, target.position) <= reach) this.hitPlayer(z, target, special);
+        }
+        if (z.stateTime >= c.DURATION) this.setState(z, 'chase');
+        break;
+      }
+
+      case 'spit':
+      case 'volley': {
+        const bossShot = z.state === 'volley';
+        const c = bossShot ? GAME.boss.VOLLEY : cfg.SPIT;
+        z.vx = z.vz = 0;
+        const target = living.find((t) => t.id === z.targetId) ?? near?.t;
+        if (target && z.stateTime < c.DURATION * c.FIRE_AT) this.lookAt(z, target.position);
+        if (!z.hitApplied && z.stateTime >= c.DURATION * c.FIRE_AT) {
+          z.hitApplied = true;
+          if (target) {
+            const dx = target.position.x - z.x;
+            const dz = target.position.z - z.z;
+            const l = Math.hypot(dx, dz) || 1;
+            const base = Math.atan2(dx / l, dz / l);
+            const n = bossShot ? GAME.boss.VOLLEY.COUNT : 1;
+            const spread = bossShot ? (GAME.boss.VOLLEY.SPREAD_DEG * Math.PI) / 180 : 0;
+            for (let i = 0; i < n; i++) {
+              const a = base + (n > 1 ? (i - (n - 1) / 2) * spread : 0);
+              this.fireProjectile(z, Math.sin(a), Math.cos(a), bossShot);
+            }
+          }
         }
         if (z.stateTime >= c.DURATION) this.setState(z, 'chase');
         break;
@@ -424,6 +551,8 @@ function animFor(z: Zombie): ZombieAnim {
     case 'dead':
       return 'Death';
     case 'attack':
+    case 'spit':
+    case 'volley':
       return 'Punch_Left';
     case 'special':
     case 'slam':

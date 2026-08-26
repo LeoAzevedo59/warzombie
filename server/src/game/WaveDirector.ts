@@ -96,7 +96,9 @@ export class WaveDirector {
     const count = Math.round(GAME.waves.BASE_COUNT[n - 1] * mult);
     for (let i = 0; i < count; i++) {
       const p = this.sim.pickSpawnPoint();
-      const z = this.sim.spawn('zombie', p.x, p.z, mult, mult);
+      // parte da horda cospe à distância (lentidão); o resto vai no corpo a corpo
+      const kind = i % Math.round(1 / GAME.zombie.SPITTER_RATIO) === 1 ? 'spitter' : 'zombie';
+      const z = this.sim.spawn(kind, p.x, p.z, mult, mult);
       // já nascem caçando (a bateria "acorda" a horda)
       z.state = 'chase';
     }

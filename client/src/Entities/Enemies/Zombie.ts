@@ -9,6 +9,7 @@ import type { ZombieAnim, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 /** Tom aplicado ao worker.glb pra virar zumbi (multiplica a textura). */
 const ZOMBIE_TINT = new pc.Color(0.45, 0.85, 0.4);
 const BOSS_TINT = new pc.Color(0.9, 0.3, 0.25);
+const SPITTER_TINT = new pc.Color(0.7, 0.45, 0.95);
 const HURT_TINT = new pc.Color(1.6, 0.5, 0.5);
 const HURT_FLASH_TIME = 0.12;
 const LERP_SPEED = 12;
@@ -54,7 +55,7 @@ export class Zombie {
     const scale = MODEL_SCALE.player * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);
     this.model.setLocalScale(scale, scale, scale);
     this.entity.addChild(this.model);
-    this.baseTint = snap.kind === 'boss' ? BOSS_TINT : ZOMBIE_TINT;
+    this.baseTint = snap.kind === 'boss' ? BOSS_TINT : snap.kind === 'spitter' ? SPITTER_TINT : ZOMBIE_TINT;
     this.tint();
     this.anim = new AnimatedModel(this.entity, this.model);
 

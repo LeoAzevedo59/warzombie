@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -280,7 +280,7 @@ export interface PlayerLeftMessage {
   id: string;
 }
 
-export type ZombieKind = 'zombie' | 'boss';
+export type ZombieKind = 'zombie' | 'spitter' | 'boss';
 export type ZombieAnim = 'Idle' | 'Walk' | 'Run' | 'Punch_Left' | 'Kick_Right' | 'Death';
 
 /** Zumbi como o client o renderiza (a simulação é do servidor). */
@@ -308,11 +308,29 @@ export interface WaveState {
   nextIn: number | null;
 }
 
-/** Broadcast periódico (WS_TICK_RATE Hz) com a pose de todos, exceto o destinatário, e os zumbis. */
+/** Projétil (cuspe) em voo, simulado no servidor. */
+export interface ProjectileSnapshot {
+  id: number;
+  x: number;
+  z: number;
+  /** disparado pelo chefão (maior/mais forte) */
+  boss: boolean;
+}
+
+/** Broadcast periódico (WS_TICK_RATE Hz) com a pose de todos, exceto o destinatário, zumbis e projéteis. */
 export interface StateMessage {
   type: 'state';
   players: Array<PlayerPose & { id: string }>;
   zombies: ZombieSnapshot[];
+  projectiles: ProjectileSnapshot[];
+}
+
+/** Jogador foi atingido por um cuspe: anda a `factor` da velocidade por `seconds`. */
+export interface SlowedMessage {
+  type: 'slowed';
+  playerId: string;
+  factor: number;
+  seconds: number;
 }
 
 export interface WaveStateMessage {
@@ -410,6 +428,7 @@ export type ServerMessage =
   | ZombieDiedMessage
   | PhaseCompleteMessage
   | KnockbackMessage
+  | SlowedMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | StateMessage

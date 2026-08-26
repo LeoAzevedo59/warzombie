@@ -94,9 +94,10 @@ Regras:
 
 ## Waves e boss (M3)
 
-- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** com 60 s entre elas.
+- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** ([8, 12, 16, 22, 30] zumbis) com 60 s entre elas.
 - Quantidade, vida e dano escalam ×1.5 por jogador online (`GAME.waves` / `GAME.zombie` em `shared/gameconfig.ts`).
-- Wave 5 limpa → **chefão** (15× a vida, soco forte, **pancada em área** com aviso no chão e **investida**). Chefão morto → `phase_complete`, sala vira `FINISHED`.
+- Zumbis correm a 5.2 (andar do jogador = 4, correr = 7.5): **é preciso correr para fugir**. ~35% da horda são **cuspidores** (roxos): lançam um projétil à distância que dá dano e **lentidão de 50% por 2,5 s**.
+- Wave 5 limpa → **chefão** (30× a vida, corre a 6.8, **rajada de 3 cuspes** à distância com lentidão, **investida** com knockback, **pancada em área** com aviso no chão e **invoca 3 zumbis** a cada 20 s). Chefão morto → `phase_complete`, sala vira `FINISHED`.
 - Toda a IA roda no servidor (`server/src/game/ZombieSim.ts`, `WaveDirector.ts`); o client só renderiza os `zombies` do `state`
   (`client/src/Systems/ZombieSystem.ts`). Abates contam para quem deu o tiro final.
 - `hit_node` tem cadência mínima no server (não dá para derrubar uma árvore mandando 3 hits de uma vez).

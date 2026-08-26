@@ -12,6 +12,7 @@ function setup(players: number) {
     {
       damagePlayer: (id, amount) => hits.push({ id, amount }),
       knockback: () => undefined,
+      slowPlayer: (id, f, t) => events.push(`slow:${id}:${f}:${t}`),
       bossSlam: () => events.push('slam'),
       zombieDied: (z) => events.push(`died:${z.kind}`),
     },
@@ -38,8 +39,8 @@ test('waves escalam ×1.5 por jogador e seguem o intervalo de 60s', () => {
   advance(GAME.waves.FIRST_DELAY);
   assert.ok(waves.tick());
   const mult = 1.5 ** 2;
-  assert.equal(events[0], `wave:1:${Math.round(4 * mult)}:3`);
-  assert.equal(sim.aliveCount, Math.round(4 * mult));
+  assert.equal(events[0], `wave:1:${Math.round(GAME.waves.BASE_COUNT[0] * mult)}:3`);
+  assert.equal(sim.aliveCount, Math.round(GAME.waves.BASE_COUNT[0] * mult));
   const z = [...sim.alive()][0];
   assert.equal(z.maxHp, Math.round(GAME.zombie.MAX_HP * mult));
   assert.equal(z.damage, Math.round(GAME.zombie.DAMAGE * mult));
@@ -94,4 +95,33 @@ test('zumbi persegue o jogador vivo mais próximo, ataca no alcance e respeita o
   z.x = 47;
   sim.tick(0.5, []);
   assert.ok(z.x <= 3 * 16, `fora do mapa: x=${z.x}`);
+});
+
+test('cuspidor lança projétil que causa dano e lentidão', () => {
+  const { sim, hits, events } = setup(1);
+  const z = sim.spawn('spitter', 0, 0);
+  z.spitCooldown = 0;
+  const t = { id: 'p', position: { x: 8, z: 0 }, dead: false };
+  for (let i = 0; i < 6; i++) sim.tick(0.1, [t]); // detecta e entra em chase -> spit
+  assert.equal(z.state, 'spit');
+  for (let i = 0; i < 4; i++) sim.tick(0.1, [t]); // dispara em FIRE_AT (0.35s)
+  assert.ok(sim.projectiles.size >= 1, 'projétil deveria existir');
+  for (let i = 0; i < 20; i++) sim.tick(0.05, [t]);
+  assert.ok(hits.some((h) => h.id === 'p' && h.amount === GAME.zombie.SPIT.DAMAGE), 'dano do cuspe');
+  assert.ok(events.some((e) => e.startsWith('slow:p:')), 'lentidão aplicada');
+  assert.equal(sim.projectiles.size, 0);
+});
+
+test('chefão invoca zumbis e dispara rajada à distância', () => {
+  const { sim } = setup(1);
+  const boss = sim.spawn('boss', 0, 0);
+  boss.summonCooldown = 0;
+  boss.spitCooldown = 0;
+  boss.chargeCooldown = 99;
+  const t = { id: 'p', position: { x: 12, z: 0 }, dead: false };
+  for (let i = 0; i < 4; i++) sim.tick(0.1, [t]);
+  assert.equal(sim.aliveCount, 1 + GAME.boss.SUMMON.COUNT);
+  assert.equal(boss.state, 'volley');
+  for (let i = 0; i < 6; i++) sim.tick(0.1, [t]);
+  assert.equal([...sim.projectiles.values()].filter((p) => p.boss).length, GAME.boss.VOLLEY.COUNT);
 });

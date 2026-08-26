@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { PlayerSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { PlayerSnapshot, ProjectileSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -81,6 +81,7 @@ export class Match {
           if (p) this.damagePlayer(p, amount, undefined, byZombie);
         },
         knockback: (playerId, dx, dz, force) => this.io.send(playerId, { type: 'knockback', dx, dz, force }),
+        slowPlayer: (playerId, factor, seconds) => this.io.broadcast({ type: 'slowed', playerId, factor, seconds }),
         bossSlam: (x, z, radius, windup) => this.io.broadcast({ type: 'boss_slam', x, z, radius, windup }),
         zombieDied: (z, killerId) => this.onZombieDied(z, killerId),
       },
@@ -125,6 +126,10 @@ export class Match {
 
   zombieSnapshots(): ZombieSnapshot[] {
     return this.zombies.snapshots();
+  }
+
+  projectileSnapshots(): ProjectileSnapshot[] {
+    return this.zombies.projectileSnapshots();
   }
 
   // ---------- jogadores ----------

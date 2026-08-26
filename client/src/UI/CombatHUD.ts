@@ -13,6 +13,7 @@ export class CombatHUD {
   private unsubs: Array<() => void> = [];
   private flashTimer: number | null = null;
   private countdown: number | null = null;
+  private slowedUntil = 0;
 
   constructor(
     parent: HTMLElement,
@@ -52,6 +53,11 @@ export class CombatHUD {
         this.render();
       }),
       bus.on('player:damaged', ({ special }) => this.showFlash(special)),
+      bus.on('player:slowed', ({ seconds }) => {
+        this.slowedUntil = Date.now() + seconds * 1000;
+        this.render();
+        window.setTimeout(() => this.render(), seconds * 1000 + 50);
+      }),
       bus.on('player:died', ({ killerName, respawnIn }) => this.showDeath(killerName, respawnIn)),
       bus.on('player:respawned', () => this.hideDeath()),
     );
@@ -94,7 +100,8 @@ export class CombatHUD {
     } else {
       hint = '<span class="hud-cooldown">Compre uma Glock no vendedor e equipe (1-5)</span>';
     }
-    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span><br/>${hint}`;
+    const slow = Date.now() < this.slowedUntil ? '<br/><span class="slowed">☠ Lento! (cuspe)</span>' : '';
+    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span><br/>${hint}${slow}`;
   }
 
   dispose(): void {

@@ -24,6 +24,19 @@ export class Player {
   running = false;
   /** Enquanto > 0 o player mantém a pose de tiro (não troca pra Idle/Walk/Run). */
   private shootPoseTimer = 0;
+  /** Lentidão (cuspe de zumbi): fator aplicado à velocidade até `slowUntil` (ms). */
+  private slowFactor = 1;
+  private slowUntil = 0;
+
+  applySlow(factor: number, seconds: number): void {
+    this.slowFactor = factor;
+    this.slowUntil = performance.now() + seconds * 1000;
+  }
+
+  /** Multiplicador de velocidade atual (1 = normal). */
+  get speedMult(): number {
+    return performance.now() < this.slowUntil ? this.slowFactor : 1;
+  }
 
   constructor(readonly stats: PlayerStats) {
     this.entity = new pc.Entity('player');

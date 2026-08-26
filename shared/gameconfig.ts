@@ -14,35 +14,45 @@ export const GAME = {
   },
   zombie: {
     MAX_HP: 60,
-    DAMAGE: 8,
+    DAMAGE: 16,
     RADIUS: 0.35,
     WANDER_SPEED: 1.2,
-    CHASE_SPEED: 3.6,
-    DETECT_RADIUS: 14,
-    LOSE_RADIUS: 30,
+    /** acima do andar do jogador (4) e abaixo do correr (7.5): precisa correr para fugir */
+    CHASE_SPEED: 5.2,
+    DETECT_RADIUS: 16,
+    LOSE_RADIUS: 34,
     /** soco: alcance, cooldown, duração da animação e fração em que o dano aplica */
-    ATTACK: { RANGE: 1.4, COOLDOWN: 1.3, DURATION: 1.0, HIT_AT: 0.45 },
+    ATTACK: { RANGE: 1.4, COOLDOWN: 1.1, DURATION: 1.0, HIT_AT: 0.45 },
     /** chute: mais dano (x2.75), knockback, cooldown longo */
     SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 2.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
+    /** fração da horda que nasce como cuspidor (ataque à distância que dá lentidão) */
+    SPITTER_RATIO: 0.35,
+    /** cuspe: alcance útil, cooldown, projétil (velocidade/raio/dano) e lentidão aplicada */
+    SPIT: { RANGE_MIN: 3, RANGE_MAX: 13, COOLDOWN: 4.5, DURATION: 0.7, FIRE_AT: 0.5, SPEED: 11, RADIUS: 0.55, DAMAGE: 7, SLOW_FACTOR: 0.5, SLOW_TIME: 2.5, TTL: 2 },
     DEATH_DURATION: 2.0,
     /** s até o corpo sumir no client após Death */
     CORPSE_TIME: 2.5,
   },
   boss: {
-    HP_MULT: 15,
-    DAMAGE: 20,
+    HP_MULT: 30,
+    DAMAGE: 35,
     RADIUS: 0.8,
     SCALE: 2.2,
-    CHASE_SPEED: 2.6,
+    /** quase a corrida do jogador: correr só ganha distância devagar */
+    CHASE_SPEED: 6.8,
     /** pancada no chão em área: aviso (telegraph), raio, dano, cooldown */
-    SLAM: { WINDUP: 1.5, RADIUS: 3.5, DAMAGE: 35, COOLDOWN: 10, RANGE: 3 },
+    SLAM: { WINDUP: 1.2, RADIUS: 4, DAMAGE: 45, COOLDOWN: 7, RANGE: 3.5 },
     /** investida: velocidade, duração, dano de contato, cooldown, distância mínima do alvo para usar */
-    CHARGE: { SPEED: 10, DURATION: 0.9, DAMAGE: 25, COOLDOWN: 8, MIN_DIST: 5, KNOCKBACK: 9 },
+    CHARGE: { SPEED: 14, DURATION: 1.0, DAMAGE: 35, COOLDOWN: 5, MIN_DIST: 6, KNOCKBACK: 11 },
+    /** rajada de cuspes à distância (leque), cada um com dano e lentidão */
+    VOLLEY: { COUNT: 3, SPREAD_DEG: 14, COOLDOWN: 5, DURATION: 0.8, FIRE_AT: 0.5, RANGE: 18, SPEED: 14, DAMAGE: 22, SLOW_FACTOR: 0.45, SLOW_TIME: 3, TTL: 2.2 },
+    /** invoca zumbis ao redor de si */
+    SUMMON: { COUNT: 3, COOLDOWN: 20, FIRST_DELAY: 8 },
   },
   waves: {
     TOTAL: 5,
     /** zumbis por wave com 1 jogador; escala ×DIFFICULTY_PER_PLAYER^(n-1) */
-    BASE_COUNT: [4, 6, 8, 10, 12],
+    BASE_COUNT: [8, 12, 16, 22, 30],
     /** multiplicador de quantidade, vida e dano por jogador adicional */
     DIFFICULTY_PER_PLAYER: 1.5,
     /** s entre o início de uma wave e o início da próxima */

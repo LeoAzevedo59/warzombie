@@ -2,7 +2,8 @@ import * as pc from 'playcanvas';
 import type { System } from '@/Core/GameLoop';
 import type { EventBus } from '@/Core/EventBus';
 import type { Player } from '@/Entities/Player/Player';
-import { makeCylinder } from '@/Assets/Primitives';
+import { makeCylinder, makeSphere } from '@/Assets/Primitives';
+import type { ProjectileSnapshot } from '@shared/protocol';
 import { mapBounds } from '@shared/worldgen';
 
 /** Efeitos vindos do servidor: knockback no player local e aviso (círculo vermelho) da pancada do boss. */
@@ -12,6 +13,7 @@ export class EffectsSystem implements System {
   private knockback = new pc.Vec3();
   private bounds = mapBounds();
   private telegraphs: Array<{ entity: pc.Entity; ttl: number; total: number }> = [];
+  private projectiles = new Map<number, { entity: pc.Entity; target: pc.Vec3 }>();
 
   constructor(
     bus: EventBus,
@@ -20,6 +22,7 @@ export class EffectsSystem implements System {
   ) {
     this.unsubs.push(
       bus.on('net:knockback', ({ dx, dz, force }) => this.knockback.set(dx * force, 0, dz * force)),
+      bus.on('net:projectiles', ({ projectiles }) => this.applyProjectiles(projectiles)),
       bus.on('boss:slam', ({ x, z, radius, windup }) => {
         const disc = makeCylinder({ color: '#ff3b3b', scale: [radius * 2, 0.04, radius * 2], position: [x, 0.03, z], emissive: 1.2 });
         this.sceneRoot.addChild(disc);
@@ -28,7 +31,35 @@ export class EffectsSystem implements System {
     );
   }
 
+  /** Cuspes em voo: esferas verdes (roxas/maiores para o chefão) interpoladas entre snapshots. */
+  private applyProjectiles(snaps: ProjectileSnapshot[]): void {
+    const seen = new Set<number>();
+    for (const s of snaps) {
+      seen.add(s.id);
+      let p = this.projectiles.get(s.id);
+      if (!p) {
+        const size = s.boss ? 0.6 : 0.35;
+        const entity = makeSphere({ color: s.boss ? '#c05cff' : '#8cff4d', scale: [size, size, size], position: [s.x, 1.0, s.z], emissive: 1.4 });
+        this.sceneRoot.addChild(entity);
+        p = { entity, target: new pc.Vec3(s.x, 1.0, s.z) };
+        this.projectiles.set(s.id, p);
+      }
+      p.target.set(s.x, 1.0, s.z);
+    }
+    for (const [id, p] of this.projectiles) {
+      if (!seen.has(id)) {
+        p.entity.destroy();
+        this.projectiles.delete(id);
+      }
+    }
+  }
+
   update(dt: number): void {
+    for (const p of this.projectiles.values()) {
+      const pos = p.entity.getPosition();
+      const t = 1 - Math.exp(-20 * dt);
+      p.entity.setPosition(pos.x + (p.target.x - pos.x) * t, 1.0, pos.z + (p.target.z - pos.z) * t);
+    }
     const k = this.knockback;
     if (k.lengthSq() > 1e-4) {
       const p = this.player.position;
@@ -58,5 +89,7 @@ export class EffectsSystem implements System {
     this.unsubs.forEach((u) => u());
     for (const t of this.telegraphs) t.entity.destroy();
     this.telegraphs = [];
+    for (const p of this.projectiles.values()) p.entity.destroy();
+    this.projectiles.clear();
   }
 }

@@ -408,11 +408,12 @@ export class GameServer {
       room.match?.tick();
       const all = room.snapshots();
       const zombies = room.match?.zombieSnapshots() ?? [];
+      const projectiles = room.match?.projectileSnapshots() ?? [];
       for (const m of room.members.values()) {
         const others = all
           .filter((p) => p.id !== m.player.id)
           .map(({ id, x, z, yaw, anim, crouching }) => ({ id, x, z, yaw, anim, crouching }));
-        room.send(m, { type: 'state', players: others, zombies });
+        room.send(m, { type: 'state', players: others, zombies, projectiles });
       }
       // contagem regressiva/vivos mudam a cada segundo: manda wave_state 1x/s enquanto ativo
       if (room.match?.waves.active && now - room.lastWaveStateAt >= 1000) {
