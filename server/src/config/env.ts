@@ -16,4 +16,9 @@ export const env = {
   get isProd() {
     return this.NODE_ENV === 'production';
   },
+  /** painel ⚙ de cheats: ligado fora de produção ou com DEV_CHEATS=1 (ex.: no compose para testar fases) */
+  get devCheats() {
+    const v = process.env.DEV_CHEATS;
+    return v !== undefined ? v === '1' || v === 'true' : this.NODE_ENV !== 'production';
+  },
 } as const;

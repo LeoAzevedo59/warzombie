@@ -17,6 +17,7 @@ import { NetworkSystem } from '@/Systems/NetworkSystem';
 import { ZombieSystem } from '@/Systems/ZombieSystem';
 import { EffectsSystem } from '@/Systems/EffectsSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
+import { DevPanel } from '@/UI/DevPanel';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
@@ -52,6 +53,7 @@ export class WorldScene extends BaseScene {
     combat: CombatHUD;
     players: PlayersHUD;
     wave: WaveHUD;
+    dev: DevPanel | null;
   } | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
@@ -124,6 +126,7 @@ export class WorldScene extends BaseScene {
         for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
         return null;
       }),
+      dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
     };
     this.unsubs.push(
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
@@ -162,7 +165,7 @@ export class WorldScene extends BaseScene {
     this.loop.dispose();
     this.player.dispose();
     this.world.dispose();
-    if (this.ui) for (const u of Object.values(this.ui)) u.dispose();
+    if (this.ui) for (const u of Object.values(this.ui)) u?.dispose();
     this.ui = null;
     super.exit();
   }

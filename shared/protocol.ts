@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -136,6 +136,17 @@ export interface FireMessage {
 export interface ReloadMessage {
   type: 'reload';
 }
+/** Cheats de desenvolvimento — só aceitos quando o servidor roda com DEV_CHEATS ligado. */
+export type DevAction =
+  | { action: 'money'; amount: number }
+  | { action: 'give'; itemId: ItemId }
+  | { action: 'damage_mult'; value: number }
+  | { action: 'heal' }
+  | { action: 'kill_zombies' }
+  | { action: 'next_wave' }
+  | { action: 'spawn_boss' };
+export type DevMessage = { type: 'dev' } & DevAction;
+
 /** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
 export interface ActivateBatteryMessage {
   type: 'activate_battery';
@@ -153,6 +164,7 @@ export type ClientMessage =
   | FireMessage
   | ReloadMessage
   | ActivateBatteryMessage
+  | DevMessage
   | RoomListMessage
   | RoomCreateMessage
   | RoomJoinMessage
@@ -167,6 +179,8 @@ export interface WelcomeMessage {
   /** o próprio jogador, já persistido */
   you: PlayerSnapshot;
   tickRate: number;
+  /** servidor aceita mensagens `dev` (painel ⚙ no client) */
+  devCheats: boolean;
 }
 
 /** Lista de salas; enviada a quem está no lobby sempre que algo muda. */
@@ -396,7 +410,8 @@ export interface ErrorMessage {
     | 'no_weapon'
     | 'dead'
     | 'no_battery'
-    | 'already_active';
+    | 'already_active'
+    | 'dev_disabled';
   message: string;
 }
 

@@ -98,10 +98,10 @@ export class CombatHUD {
         ? '<span class="hud-cooldown">Recarregando...</span>'
         : `Munição: <b>${this.ammo.mag}/${this.ammo.magSize}</b> <span class="hud-cooldown">· R recarrega · clique atira</span>`;
     } else {
-      hint = '<span class="hud-cooldown">Compre uma Glock no vendedor e equipe (1-5)</span>';
+      hint = '';
     }
     const slow = Date.now() < this.slowedUntil ? '<br/><span class="slowed">☠ Lento! (cuspe)</span>' : '';
-    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span><br/>${hint}${slow}`;
+    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span>${hint ? '<br/>' + hint : ''}${slow}`;
   }
 
   dispose(): void {

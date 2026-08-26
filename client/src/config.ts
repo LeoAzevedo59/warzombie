@@ -19,7 +19,7 @@ export const CONFIG = {
     CROUCH_HEIGHT: 1.1,
     RADIUS: GAME.player.RADIUS,
     MAX_HP: GAME.player.MAX_HP,
-    MAX_STAMINA: 100,
+    MAX_STAMINA: 60, // barra curta: ~1,8 s de corrida contínua
     STAMINA_DRAIN: 34, // por segundo correndo (~3 s de corrida contínua)
     STAMINA_REGEN: 10, // por segundo parado/andando
   },

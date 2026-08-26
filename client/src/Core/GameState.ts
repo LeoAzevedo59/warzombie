@@ -10,6 +10,8 @@ export class GameState {
   /** Identidade no servidor (preenchida pelo `welcome` do WebSocket). */
   playerId: string | null = null;
   playerName = '';
+  /** servidor aceita cheats (painel ⚙) */
+  devCheats = false;
 
   /** Sala atual (definida pelo lobby) e quem já estava no mundo quando a partida começou. */
   roomId: string | null = null;

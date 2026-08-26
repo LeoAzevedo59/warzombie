@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { PlayerSnapshot, ProjectileSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -19,6 +19,8 @@ export interface MatchPlayer {
   nextFireAt: number;
   /** último hit em árvore/rocha (ms) — limita a cadência ao HIT_INTERVAL */
   lastHitAt: number;
+  /** (dev) multiplicador de dano da arma */
+  damageMult: number;
 }
 
 export class MatchError extends Error {
@@ -148,6 +150,7 @@ export class Match {
       reloadUntil: 0,
       nextFireAt: 0,
       lastHitAt: -Infinity,
+      damageMult: 1,
     };
     this.players.set(snapshot.id, p);
     return p;
@@ -319,8 +322,41 @@ export class Match {
       hitZombieId: hit.target?.zb?.id,
     });
     this.sendAmmo(p);
-    if (hit.target?.mp) this.damagePlayer(hit.target.mp, w.DAMAGE, playerId);
-    if (hit.target?.zb) this.zombies.damage(hit.target.zb, w.DAMAGE, playerId);
+    const dmg = Math.round(w.DAMAGE * p.damageMult);
+    if (hit.target?.mp) this.damagePlayer(hit.target.mp, dmg, playerId);
+    if (hit.target?.zb) this.zombies.damage(hit.target.zb, dmg, playerId);
+  }
+
+  /** Cheats de desenvolvimento (o GameServer só chama com DEV_CHEATS ligado). */
+  dev(playerId: string, a: DevAction): void {
+    const p = this.get(playerId);
+    switch (a.action) {
+      case 'money':
+        this.setMoney(Math.max(0, this.money + a.amount), a.amount);
+        return;
+      case 'give':
+        if (addItem(p.hotbar, a.itemId, 1) > 0) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+        this.sendHotbar(p);
+        return;
+      case 'damage_mult':
+        p.damageMult = a.value;
+        return;
+      case 'heal':
+        p.snapshot.hp = GAME.player.MAX_HP;
+        this.io.broadcast({ type: 'hp', playerId, hp: p.snapshot.hp });
+        return;
+      case 'kill_zombies':
+        for (const z of [...this.zombies.alive()]) this.zombies.damage(z, 1e9, playerId);
+        return;
+      case 'next_wave':
+        this.waves.devNextWave();
+        this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+        return;
+      case 'spawn_boss':
+        this.waves.devSpawnBoss();
+        this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+        return;
+    }
   }
 
   private onZombieDied(z: Zombie, killerId?: string): void {

@@ -86,6 +86,21 @@ export class WaveDirector {
     }
   }
 
+  /** (dev) força a próxima wave agora; na última, chama o chefão. */
+  devNextWave(): void {
+    if (this.phase === 'idle') this.activate();
+    if (this.wave < GAME.waves.TOTAL) this.startWave(this.wave + 1);
+    else if (this.phase !== 'boss' && this.phase !== 'complete') this.spawnBoss();
+  }
+
+  /** (dev) chefão agora, seja qual for a wave. */
+  devSpawnBoss(): void {
+    if (this.phase === 'boss' || this.phase === 'complete') return;
+    if (this.phase === 'idle') this.activate();
+    this.wave = GAME.waves.TOTAL;
+    this.spawnBoss();
+  }
+
   private difficulty(players: number): number {
     return Math.pow(GAME.waves.DIFFICULTY_PER_PLAYER, Math.max(0, players - 1));
   }

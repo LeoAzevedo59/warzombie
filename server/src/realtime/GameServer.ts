@@ -154,6 +154,10 @@ export class GameServer {
           return this.match(conn).reload(conn.player.id);
         case 'activate_battery':
           return this.match(conn).activateBattery(conn.player.id);
+        case 'dev':
+          if (!env.devCheats) return this.send(conn, { type: 'error', code: 'dev_disabled', message: 'Cheats desligados neste servidor.' });
+          log.warn(`[dev] ${conn.player.name}: ${msg.action}`);
+          return this.match(conn).dev(conn.player.id, msg);
         case 'room_list':
           return this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
         case 'room_create':
@@ -203,7 +207,7 @@ export class GameServer {
       };
       this.byPlayerId.set(player.id, conn);
 
-      this.send(conn, { type: 'welcome', you: conn.player, tickRate: env.WS_TICK_RATE });
+      this.send(conn, { type: 'welcome', you: conn.player, tickRate: env.WS_TICK_RATE, devCheats: env.devCheats });
       this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
       log.info(`${player.name} entrou (${this.onlineCount} online)`);
     } catch (err) {

@@ -30,6 +30,8 @@ services:
       NODE_ENV: production
       PORT: 3000
       WS_TICK_RATE: ${WS_TICK_RATE:-20}
+      # 1 liga o painel ⚙ de cheats (testar fases rápido); deixe vazio/0 em produção de verdade
+      DEV_CHEATS: ${DEV_CHEATS:-0}
       DATABASE_URL: postgresql://${POSTGRES_USER:-warzombie}:${POSTGRES_PASSWORD:-warzombie}@db:5432/${POSTGRES_DB:-warzombie}?schema=public
     ports:
       - "${PORT:-3000}:3000"

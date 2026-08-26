@@ -47,8 +47,18 @@ const buySchema = z.object({ type: z.literal('buy'), itemId: z.enum(Object.keys(
 const fireSchema = z.object({ type: z.literal('fire'), dx: finite, dz: finite });
 const reloadSchema = z.object({ type: z.literal('reload') });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
+const itemIdSchema = z.enum(Object.keys(ITEMS) as [ItemId, ...ItemId[]]);
+const devSchema = z.discriminatedUnion('action', [
+  z.object({ type: z.literal('dev'), action: z.literal('money'), amount: z.number().int().min(-100000).max(100000) }),
+  z.object({ type: z.literal('dev'), action: z.literal('give'), itemId: itemIdSchema }),
+  z.object({ type: z.literal('dev'), action: z.literal('damage_mult'), value: z.number().min(1).max(1000) }),
+  z.object({ type: z.literal('dev'), action: z.literal('heal') }),
+  z.object({ type: z.literal('dev'), action: z.literal('kill_zombies') }),
+  z.object({ type: z.literal('dev'), action: z.literal('next_wave') }),
+  z.object({ type: z.literal('dev'), action: z.literal('spawn_boss') }),
+]);
 
-export const clientMessageSchema = z.discriminatedUnion('type', [
+const baseSchema = z.discriminatedUnion('type', [
   joinSchema,
   moveSchema,
   pingSchema,
@@ -69,6 +79,10 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export function parseClientMessage(raw: unknown): ClientMessage | null {
-  const r = clientMessageSchema.safeParse(raw);
+  if (typeof raw === 'object' && raw !== null && (raw as { type?: unknown }).type === 'dev') {
+    const d = devSchema.safeParse(raw);
+    return d.success ? (d.data as ClientMessage) : null;
+  }
+  const r = baseSchema.safeParse(raw);
   return r.success ? (r.data as ClientMessage) : null;
 }
