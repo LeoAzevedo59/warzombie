@@ -7,6 +7,7 @@ export interface GameEvents {
   'input:fire': void;
   'input:reload': void;
   'input:closePanel': void;
+  'input:escape': void;
   'input:selectSlot': { index: number };
 
   'equip:changed': { slotIndex: number; itemId: ItemId | null };

@@ -35,9 +35,9 @@ export class InputSystem implements System {
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return;
     this.keys.add(e.code);
-    // Esc fecha qualquer painel aberto (loja)
+    // Esc: fecha painel aberto ou abre/fecha o menu (decidido pela cena)
     if (e.code === 'Escape') {
-      this.bus.emit('input:closePanel');
+      this.bus.emit('input:escape');
       return;
     }
     if (!this.enabled) return;

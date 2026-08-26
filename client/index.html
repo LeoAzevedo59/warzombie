@@ -87,9 +87,14 @@
       .menu input:disabled, .menu button:disabled { opacity: .6; cursor: not-allowed; }
       .menu .status { min-height: 22px; margin-top: 12px; font-size: 14px; color: #8b98a5; }
       .menu .status.error { color: #ff7b7b; }
-      .hud-players { position: absolute; left: 16px; top: 88px; background: rgba(12,16,20,.8); border: 1px solid #2d3742; border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.6; }
-      .hud-players b { color: #ffd34d; }
-      .hud-players .count { color: #7ed957; font-weight: bold; }
+      .game-menu { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 300px; background: rgba(12,16,20,.95); border: 1px solid #2d3742; border-radius: 10px; padding: 18px 20px; font-size: 15px; line-height: 1.8; display: none; flex-direction: column; z-index: 6; }
+      .game-menu.visible { display: flex; }
+      .game-menu h2 { font-size: 18px; letter-spacing: 4px; margin-bottom: 6px; }
+      .game-menu b { color: #ffd34d; }
+      .game-menu .count { color: #7ed957; font-weight: bold; }
+      .game-menu button { margin-top: 8px; font-size: 15px; padding: 10px; border: 0; border-radius: 6px; cursor: pointer; color: #e6edf3; background: #2a323b; }
+      .game-menu button.resume { background: #3a8f4a; }
+      .game-menu button.leave:hover { background: #d63d3d; }
       .name-labels { position: absolute; inset: 0; pointer-events: none !important; overflow: hidden; }
       .name-label { position: absolute; left: 0; top: 0; background: rgba(12,16,20,.75); color: #9fc2ff; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
       .disconnect-banner { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); background: #d63d3d; color: #fff; padding: 10px 18px; border-radius: 8px; font-weight: 600; z-index: 10; }
@@ -117,8 +122,6 @@
       .code-form input { letter-spacing: 6px; font-size: 20px !important; text-align: center; }
       .menu .code { color: #ffd34d; letter-spacing: 3px; font-size: 18px; }
       .menu.lobby .back { margin-top: 16px; }
-      .hud-players .leave { margin-top: 6px; font-size: 12px; padding: 4px 10px; background: #2a323b; color: #e6edf3; border: 0; border-radius: 4px; cursor: pointer; }
-      .hud-players .leave:hover { background: #d63d3d; }
       .hud-money { position: absolute; left: 16px; bottom: 92px; background: rgba(12,16,20,.8); border: 2px solid #e6edf3; border-radius: 8px; padding: 4px 12px; font-size: 12px; color: #8b98a5; text-align: center; transition: border-color .2s; }
       .hud-money b { display: block; font-size: 20px; color: #ffd34d; letter-spacing: 1px; }
       .hud-money.up { border-color: #7ed957; }
@@ -134,7 +137,7 @@
       .shop-panel .lvl { color: #ffd34d; font-size: 12px; }
       .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
       .death-screen .timer { color: #ffd34d; font-size: 20px; }
-      .hud-wave { position: absolute; left: 16px; top: 196px; width: 260px; background: rgba(12,16,20,.85); border: 1px solid #2d3742; border-left: 3px solid #ffd34d; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #c9d1d9; line-height: 1.5; }
+      .hud-wave { position: absolute; left: 16px; top: 88px; width: 260px; background: rgba(12,16,20,.85); border: 1px solid #2d3742; border-left: 3px solid #ffd34d; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #c9d1d9; line-height: 1.5; }
       .hud-wave { position: absolute; }
       .hud-wave .mission-toggle { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; border: 1px solid #2d3742; border-radius: 4px; background: #151b22; color: #e6edf3; cursor: pointer; font-size: 14px; line-height: 1; }
       .hud-wave .mission-toggle:hover { background: #2a323b; }

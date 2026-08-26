@@ -109,7 +109,7 @@ export class WorldScene extends BaseScene {
     const shop = new ShopUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
-      this.input.enabled = !shop.open && !this.stats.dead;
+      this.input.enabled = !shop.open && !this.ui?.players.open && !this.stats.dead;
     };
     shop.onOpenChanged = updateInputEnabled;
 
@@ -128,7 +128,13 @@ export class WorldScene extends BaseScene {
       }),
       dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
     };
+    this.ui.players.onOpenChanged = updateInputEnabled;
     this.unsubs.push(
+      // Esc: fecha a loja/painel dev se abertos; senão abre/fecha o menu
+      bus.on('input:escape', () => {
+        if (shop.open) bus.emit('input:closePanel');
+        else this.ui?.players.toggle();
+      }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('player:died', () => {
         updateInputEnabled();

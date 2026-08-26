@@ -22,7 +22,7 @@ export class PlayersHUD {
     private camera: () => pc.CameraComponent,
   ) {
     this.box = document.createElement('div');
-    this.box.className = 'hud-players';
+    this.box.className = 'game-menu';
     parent.appendChild(this.box);
     this.labels = document.createElement('div');
     this.labels.className = 'name-labels';
@@ -38,10 +38,37 @@ export class PlayersHUD {
     );
   }
 
+  private count = 1;
+  private _open = false;
+  onOpenChanged: ((open: boolean) => void) | null = null;
+
+  get open(): boolean {
+    return this._open;
+  }
+
+  /** Menu de pausa (ESC): identidade, jogadores online e sair da sala. */
+  setOpen(open: boolean): void {
+    if (this._open === open) return;
+    this._open = open;
+    this.box.classList.toggle('visible', open);
+    this.onOpenChanged?.(open);
+  }
+
+  toggle(): void {
+    this.setOpen(!this._open);
+  }
+
   private render(count: number): void {
-    this.box.innerHTML = `Você: <b></b><br/>Online: <span class="count">${count}</span><br/><button class="leave">Sair da sala</button>`;
+    this.count = count;
+    this.box.innerHTML = `<h2>MENU</h2>
+      <p>Você: <b></b></p>
+      <p>Online: <span class="count">${count}</span></p>
+      <button class="resume">Voltar ao jogo (Esc)</button>
+      <button class="leave">Sair da sala</button>`;
     this.box.querySelector('b')!.textContent = this.myName;
+    this.box.querySelector<HTMLButtonElement>('.resume')!.onclick = () => this.setOpen(false);
     this.box.querySelector<HTMLButtonElement>('.leave')!.onclick = () => this.bus.emit('ui:leaveRoom');
+    void this.count;
   }
 
   /** Chamado a cada frame pela cena. */
