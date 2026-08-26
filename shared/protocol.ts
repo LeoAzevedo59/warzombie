@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -136,6 +136,10 @@ export interface FireMessage {
 export interface ReloadMessage {
   type: 'reload';
 }
+/** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
+export interface ActivateBatteryMessage {
+  type: 'activate_battery';
+}
 
 export type ClientMessage =
   | JoinMessage
@@ -148,6 +152,7 @@ export type ClientMessage =
   | BuyMessage
   | FireMessage
   | ReloadMessage
+  | ActivateBatteryMessage
   | RoomListMessage
   | RoomCreateMessage
   | RoomJoinMessage
@@ -187,6 +192,7 @@ export interface GameStartMessage {
   money: number;
   hotbar: Array<ItemStack | null>;
   equipped: number;
+  wave: WaveState;
 }
 
 // ---------- partida (server -> client) ----------
@@ -274,10 +280,79 @@ export interface PlayerLeftMessage {
   id: string;
 }
 
-/** Broadcast periódico (WS_TICK_RATE Hz) com a pose de todos, exceto o destinatário. */
+export type ZombieKind = 'zombie' | 'boss';
+export type ZombieAnim = 'Idle' | 'Walk' | 'Run' | 'Punch_Left' | 'Kick_Right' | 'Death';
+
+/** Zumbi como o client o renderiza (a simulação é do servidor). */
+export interface ZombieSnapshot {
+  id: number;
+  kind: ZombieKind;
+  x: number;
+  z: number;
+  yaw: number;
+  anim: ZombieAnim;
+  hp: number;
+  maxHp: number;
+}
+
+export type WavePhase = 'idle' | 'countdown' | 'wave' | 'boss' | 'complete';
+
+export interface WaveState {
+  phase: WavePhase;
+  /** wave atual (1..TOTAL), 0 antes de começar */
+  wave: number;
+  total: number;
+  /** zumbis vivos agora */
+  alive: number;
+  /** s até a próxima wave (ou até a primeira), null se não há próxima agendada */
+  nextIn: number | null;
+}
+
+/** Broadcast periódico (WS_TICK_RATE Hz) com a pose de todos, exceto o destinatário, e os zumbis. */
 export interface StateMessage {
   type: 'state';
   players: Array<PlayerPose & { id: string }>;
+  zombies: ZombieSnapshot[];
+}
+
+export interface WaveStateMessage {
+  type: 'wave_state';
+  wave: WaveState;
+}
+export interface WaveStartedMessage {
+  type: 'wave_started';
+  wave: number;
+  count: number;
+  /** jogadores considerados na escala de dificuldade */
+  players: number;
+}
+export interface BossSpawnedMessage {
+  type: 'boss_spawned';
+  id: number;
+  hp: number;
+}
+/** Aviso da pancada em área do boss: o client desenha o círculo no chão até `windup` s. */
+export interface BossSlamMessage {
+  type: 'boss_slam';
+  x: number;
+  z: number;
+  radius: number;
+  windup: number;
+}
+export interface ZombieDiedMessage {
+  type: 'zombie_died';
+  id: number;
+  kind: ZombieKind;
+  killerId?: string;
+}
+export interface PhaseCompleteMessage {
+  type: 'phase_complete';
+}
+export interface KnockbackMessage {
+  type: 'knockback';
+  dx: number;
+  dz: number;
+  force: number;
 }
 
 export interface ErrorMessage {
@@ -301,7 +376,9 @@ export interface ErrorMessage {
     | 'no_tool'
     | 'not_enough_money'
     | 'no_weapon'
-    | 'dead';
+    | 'dead'
+    | 'no_battery'
+    | 'already_active';
   message: string;
 }
 
@@ -326,6 +403,13 @@ export type ServerMessage =
   | HpMessage
   | PlayerDiedMessage
   | PlayerRespawnedMessage
+  | WaveStateMessage
+  | WaveStartedMessage
+  | BossSpawnedMessage
+  | BossSlamMessage
+  | ZombieDiedMessage
+  | PhaseCompleteMessage
+  | KnockbackMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | StateMessage

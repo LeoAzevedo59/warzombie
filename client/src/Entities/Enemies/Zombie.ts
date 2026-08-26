@@ -1,66 +1,83 @@
 import * as pc from 'playcanvas';
 import { CONFIG } from '@/config';
+import { GAME } from '@shared/gameconfig';
 import { instantiateModel, MODEL_SCALE, type CharacterAnimName } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { makeBox } from '@/Assets/Primitives';
-import { yawToward } from '@/Core/Spatial';
-
-export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'dead';
+import type { ZombieAnim, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Tom aplicado ao worker.glb pra virar zumbi (multiplica a textura). */
 const ZOMBIE_TINT = new pc.Color(0.45, 0.85, 0.4);
+const BOSS_TINT = new pc.Color(0.9, 0.3, 0.25);
 const HURT_TINT = new pc.Color(1.6, 0.5, 0.5);
 const HURT_FLASH_TIME = 0.12;
+const LERP_SPEED = 12;
 
 /**
- * Entidade visual + estado do zumbi. A IA (decisões) fica no ZombieSystem; aqui só
- * representação, HP, animação e feedback (flash de dano, barra de vida).
+ * Representação visual de um zumbi simulado no servidor: interpola a pose recebida a cada tick,
+ * reproduz a animação do estado e mostra barra de vida + flash de dano. Nenhuma IA aqui.
  */
 export class Zombie {
   readonly entity: pc.Entity;
+  readonly kind: ZombieKind;
   private model: pc.Entity;
   readonly anim: AnimatedModel;
   private materials: pc.StandardMaterial[] = [];
   private hpFill: pc.Entity;
   private hpBar: pc.Entity;
   private hurtTimer = 0;
+  private target = new pc.Vec3();
+  private targetYaw = 0;
+  private currentYaw = 0;
+  private currentAnim: ZombieAnim = 'Idle';
+  private baseTint: pc.Color;
 
-  hp: number = CONFIG.zombie.MAX_HP;
-  state: ZombieState = 'wander';
-  /** tempo (s) no estado atual */
-  stateTime = 0;
-  velocity = new pc.Vec3();
+  hp: number;
+  maxHp: number;
+  dead = false;
+  /** s desde que morreu (para remover o corpo) */
+  deadTime = 0;
 
   constructor(
     readonly id: number,
-    x: number,
-    z: number,
+    snap: ZombieSnapshot,
   ) {
-    this.entity = new pc.Entity(`zombie#${id}`);
-    this.entity.setPosition(x, 0, z);
+    this.kind = snap.kind;
+    this.hp = snap.hp;
+    this.maxHp = snap.maxHp;
+    this.entity = new pc.Entity(`${snap.kind}#${id}`);
+    this.entity.setPosition(snap.x, 0, snap.z);
+    this.entity.setEulerAngles(0, snap.yaw, 0);
+    this.target.set(snap.x, 0, snap.z);
+    this.targetYaw = this.currentYaw = snap.yaw;
     this.model = instantiateModel('player');
+    const scale = MODEL_SCALE.player * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);
+    this.model.setLocalScale(scale, scale, scale);
     this.entity.addChild(this.model);
+    this.baseTint = snap.kind === 'boss' ? BOSS_TINT : ZOMBIE_TINT;
     this.tint();
     this.anim = new AnimatedModel(this.entity, this.model);
 
-    // barra de vida acima da cabeça (fundo escuro + preenchimento verde)
+    // barra de vida acima da cabeça (fundo escuro + preenchimento)
     const bar = new pc.Entity('hpbar');
     this.hpBar = bar;
-    bar.setLocalPosition(0, 2.15, 0);
-    const bg = makeBox({ color: '#111', scale: [0.9, 0.09, 0.09], emissive: 0.6 });
-    this.hpFill = makeBox({ color: '#7ed957', scale: [0.86, 0.06, 0.1], emissive: 1 });
+    const h = snap.kind === 'boss' ? 2.15 * GAME.boss.SCALE : 2.15;
+    const w = snap.kind === 'boss' ? 1.8 : 0.9;
+    bar.setLocalPosition(0, h, 0);
+    const bg = makeBox({ color: '#111', scale: [w, 0.09, 0.09], emissive: 0.6 });
+    this.hpFill = makeBox({ color: snap.kind === 'boss' ? '#ff5a4d' : '#7ed957', scale: [w - 0.04, 0.06, 0.1], emissive: 1 });
     bar.addChild(bg);
     bar.addChild(this.hpFill);
     this.entity.addChild(bar);
   }
 
-  /** Clona os materiais do GLB (pra não tingir o player, que usa o mesmo asset) e aplica o tom verde. */
+  /** Clona os materiais do GLB (pra não tingir o player, que usa o mesmo asset) e aplica o tom. */
   private tint(): void {
     const renders = this.model.findComponents('render') as pc.RenderComponent[];
     for (const r of renders) {
       const cloned = r.meshInstances.map((mi) => {
         const m = (mi.material as pc.StandardMaterial).clone();
-        m.diffuse.copy(ZOMBIE_TINT);
+        m.diffuse.copy(this.baseTint);
         m.update();
         this.materials.push(m);
         return m;
@@ -89,40 +106,47 @@ export class Zombie {
   }
 
   get alive(): boolean {
-    return this.state !== 'dead';
+    return !this.dead;
   }
 
-  setState(s: ZombieState): void {
-    if (this.state === s) return;
-    this.state = s;
-    this.stateTime = 0;
-  }
-
-  play(name: CharacterAnimName, restart = false): void {
-    this.anim.play(name, 0.1, restart);
-  }
-
-  lookAt(point: pc.Vec3): void {
-    yawToward(this.entity, point);
-  }
-
-  /** Aplica dano; retorna true se morreu com este hit. */
-  damage(amount: number): boolean {
-    if (!this.alive) return false;
-    this.hp = Math.max(0, this.hp - amount);
-    this.hurtTimer = HURT_FLASH_TIME;
-    this.setTint(HURT_TINT);
-    const ratio = this.hp / CONFIG.zombie.MAX_HP;
-    this.hpFill.setLocalScale(0.86 * ratio, 0.06, 0.1);
-    this.hpFill.setLocalPosition(-0.43 * (1 - ratio), 0, 0);
-    if (this.hp <= 0) {
-      this.setState('dead');
-      this.velocity.set(0, 0, 0);
-      this.play('Death');
-      this.hpFill.parent!.enabled = false;
-      return true;
+  /** Aplica o snapshot do servidor (pose alvo, animação, HP). */
+  apply(snap: ZombieSnapshot): void {
+    this.target.set(snap.x, 0, snap.z);
+    this.targetYaw = snap.yaw;
+    if (snap.hp < this.hp) {
+      this.hurtTimer = HURT_FLASH_TIME;
+      this.setTint(HURT_TINT);
     }
-    return false;
+    this.hp = snap.hp;
+    this.maxHp = snap.maxHp;
+    const w = this.kind === 'boss' ? 1.76 : 0.86;
+    const ratio = Math.max(0, this.hp / this.maxHp);
+    this.hpFill.setLocalScale(w * ratio, 0.06, 0.1);
+    this.hpFill.setLocalPosition((-w / 2) * (1 - ratio), 0, 0);
+    if (snap.anim !== this.currentAnim) {
+      const restart = snap.anim === 'Punch_Left' || snap.anim === 'Kick_Right';
+      this.currentAnim = snap.anim;
+      this.anim.play(snap.anim as CharacterAnimName, 0.1, restart);
+    }
+    if (snap.anim === 'Death' && !this.dead) {
+      this.dead = true;
+      this.hpBar.enabled = false;
+    }
+  }
+
+  update(dt: number): void {
+    if (this.dead) this.deadTime += dt;
+    this.hpBar.setEulerAngles(0, CONFIG.camera.YAW, 0); // barra sempre de frente pra câmera isométrica
+    if (this.hurtTimer > 0) {
+      this.hurtTimer -= dt;
+      if (this.hurtTimer <= 0) this.setTint(this.baseTint);
+    }
+    const t = 1 - Math.exp(-LERP_SPEED * dt);
+    const pos = this.entity.getPosition();
+    this.entity.setPosition(pos.x + (this.target.x - pos.x) * t, 0, pos.z + (this.target.z - pos.z) * t);
+    const diff = ((this.targetYaw - this.currentYaw + 540) % 360) - 180;
+    this.currentYaw += diff * t;
+    this.entity.setEulerAngles(0, this.currentYaw, 0);
   }
 
   private setTint(c: pc.Color): void {
@@ -132,21 +156,8 @@ export class Zombie {
     }
   }
 
-  /** Feedbacks por frame (flash de dano). */
-  tick(dt: number): void {
-    this.stateTime += dt;
-    // barra sempre de frente pra câmera isométrica (yaw fixo), independente de pra onde o zumbi olha
-    this.hpBar.setEulerAngles(0, CONFIG.camera.YAW, 0);
-    if (this.hurtTimer > 0) {
-      this.hurtTimer -= dt;
-      if (this.hurtTimer <= 0) this.setTint(ZOMBIE_TINT);
-    }
-  }
-
   destroy(): void {
     this.anim.dispose();
     this.entity.destroy();
   }
 }
-
-export const ZOMBIE_SCALE = MODEL_SCALE.player;

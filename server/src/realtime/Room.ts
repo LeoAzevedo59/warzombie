@@ -35,6 +35,7 @@ export class Room {
   readonly members = new Map<string, Member>();
   /** simulação da partida; existe a partir do room_start */
   match: Match | null = null;
+  lastWaveStateAt = 0;
   /** operações de entrada/saída/owner são serializadas por sala (evita corrida ao apagar) */
   private lock: Promise<void> = Promise.resolve();
 

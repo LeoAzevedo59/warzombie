@@ -84,14 +84,23 @@ Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room
 
 ## Protocolo WebSocket (`/ws`) — ver `shared/protocol.ts`
 
-Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `pickup`, `hit_node`, `select_slot`, `sell`, `buy {itemId}`, `fire {dx,dz}`, `reload`, `ping`.
-Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[], removedObjects[], money, hotbar, equipped}`, `room_left`, `player_joined`, `player_left`, `state {players[]}` (por sala, a `WS_TICK_RATE` Hz), `hotbar`, `money`, `item_gained`, `object_removed`, `node_hit`, `shot`, `ammo`, `hp`, `player_died`, `player_respawned`, `error {code}`, `pong`.
+Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `pickup`, `hit_node`, `select_slot`, `sell`, `buy {itemId}`, `fire {dx,dz}`, `reload`, `activate_battery`, `ping`.
+Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[], removedObjects[], money, hotbar, equipped}`, `room_left`, `player_joined`, `player_left`, `state {players[], zombies[]}` (por sala, a `WS_TICK_RATE` Hz), `hotbar`, `money`, `item_gained`, `object_removed`, `node_hit`, `shot`, `ammo`, `hp`, `player_died`, `player_respawned`, `knockback`, `wave_state`, `wave_started`, `boss_spawned`, `boss_slam`, `zombie_died`, `phase_complete`, `error {code}`, `pong`.
 
 Regras:
 - Identidade = nome (2–16 chars, único sem diferenciar maiúsculas). Se o nome está online, o join é recusado (`name_taken`).
 - Client é autoritativo só sobre a própria **pose** (posição/rotação/animação); tudo o mais (hotbar, HP, dinheiro, tiros, objetos do mundo) é decidido no server.
 - Abates são restaurados ao entrar de novo com o mesmo nome.
 
-## Próximo passo (M3)
+## Waves e boss (M3)
 
-- Bateria na torre → 5 waves de zumbis simuladas no server (dificuldade ×1.5 por jogador) e boss no final.
+- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** com 60 s entre elas.
+- Quantidade, vida e dano escalam ×1.5 por jogador online (`GAME.waves` / `GAME.zombie` em `shared/gameconfig.ts`).
+- Wave 5 limpa → **chefão** (15× a vida, soco forte, **pancada em área** com aviso no chão e **investida**). Chefão morto → `phase_complete`, sala vira `FINISHED`.
+- Toda a IA roda no servidor (`server/src/game/ZombieSim.ts`, `WaveDirector.ts`); o client só renderiza os `zombies` do `state`
+  (`client/src/Systems/ZombieSystem.ts`). Abates contam para quem deu o tiro final.
+- `hit_node` tem cadência mínima no server (não dá para derrubar uma árvore mandando 3 hits de uma vez).
+
+## Balanceamento atual
+
+Gravetos e pedras do mapa somam ~$130: o loop esperado é vender → machado ($30) → cortar árvores (3 troncos × $5) → bateria/Glock.

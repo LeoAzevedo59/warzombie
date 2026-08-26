@@ -1,4 +1,5 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
+import type { WaveState, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
 export interface GameEvents {
@@ -44,6 +45,14 @@ export interface GameEvents {
   'net:nodeHit': { objectId: number; hits: number; required: number };
   'net:shot': { playerId: string; dx: number; dz: number; length: number; hitPlayerId: string | null };
   'net:ammo': { mag: number; magSize: number; reloading: boolean };
+  'net:zombies': { zombies: ZombieSnapshot[] };
+  'net:knockback': { dx: number; dz: number; force: number };
+  'wave:state': { wave: WaveState };
+  'wave:started': { wave: number; count: number; players: number };
+  'boss:spawned': { id: number; hp: number };
+  'boss:slam': { x: number; z: number; radius: number; windup: number };
+  'zombie:died': { id: number; kind: ZombieKind; killerId: string | null };
+  'phase:complete': void;
 }
 
 type Handler<T> = (payload: T) => void;

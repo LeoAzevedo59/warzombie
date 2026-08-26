@@ -1,9 +1,11 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { PlayerSnapshot, ServerMessage } from '../../../shared/protocol.js';
+import type { PlayerSnapshot, ServerMessage, WaveState, ZombieSnapshot } from '../../../shared/protocol.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
-import { addItem, buy, canFit, emptyHotbar, sellAll, type Hotbar } from './Economy.js';
+import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
+import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
+import { WaveDirector } from './WaveDirector.js';
 
 /** Estado de jogo de um membro (o servidor é a autoridade; a pose vem do client). */
 export interface MatchPlayer {
@@ -15,11 +17,22 @@ export interface MatchPlayer {
   mag: number;
   reloadUntil: number;
   nextFireAt: number;
+  /** último hit em árvore/rocha (ms) — limita a cadência ao HIT_INTERVAL */
+  lastHitAt: number;
 }
 
 export class MatchError extends Error {
   constructor(
-    readonly code: 'too_far' | 'hotbar_full' | 'no_tool' | 'not_enough_money' | 'no_weapon' | 'dead' | 'invalid_message',
+    readonly code:
+      | 'too_far'
+      | 'hotbar_full'
+      | 'no_tool'
+      | 'not_enough_money'
+      | 'no_weapon'
+      | 'dead'
+      | 'invalid_message'
+      | 'no_battery'
+      | 'already_active',
     message: string,
   ) {
     super(message);
@@ -31,6 +44,10 @@ export interface MatchIO {
   broadcast(msg: ServerMessage): void;
   /** dinheiro mudou (para persistir na sala) */
   onMoneyChanged(amount: number): void;
+  /** wave mudou (para persistir na sala) */
+  onWaveChanged(wave: number): void;
+  /** boss morto: fase concluída */
+  onPhaseComplete(): void;
 }
 
 /**
@@ -43,6 +60,10 @@ export class Match {
   private hits = new Map<number, number>();
   readonly players = new Map<string, MatchPlayer>();
   money: number;
+  readonly zombies: ZombieSim;
+  readonly waves: WaveDirector;
+  private lastTick: number;
+  private obstacleCache: Obstacle[] | null = null;
 
   constructor(
     seed: number,
@@ -52,6 +73,58 @@ export class Match {
   ) {
     this.objects = generateWorld(seed);
     this.money = money;
+    this.lastTick = now();
+    this.zombies = new ZombieSim(
+      {
+        damagePlayer: (playerId, amount, byZombie) => {
+          const p = this.players.get(playerId);
+          if (p) this.damagePlayer(p, amount, undefined, byZombie);
+        },
+        knockback: (playerId, dx, dz, force) => this.io.send(playerId, { type: 'knockback', dx, dz, force }),
+        bossSlam: (x, z, radius, windup) => this.io.broadcast({ type: 'boss_slam', x, z, radius, windup }),
+        zombieDied: (z, killerId) => this.onZombieDied(z, killerId),
+      },
+      () => this.obstacles(),
+    );
+    this.waves = new WaveDirector(
+      this.zombies,
+      {
+        waveStarted: (wave, count, players) => {
+          this.io.broadcast({ type: 'wave_started', wave, count, players });
+          this.io.onWaveChanged(wave);
+        },
+        bossSpawned: (id, hp) => this.io.broadcast({ type: 'boss_spawned', id, hp }),
+        phaseComplete: () => {
+          this.io.broadcast({ type: 'phase_complete' });
+          this.io.onPhaseComplete();
+        },
+        playerCount: () => this.players.size,
+      },
+      () => this.now() / 1000,
+    );
+  }
+
+  /** Árvores/rochas ainda de pé + estruturas do hub (cache invalidado quando algo é removido). */
+  private obstacles(): Obstacle[] {
+    if (!this.obstacleCache) {
+      const list: Obstacle[] = [];
+      for (const o of this.objects.values()) {
+        const def = WORLD_OBJECTS[o.kind];
+        if (def.solidRadius && !this.removed.has(o.id)) list.push({ position: o, solidRadius: def.solidRadius });
+      }
+      list.push({ position: GAME.hub.VENDOR, solidRadius: GAME.hub.VENDOR_RADIUS });
+      list.push({ position: GAME.hub.TOWER, solidRadius: GAME.hub.TOWER_RADIUS });
+      this.obstacleCache = list;
+    }
+    return this.obstacleCache;
+  }
+
+  waveState(): WaveState {
+    return this.waves.state();
+  }
+
+  zombieSnapshots(): ZombieSnapshot[] {
+    return this.zombies.snapshots();
   }
 
   // ---------- jogadores ----------
@@ -69,6 +142,7 @@ export class Match {
       mag: GAME.weapon.glock.MAG,
       reloadUntil: 0,
       nextFireAt: 0,
+      lastHitAt: -Infinity,
     };
     this.players.set(snapshot.id, p);
     return p;
@@ -126,6 +200,10 @@ export class Match {
     const def = WORLD_OBJECTS[o.kind];
     if (!def.requiredTool) throw new MatchError('invalid_message', 'Esse objeto se pega direto.');
     if (this.equippedItem(p) !== def.requiredTool) throw new MatchError('no_tool', 'Equipe a ferramenta certa.');
+    // cadência: o client manda 1 hit por HIT_INTERVAL; mais rápido que isso (com folga de jitter) é ignorado
+    const now = this.now();
+    if (now - p.lastHitAt < GAME.interaction.HIT_INTERVAL * 1000 * 0.8) return;
+    p.lastHitAt = now;
     const hits = (this.hits.get(objectId) ?? 0) + 1;
     if (hits >= def.hitsRequired) {
       if (!canFit(p.hotbar, def.drops)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
@@ -145,6 +223,7 @@ export class Match {
       this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
     }
     this.removed.add(o.id);
+    this.obstacleCache = null;
     this.io.broadcast({ type: 'object_removed', objectId: o.id });
     this.sendHotbar(p);
   }
@@ -183,6 +262,21 @@ export class Match {
     this.sendHotbar(p);
   }
 
+  /** Coloca a bateria na torre: consome o item e dispara as waves. */
+  activateBattery(playerId: string): void {
+    const p = this.alive(playerId);
+    if (dist(p.snapshot, GAME.hub.TOWER) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) {
+      throw new MatchError('too_far', 'Chegue mais perto da torre.');
+    }
+    if (this.waves.active) throw new MatchError('already_active', 'As waves já estão em andamento.');
+    if (!hasItem(p.hotbar, 'battery')) throw new MatchError('no_battery', 'Compre uma Bateria da Torre no vendedor.');
+    const i = p.hotbar.findIndex((s) => s?.itemId === 'battery');
+    p.hotbar[i] = null;
+    this.sendHotbar(p);
+    this.waves.activate();
+    this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+  }
+
   private setMoney(amount: number, delta: number): void {
     this.money = amount;
     this.io.onMoneyChanged(amount);
@@ -206,12 +300,28 @@ export class Match {
     const dir = normalize2(dx, dz);
     const from = p.snapshot;
 
-    const targets = [...this.players.values()].filter((o) => o !== p && !o.dead).map((o) => ({ position: o.snapshot, mp: o }));
+    type Hit = { position: { x: number; z: number }; mp?: MatchPlayer; zb?: Zombie };
+    const targets: Hit[] = [...this.players.values()].filter((o) => o !== p && !o.dead).map((o) => ({ position: o.snapshot, mp: o }));
+    for (const zb of this.zombies.alive()) targets.push({ position: zb, zb });
     const hit = rayHitNearest(from, dir.dx, dir.dz, targets, w.RANGE, w.HIT_RADIUS + GAME.player.RADIUS);
-    // TODO(M3): também testar zumbis da ZombieSim
-    this.io.broadcast({ type: 'shot', playerId, dx: dir.dx, dz: dir.dz, length: hit.t, hitPlayerId: hit.target?.mp.snapshot.id });
+    this.io.broadcast({
+      type: 'shot',
+      playerId,
+      dx: dir.dx,
+      dz: dir.dz,
+      length: hit.t,
+      hitPlayerId: hit.target?.mp?.snapshot.id,
+      hitZombieId: hit.target?.zb?.id,
+    });
     this.sendAmmo(p);
-    if (hit.target) this.damagePlayer(hit.target.mp, w.DAMAGE, playerId);
+    if (hit.target?.mp) this.damagePlayer(hit.target.mp, w.DAMAGE, playerId);
+    if (hit.target?.zb) this.zombies.damage(hit.target.zb, w.DAMAGE, playerId);
+  }
+
+  private onZombieDied(z: Zombie, killerId?: string): void {
+    const killer = killerId ? this.players.get(killerId) : undefined;
+    if (killer) killer.snapshot.kills++;
+    this.io.broadcast({ type: 'zombie_died', id: z.id, kind: z.kind, killerId });
   }
 
   reload(playerId: string): void {
@@ -222,7 +332,7 @@ export class Match {
     this.sendAmmo(p);
   }
 
-  damagePlayer(target: MatchPlayer, amount: number, by?: string): void {
+  damagePlayer(target: MatchPlayer, amount: number, by?: string, _byZombie?: number): void {
     if (target.dead) return;
     target.snapshot.hp = Math.max(0, target.snapshot.hp - amount);
     this.io.broadcast({ type: 'hp', playerId: target.snapshot.id, hp: target.snapshot.hp, by });
@@ -236,9 +346,17 @@ export class Match {
 
   // ---------- loop ----------
 
-  /** Chamado a cada tick do servidor: recarga terminada, respawns. */
+  /** Chamado a cada tick do servidor: zumbis/waves, recarga terminada, respawns. */
   tick(): void {
     const now = this.now();
+    const dt = Math.min(0.1, Math.max(0, (now - this.lastTick) / 1000));
+    this.lastTick = now;
+
+    if (this.waves.active || this.zombies.zombies.size > 0) {
+      const targets = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead }));
+      this.zombies.tick(dt, targets);
+    }
+    if (this.waves.tick()) this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
     for (const p of this.players.values()) {
       if (p.reloadUntil && now >= p.reloadUntil) {
         p.reloadUntil = 0;

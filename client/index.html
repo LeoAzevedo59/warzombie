@@ -119,6 +119,16 @@
       .shop-panel .sell-row button { background: #d6a23d; }
       .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
       .death-screen .timer { color: #ffd34d; font-size: 20px; }
+      .hud-wave { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); background: rgba(12,16,20,.85); border: 1px solid #2d3742; border-radius: 6px; padding: 8px 16px; font-size: 14px; color: #c9d1d9; text-align: center; min-width: 260px; }
+      .hud-wave b { color: #ffd34d; }
+      .hud-wave .boss-label { color: #ff5a4d; font-weight: 800; letter-spacing: 2px; }
+      .hud-wave .done { color: #7ed957; font-weight: 700; }
+      .hud-wave .bar.boss { margin: 6px 0 0; height: 10px; }
+      .hud-wave .bar.boss > div { background: #ff5a4d; }
+      .wave-banner { position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%) scale(.9); text-align: center; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none !important; }
+      .wave-banner.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      .wave-banner h2 { font-size: 44px; letter-spacing: 8px; color: #ff5a4d; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+      .wave-banner p { color: #e6edf3; font-size: 16px; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
       .menu .controls { margin-top: 30px; font-size: 12px; color: #6b7681; line-height: 1.8; text-align: center; }
     </style>
   </head>

@@ -11,7 +11,13 @@ function setup() {
   const m = new Match(
     1337,
     0,
-    { send: (to, msg) => sent.push({ to, msg }), broadcast: (msg) => sent.push({ to: '*', msg }), onMoneyChanged: (a) => money.push(a) },
+    {
+      send: (to, msg) => sent.push({ to, msg }),
+      broadcast: (msg) => sent.push({ to: '*', msg }),
+      onMoneyChanged: (a) => money.push(a),
+      onWaveChanged: () => undefined,
+      onPhaseComplete: () => undefined,
+    },
     () => now,
   );
   const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
@@ -31,15 +37,19 @@ test('pickup exige proximidade e remove o objeto para todos', () => {
   assert.throws(() => m.pickup('A', stick.id), (e: MatchError) => e.code === 'invalid_message');
 });
 
-test('árvore exige machado equipado e 3 hits', () => {
-  const { m, snap, last } = setup();
+test('árvore exige machado equipado e 3 hits (com cadência)', () => {
+  const { m, snap, last, advance } = setup();
   const tree = [...m.objects.values()].find((o) => o.kind === 'tree')!;
   const a = m.addPlayer(snap('A', tree.x + 1, tree.z));
   assert.throws(() => m.hitNode('A', tree.id), (e: MatchError) => e.code === 'no_tool');
   a.hotbar[0] = { itemId: 'axe', count: 1 };
   m.hitNode('A', tree.id);
+  m.hitNode('A', tree.id); // rápido demais: ignorado
+  assert.equal((last('node_hit')!.msg as { hits: number }).hits, 1);
+  advance(1000);
   m.hitNode('A', tree.id);
   assert.equal((last('node_hit')!.msg as { hits: number }).hits, 2);
+  advance(1000);
   m.hitNode('A', tree.id);
   assert.ok(m.removed.has(tree.id));
   assert.deepEqual(a.hotbar[1], { itemId: 'wood', count: 3 });

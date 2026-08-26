@@ -152,6 +152,8 @@ export class GameServer {
           return this.match(conn).fire(conn.player.id, msg.dx, msg.dz);
         case 'reload':
           return this.match(conn).reload(conn.player.id);
+        case 'activate_battery':
+          return this.match(conn).activateBattery(conn.player.id);
         case 'room_list':
           return this.send(conn, { type: 'lobby_state', rooms: this.roomSummaries() });
         case 'room_create':
@@ -309,7 +311,21 @@ export class GameServer {
       broadcast: (msg) => room.broadcast(msg),
       onMoneyChanged: (amount) => {
         room.money = amount;
+        if (!this.rooms.has(room.id)) return; // sala já apagada
         RoomModel.update(room.id, { money: amount }).catch((err) => log.error(`falha ao salvar dinheiro da sala ${room.name}`, err));
+      },
+      onWaveChanged: (wave) => {
+        room.wave = wave;
+        if (!this.rooms.has(room.id)) return;
+        RoomModel.update(room.id, { wave }).catch((err) => log.error(`falha ao salvar wave da sala ${room.name}`, err));
+      },
+      onPhaseComplete: () => {
+        room.status = 'FINISHED';
+        log.info(`sala "${room.name}" concluiu a fase 1`);
+        room.broadcastState();
+        this.broadcastLobby();
+        if (!this.rooms.has(room.id)) return;
+        RoomModel.update(room.id, { status: 'FINISHED' }).catch((err) => log.error(`falha ao salvar status da sala ${room.name}`, err));
       },
     });
   }
@@ -326,6 +342,7 @@ export class GameServer {
       money: match.money,
       hotbar: mp.hotbar,
       equipped: mp.equipped,
+      wave: match.waveState(),
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }
@@ -390,11 +407,17 @@ export class GameServer {
       if (room.status === 'LOBBY') continue;
       room.match?.tick();
       const all = room.snapshots();
+      const zombies = room.match?.zombieSnapshots() ?? [];
       for (const m of room.members.values()) {
         const others = all
           .filter((p) => p.id !== m.player.id)
           .map(({ id, x, z, yaw, anim, crouching }) => ({ id, x, z, yaw, anim, crouching }));
-        room.send(m, { type: 'state', players: others });
+        room.send(m, { type: 'state', players: others, zombies });
+      }
+      // contagem regressiva/vivos mudam a cada segundo: manda wave_state 1x/s enquanto ativo
+      if (room.match?.waves.active && now - room.lastWaveStateAt >= 1000) {
+        room.lastWaveStateAt = now;
+        room.broadcast({ type: 'wave_state', wave: room.match.waveState() });
       }
     }
     for (const conn of this.byPlayerId.values()) {

@@ -14,6 +14,9 @@ import { InventorySystem } from '@/Systems/InventorySystem';
 import { EquipmentSystem } from '@/Systems/EquipmentSystem';
 import { CombatSystem } from '@/Systems/CombatSystem';
 import { NetworkSystem } from '@/Systems/NetworkSystem';
+import { ZombieSystem } from '@/Systems/ZombieSystem';
+import { EffectsSystem } from '@/Systems/EffectsSystem';
+import { WaveHUD } from '@/UI/WaveHUD';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
@@ -48,6 +51,7 @@ export class WorldScene extends BaseScene {
     toasts: ToastUI;
     combat: CombatHUD;
     players: PlayersHUD;
+    wave: WaveHUD;
   } | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
@@ -82,8 +86,9 @@ export class WorldScene extends BaseScene {
     const inventory = new InventorySystem(state, bus);
     const equipment = new EquipmentSystem(bus, state, net);
     const network = new NetworkSystem(net, bus, state, this.player, this.root);
+    const zombies = new ZombieSystem(bus, this.root);
     // handle de debug/teste no console (o servidor é autoritativo, então expor isso não dá vantagem)
-    (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net };
+    (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net, zombies };
 
     this.loop
       .register(this.input)
@@ -94,6 +99,8 @@ export class WorldScene extends BaseScene {
       .register(inventory)
       .register(new CombatSystem(bus, state, this.player, this.input, equipment, net, this.root, (id) => network.positionOf(id)))
       .register(network)
+      .register(zombies)
+      .register(new EffectsSystem(bus, this.player, this.root))
       .start();
 
     // --- UI ---
@@ -109,10 +116,14 @@ export class WorldScene extends BaseScene {
       hotbar: new HotbarUI(uiRoot, bus),
       shop,
       economy: new EconomyHUD(uiRoot, bus, state.money),
-      map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values()),
+      map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values(), () => zombies.alive()),
       toasts: new ToastUI(uiRoot, bus),
-      combat: new CombatHUD(uiRoot, bus),
+      combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills),
       players: new PlayersHUD(uiRoot, bus, state.playerName, () => network.remotes.values(), () => this.camera.component),
+      wave: new WaveHUD(uiRoot, bus, state.wave, () => {
+        for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
+        return null;
+      }),
     };
     this.unsubs.push(
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
@@ -142,6 +153,7 @@ export class WorldScene extends BaseScene {
     this.camera.update(dt);
     this.ui?.map.update();
     this.ui?.players.update();
+    this.ui?.wave.update();
   }
 
   exit(): void {

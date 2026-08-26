@@ -17,7 +17,10 @@ export class CombatHUD {
   constructor(
     parent: HTMLElement,
     private bus: EventBus,
+    myId: string | null,
+    initialKills = 0,
   ) {
+    this.kills = initialKills;
     this.panel = document.createElement('div');
     this.panel.className = 'hud-zombies';
     parent.appendChild(this.panel);
@@ -36,8 +39,8 @@ export class CombatHUD {
         this.alive = alive;
         this.render();
       }),
-      bus.on('zombie:killed', ({ kills }) => {
-        this.kills = kills;
+      bus.on('zombie:died', ({ killerId }) => {
+        if (killerId === myId) this.kills++;
         this.render();
       }),
       bus.on('equip:changed', ({ itemId }) => {

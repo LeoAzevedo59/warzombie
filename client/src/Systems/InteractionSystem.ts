@@ -115,7 +115,7 @@ export class InteractionSystem implements System {
     if (!t) return;
     if (this.isHub(t)) {
       if (t.kind === 'vendor') this.bus.emit('shop:open');
-      else this.bus.emit('ui:toast', { text: 'A torre precisa de uma Bateria (em breve).' });
+      else this.net.send({ type: 'activate_battery' });
       return;
     }
     if (!this.hasTool(t)) return;

@@ -79,7 +79,7 @@ export class HubStructure {
   }
 
   promptLabel(): string {
-    return this.kind === 'vendor' ? '[E] Negociar com o Vendedor' : 'Torre — coloque uma Bateria (E) para iniciar as waves';
+    return this.kind === 'vendor' ? '[E] Negociar com o Vendedor' : '[E] Colocar Bateria na Torre (inicia as waves)';
   }
 
   setHighlight(on: boolean): void {

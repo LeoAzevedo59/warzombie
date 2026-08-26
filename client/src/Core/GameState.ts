@@ -1,7 +1,7 @@
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
-import type { PlayerSnapshot } from '@shared/protocol';
+import type { PlayerSnapshot, WaveState } from '@shared/protocol';
 
 /** Espelho local do estado de jogo. O servidor é a fonte da verdade para hotbar, HP, dinheiro e munição. */
 export class GameState {
@@ -37,6 +37,9 @@ export class GameState {
 
   /** Zumbis abatidos na sessão. */
   kills = 0;
+
+  /** Estado das waves da sala (vem do servidor). */
+  wave: WaveState = { phase: 'idle', wave: 0, total: 5, alive: 0, nextIn: null };
 
   toJSON() {
     return {

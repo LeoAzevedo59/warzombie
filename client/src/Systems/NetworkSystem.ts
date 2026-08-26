@@ -52,6 +52,30 @@ export class NetworkSystem implements System {
     switch (msg.type) {
       case 'state':
         for (const pose of msg.players) this.remotes.get(pose.id)?.applyPose(pose);
+        this.bus.emit('net:zombies', { zombies: msg.zombies });
+        break;
+      case 'wave_state':
+        this.state.wave = msg.wave;
+        this.bus.emit('wave:state', { wave: msg.wave });
+        break;
+      case 'wave_started':
+        this.bus.emit('wave:started', { wave: msg.wave, count: msg.count, players: msg.players });
+        break;
+      case 'boss_spawned':
+        this.bus.emit('boss:spawned', { id: msg.id, hp: msg.hp });
+        break;
+      case 'boss_slam':
+        this.bus.emit('boss:slam', { x: msg.x, z: msg.z, radius: msg.radius, windup: msg.windup });
+        break;
+      case 'zombie_died':
+        if (msg.killerId === this.state.playerId) this.state.kills++;
+        this.bus.emit('zombie:died', { id: msg.id, kind: msg.kind, killerId: msg.killerId ?? null });
+        break;
+      case 'phase_complete':
+        this.bus.emit('phase:complete');
+        break;
+      case 'knockback':
+        this.bus.emit('net:knockback', { dx: msg.dx, dz: msg.dz, force: msg.force });
         break;
       case 'player_joined':
         this.addRemote(msg.player);
