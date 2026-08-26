@@ -28,7 +28,7 @@ export class CombatHUD {
     this.kills = initialKills;
     void initialUpgrades;
     this.panel = document.createElement('div');
-    this.panel.className = 'hud-zombies';
+    this.panel.className = 'hud-status';
     parent.appendChild(this.panel);
 
     this.flash = document.createElement('div');
@@ -107,16 +107,16 @@ export class CombatHUD {
   }
 
   private render(): void {
-    let hint: string;
-    if (this.equipped === 'glock') {
-      hint = this.ammo.reloading ? '<span class="hud-cooldown">Recarregando...</span>' : `Munição: <b>${this.ammo.mag}/${this.ammo.magSize}</b>`;
-    } else {
-      hint = '';
-    }
-    const slow = Date.now() < this.slowedUntil ? '<br/><span class="slowed">☠ Lento! (cuspe)</span>' : '';
+    // só avisos de estado (escudo / lentidão / recarga); contadores ficam no menu ESC e no resultado da fase
+    const parts: string[] = [];
     const shieldLeft = Math.ceil((this.shieldUntil - Date.now()) / 1000);
-    const shield = shieldLeft > 0 ? `<br/><span class="shield">🛡 Escudo ${shieldLeft}s</span>` : '';
-    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span>${hint ? '<br/>' + hint : ''}${shield}${slow}`;
+    if (shieldLeft > 0) parts.push(`<span class="shield">🛡 Escudo ${shieldLeft}s</span>`);
+    if (Date.now() < this.slowedUntil) parts.push('<span class="slowed">☠ Lento!</span>');
+    if (this.equipped === 'glock' && this.ammo.reloading) parts.push('<span class="hud-cooldown">Recarregando...</span>');
+    void this.alive;
+    void this.kills;
+    this.panel.innerHTML = parts.join(' · ');
+    this.panel.classList.toggle('visible', parts.length > 0);
   }
 
   dispose(): void {

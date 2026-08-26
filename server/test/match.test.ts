@@ -21,7 +21,7 @@ function setup() {
     () => now,
     () => 0.5, // recoil determinístico: desvio zero
   );
-  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
+  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
   return { m, sent, money, snap, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
 }
 
@@ -97,6 +97,8 @@ test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
   }
   assert.equal(b.snapshot.hp, 0);
   assert.ok(b.dead);
+  assert.equal(a.snapshot.pvpKills, 1);
+  assert.equal(b.snapshot.deaths, 1);
   assert.equal((last('player_died')!.msg as { killerId: string }).killerId, 'A');
   assert.equal(a.mag, 6);
   m.tick();

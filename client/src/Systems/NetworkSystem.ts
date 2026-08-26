@@ -82,7 +82,7 @@ export class NetworkSystem implements System {
         this.bus.emit('zombie:died', { id: msg.id, kind: msg.kind, killerId: msg.killerId ?? null });
         break;
       case 'phase_complete':
-        this.bus.emit('phase:complete');
+        this.bus.emit('phase:complete', { summary: msg.summary, duration: msg.duration });
         break;
       case 'knockback':
         this.bus.emit('net:knockback', { dx: msg.dx, dz: msg.dz, force: msg.force });

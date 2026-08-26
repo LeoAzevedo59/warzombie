@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "players" ADD COLUMN     "deaths" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "playtime_seconds" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "pvp_kills" INTEGER NOT NULL DEFAULT 0;

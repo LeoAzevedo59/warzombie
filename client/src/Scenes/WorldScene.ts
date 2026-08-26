@@ -18,6 +18,7 @@ import { ZombieSystem } from '@/Systems/ZombieSystem';
 import { EffectsSystem } from '@/Systems/EffectsSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
+import { SummaryUI } from '@/UI/SummaryUI';
 import { cameraOrthoHeight } from '@shared/upgrades';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
@@ -55,6 +56,7 @@ export class WorldScene extends BaseScene {
     players: PlayersHUD;
     wave: WaveHUD;
     dev: DevPanel | null;
+    summary: SummaryUI;
   } | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
@@ -129,6 +131,7 @@ export class WorldScene extends BaseScene {
         return null;
       }),
       dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
+      summary: new SummaryUI(uiRoot, bus, state.playerId),
     };
     this.ui.players.onOpenChanged = updateInputEnabled;
     this.unsubs.push(

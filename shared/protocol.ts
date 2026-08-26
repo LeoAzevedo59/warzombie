@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight' | 'vision';
 export interface WeaponUpgrades {
@@ -71,6 +71,25 @@ export interface PlayerSnapshot extends PlayerPose {
   name: string;
   hp: number;
   kills: number;
+  pvpKills: number;
+  deaths: number;
+}
+
+/** Resultado de um jogador ao fim da fase. */
+export interface PlayerSummary {
+  id: string;
+  name: string;
+  zombieKills: number;
+  humanKills: number;
+  deaths: number;
+  /** segundos nesta partida */
+  playtime: number;
+}
+
+/** Ranking global (banco). */
+export interface RankingEntry {
+  name: string;
+  value: number;
 }
 
 // ---------- client -> server ----------
@@ -419,6 +438,10 @@ export interface ZombieDiedMessage {
 }
 export interface PhaseCompleteMessage {
   type: 'phase_complete';
+  /** resultado da partida, por jogador */
+  summary: PlayerSummary[];
+  /** duração total da partida em segundos */
+  duration: number;
 }
 /** Tempo esgotado: a horda some, a bateria é perdida e as waves voltam ao zero. */
 export interface WaveFailedMessage {

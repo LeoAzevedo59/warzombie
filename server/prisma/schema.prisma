@@ -18,7 +18,13 @@ model Player {
   /// nome normalizado (lowercase/trim) para unicidade sem diferenciar maiúsculas
   nameKey   String   @unique @map("name_key") @db.VarChar(16)
   hp        Int      @default(100)
+  /// abates de zumbis (total histórico)
   kills     Int      @default(0)
+  /// abates de outros jogadores (fogo amigo)
+  pvpKills  Int      @default(0) @map("pvp_kills")
+  deaths    Int      @default(0)
+  /// tempo total conectado, em segundos
+  playtimeSeconds Int @default(0) @map("playtime_seconds")
   posX      Float    @default(0) @map("pos_x")
   posZ      Float    @default(0) @map("pos_z")
   createdAt DateTime @default(now()) @map("created_at")

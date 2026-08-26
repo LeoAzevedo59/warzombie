@@ -1,5 +1,5 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
-import type { ProjectileSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
+import type { PlayerSummary, ProjectileSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
 export interface GameEvents {
@@ -59,7 +59,7 @@ export interface GameEvents {
   'boss:spawned': { id: number; hp: number };
   'boss:slam': { x: number; z: number; radius: number; windup: number };
   'zombie:died': { id: number; kind: ZombieKind; killerId: string | null };
-  'phase:complete': void;
+  'phase:complete': { summary: PlayerSummary[]; duration: number };
 }
 
 type Handler<T> = (payload: T) => void;

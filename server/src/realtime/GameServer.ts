@@ -37,6 +37,8 @@ interface Connection {
   room: Room | null;
   lastSaveAt: number;
   dirty: boolean;
+  /** último instante em que o tempo jogado foi contabilizado (ms) */
+  playtimeMark: number;
 }
 
 type Msg<T extends ClientMessage['type']> = Extract<ClientMessage, { type: T }>;
@@ -103,6 +105,7 @@ export class GameServer {
       room: null,
       lastSaveAt: Date.now(),
       dirty: false,
+      playtimeMark: Date.now(),
     };
     this.connections.add(conn);
     log.debug(`conexão aberta de ${conn.ip} (${this.connections.size} sockets)`);
@@ -192,7 +195,7 @@ export class GameServer {
     try {
       const { player, sessionId } = await this.players.join(msg.name, conn.ip);
       if (conn.socket.readyState !== WebSocket.OPEN) {
-        await this.players.leave(player.id, sessionId, { posX: player.posX, posZ: player.posZ, hp: player.hp, kills: player.kills });
+        await this.players.leave(player.id, sessionId, { posX: player.posX, posZ: player.posZ, hp: player.hp, kills: player.kills, pvpKills: player.pvpKills, deaths: player.deaths }, 0);
         return;
       }
       conn.sessionId = sessionId;
@@ -201,6 +204,8 @@ export class GameServer {
         name: player.name,
         hp: player.hp,
         kills: player.kills,
+        pvpKills: player.pvpKills,
+        deaths: player.deaths,
         x: player.posX,
         z: player.posZ,
         yaw: 0,
@@ -404,7 +409,7 @@ export class GameServer {
     }
     log.info(`${player.name} saiu (${reason}; ${this.onlineCount} online)`);
     try {
-      await this.players.leave(player.id, sessionId, { posX: player.x, posZ: player.z, hp: player.hp, kills: player.kills });
+      await this.players.leave(player.id, sessionId, { posX: player.x, posZ: player.z, hp: player.hp, kills: player.kills, pvpKills: player.pvpKills, deaths: player.deaths }, (Date.now() - conn.playtimeMark) / 1000);
     } catch (err) {
       log.error(`falha ao persistir saída de ${player.name}`, err);
     }
@@ -434,11 +439,13 @@ export class GameServer {
     }
     for (const conn of this.byPlayerId.values()) {
       const me = conn.player!;
-      if (conn.dirty && now - conn.lastSaveAt > AUTOSAVE_MS) {
+      if (now - conn.lastSaveAt > AUTOSAVE_MS) {
         conn.dirty = false;
         conn.lastSaveAt = now;
+        const delta = (now - conn.playtimeMark) / 1000;
+        conn.playtimeMark = now;
         this.players
-          .saveState(me.id, { posX: me.x, posZ: me.z, hp: me.hp, kills: me.kills })
+          .saveState(me.id, { posX: me.x, posZ: me.z, hp: me.hp, kills: me.kills, pvpKills: me.pvpKills, deaths: me.deaths }, delta)
           .catch((err) => log.error(`autosave falhou para ${me.name}`, err));
       }
     }

@@ -10,6 +10,11 @@ export class PlayerController {
     res.json({ count: this.game.onlineCount, players: this.game.onlinePlayers() });
   };
 
+  /** GET /api/ranking — top abates de zumbis e top horas jogadas. */
+  ranking = async (_req: Request, res: Response): Promise<void> => {
+    res.json(await this.game.players.ranking());
+  };
+
   /** GET /api/players — últimos jogadores vistos (banco). */
   recent = async (req: Request, res: Response): Promise<void> => {
     const limit = Math.min(200, Math.max(1, Number(req.query.limit ?? 50) || 50));

@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
@@ -25,6 +25,11 @@ export interface MatchPlayer {
   /** invulnerável (sem dano/lentidão) até este instante (ms) */
   shieldUntil: number;
   upgrades: WeaponUpgrades;
+  /** início da participação nesta partida (ms) e stats da partida */
+  joinedAt: number;
+  matchZombieKills: number;
+  matchHumanKills: number;
+  matchDeaths: number;
 }
 
 export class MatchError extends Error {
@@ -74,6 +79,7 @@ export class Match {
   readonly zombies: ZombieSim;
   readonly waves: WaveDirector;
   private lastTick: number;
+  private readonly startedAt: number;
   private obstacleCache: Obstacle[] | null = null;
 
   constructor(
@@ -86,6 +92,7 @@ export class Match {
     this.objects = generateWorld(seed);
     this.money = money;
     this.lastTick = now();
+    this.startedAt = now();
     this.towerPos = this.pickTowerPos();
     this.zombies = new ZombieSim(
       {
@@ -113,7 +120,7 @@ export class Match {
         },
         bossSpawned: (id, hp) => this.io.broadcast({ type: 'boss_spawned', id, hp }),
         phaseComplete: () => {
-          this.io.broadcast({ type: 'phase_complete' });
+          this.io.broadcast({ type: 'phase_complete', summary: this.summary(), duration: Math.round((this.now() - this.startedAt) / 1000) });
           this.io.onPhaseComplete();
         },
         waveFailed: (wave, boss) => {
@@ -137,6 +144,17 @@ export class Match {
       if (isClearOfCircles(x, z, solids, TOWER_RADIUS + 1.5)) return { x, z };
     }
     return { ...GAME.hub.TOWER };
+  }
+
+  summary(): PlayerSummary[] {
+    return [...this.players.values()].map((p) => ({
+      id: p.snapshot.id,
+      name: p.snapshot.name,
+      zombieKills: p.matchZombieKills,
+      humanKills: p.matchHumanKills,
+      deaths: p.matchDeaths,
+      playtime: Math.round((this.now() - p.joinedAt) / 1000),
+    }));
   }
 
   /** Árvores/rochas ainda de pé + estruturas do hub (cache invalidado quando algo é removido). */
@@ -185,6 +203,10 @@ export class Match {
       damageMult: 1,
       shieldUntil: 0,
       upgrades: emptyUpgrades(),
+      joinedAt: this.now(),
+      matchZombieKills: 0,
+      matchHumanKills: 0,
+      matchDeaths: 0,
     };
     this.players.set(snapshot.id, p);
     this.grantShield(p);
@@ -442,7 +464,10 @@ export class Match {
 
   private onZombieDied(z: Zombie, killerId?: string): void {
     const killer = killerId ? this.players.get(killerId) : undefined;
-    if (killer) killer.snapshot.kills++;
+    if (killer) {
+      killer.snapshot.kills++;
+      killer.matchZombieKills++;
+    }
     this.io.broadcast({ type: 'zombie_died', id: z.id, kind: z.kind, killerId });
   }
 
@@ -460,6 +485,13 @@ export class Match {
     this.io.broadcast({ type: 'hp', playerId: target.snapshot.id, hp: target.snapshot.hp, by });
     if (target.snapshot.hp <= 0) {
       target.dead = true;
+      target.snapshot.deaths++;
+      target.matchDeaths++;
+      const killer = by ? this.players.get(by) : undefined;
+      if (killer && killer !== target) {
+        killer.snapshot.pvpKills++;
+        killer.matchHumanKills++;
+      }
       target.snapshot.anim = 'Death';
       target.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
       this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId: by, respawnIn: GAME.player.RESPAWN_SECONDS });

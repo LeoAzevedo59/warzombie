@@ -8,6 +8,7 @@ export class HotbarUI {
   private prompt: HTMLElement;
   private stacks: ReadonlyArray<ItemStack | null> = [];
   private equippedSlot = 0;
+  private ammo = { mag: 0, magSize: 10 };
   private unsubs: Array<() => void> = [];
 
   constructor(
@@ -40,6 +41,10 @@ export class HotbarUI {
         this.equippedSlot = slotIndex;
         this.render();
       }),
+      bus.on('net:ammo', ({ mag, magSize }) => {
+        this.ammo = { mag, magSize };
+        this.render();
+      }),
     );
     this.render();
   }
@@ -49,7 +54,12 @@ export class HotbarUI {
     const number = `<span class="slot-number">${i + 1}</span>`;
     if (!s) return `<div class="${cls}" data-index="${i}">${number}</div>`;
     const def = ItemDatabase.get(s.itemId);
-    return `<div class="${cls}" data-index="${i}" title="${def.name}">${number}<div class="icon" style="background:${def.color}"></div>${def.name}<span class="count">${s.count > 1 ? s.count : ''}</span></div>`;
+    // munição como borda do slot da arma: a fração preenchida (verde) cai a cada tiro
+    const ammo =
+      s.itemId === 'glock'
+        ? `<div class="ammo-ring" style="background:conic-gradient(#7ed957 ${((100 * this.ammo.mag) / Math.max(1, this.ammo.magSize)).toFixed(1)}%, #1c232c 0)"></div><span class="ammo-count">${this.ammo.mag}/${this.ammo.magSize}</span>`
+        : '';
+    return `<div class="${cls}" data-index="${i}" title="${def.name}">${ammo}${number}<div class="icon" style="background:${def.color}"></div>${def.name}<span class="count">${s.count > 1 ? s.count : ''}</span></div>`;
   }
 
   private render(): void {

@@ -1,5 +1,5 @@
 import { BaseScene } from './BaseScene';
-import { isValidRoomName, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
+import { isValidRoomName, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
 
 /**
  * Lobby em DOM: lista de salas (criar/entrar) e, dentro de uma sala, a lista de membros com
@@ -13,6 +13,8 @@ export class LobbyScene extends BaseScene {
   private unsubs: Array<() => void> = [];
   /** sala privada aguardando código antes do join */
   private pendingJoin: RoomSummary | null = null;
+  private ranking: { topKills: RankingEntry[]; topHours: RankingEntry[] } | null = null;
+  private rankingTimer: number | null = null;
 
   enter(): void {
     const { net, bus, ui } = this.game;
@@ -29,6 +31,19 @@ export class LobbyScene extends BaseScene {
     );
     net.send({ type: 'room_list' });
     this.render();
+    void this.loadRanking();
+    this.rankingTimer = window.setInterval(() => void this.loadRanking(), 30_000);
+  }
+
+  private async loadRanking(): Promise<void> {
+    try {
+      const r = await fetch('/api/ranking');
+      if (!r.ok) return;
+      this.ranking = (await r.json()) as { topKills: RankingEntry[]; topHours: RankingEntry[] };
+      if (!this.room) this.render();
+    } catch {
+      /* ranking é opcional */
+    }
   }
 
   private onMessage(msg: ServerMessage): void {
@@ -123,6 +138,13 @@ export class LobbyScene extends BaseScene {
             <button type="submit">Criar</button>
           </form>
         </section>
+        <section class="panel ranking">
+          <h2>Top Ranking</h2>
+          <div class="rank-cols">
+            <div><h4>🧟 Top Kill</h4><ol class="rank-kills"></ol></div>
+            <div><h4>⏱ Top Hours</h4><ol class="rank-hours"></ol></div>
+          </div>
+        </section>
       </div>
       <div class="status" id="status"></div>
       <button class="back">Trocar de nome</button>`;
@@ -155,6 +177,31 @@ export class LobbyScene extends BaseScene {
     const el = this.el!;
     const { net, state, bus } = this.game;
     el.querySelector<HTMLElement>('.me')?.replaceChildren(state.playerName);
+    const fill = (sel: string, list: RankingEntry[] | undefined, fmt: (v: number) => string) => {
+      const ol = el.querySelector<HTMLElement>(sel);
+      if (!ol) return;
+      ol.replaceChildren();
+      if (!list?.length) {
+        const li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = 'ainda sem dados';
+        ol.appendChild(li);
+        return;
+      }
+      for (const e of list) {
+        const li = document.createElement('li');
+        const name = document.createElement('span');
+        name.className = 'rname';
+        name.textContent = e.name; // nome de outro jogador: textContent
+        if (e.name === state.playerName) li.classList.add('me');
+        const val = document.createElement('b');
+        val.textContent = fmt(e.value);
+        li.append(name, val);
+        ol.appendChild(li);
+      }
+    };
+    fill('.rank-kills', this.ranking?.topKills, (v) => String(v));
+    fill('.rank-hours', this.ranking?.topHours, (v) => `${v}h`);
     el.querySelectorAll<HTMLElement>('li.room').forEach((li) => {
       const r = this.rooms.find((x) => x.id === li.dataset.id)!;
       li.querySelector('.rname')!.textContent = r.name;
@@ -216,6 +263,7 @@ export class LobbyScene extends BaseScene {
   exit(): void {
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
+    if (this.rankingTimer) clearInterval(this.rankingTimer);
     this.el?.remove();
     super.exit();
   }

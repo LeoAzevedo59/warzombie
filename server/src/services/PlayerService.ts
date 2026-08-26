@@ -2,6 +2,15 @@ import { isValidName } from '../../../shared/protocol.js';
 import { PlayerModel, type Player } from '../models/PlayerModel.js';
 import { SessionModel } from '../models/SessionModel.js';
 
+export interface PlayerState {
+  posX: number;
+  posZ: number;
+  hp: number;
+  kills: number;
+  pvpKills: number;
+  deaths: number;
+}
+
 export class PlayerServiceError extends Error {
   constructor(
     readonly code: 'invalid_name' | 'name_taken',
@@ -34,14 +43,22 @@ export class PlayerService {
   }
 
   /** Persiste o último estado conhecido e fecha a sessão. */
-  async leave(playerId: string, sessionId: string, state: { posX: number; posZ: number; hp: number; kills: number }): Promise<void> {
-    await PlayerModel.saveState(playerId, state);
+  async leave(playerId: string, sessionId: string, state: PlayerState, playtimeDeltaSeconds: number): Promise<void> {
+    await PlayerModel.saveState(playerId, state, playtimeDeltaSeconds);
     await SessionModel.close(sessionId);
   }
 
   /** Salvamento periódico (o jogo pode cair sem `leave`). */
-  saveState(playerId: string, state: { posX: number; posZ: number; hp: number; kills: number }): Promise<Player> {
-    return PlayerModel.saveState(playerId, state);
+  saveState(playerId: string, state: PlayerState, playtimeDeltaSeconds = 0): Promise<Player> {
+    return PlayerModel.saveState(playerId, state, playtimeDeltaSeconds);
+  }
+
+  async ranking(): Promise<{ topKills: Array<{ name: string; value: number }>; topHours: Array<{ name: string; value: number }> }> {
+    const [k, t] = await Promise.all([PlayerModel.topKills(10), PlayerModel.topPlaytime(10)]);
+    return {
+      topKills: k.map((p) => ({ name: p.name, value: p.kills })),
+      topHours: t.map((p) => ({ name: p.name, value: Math.round((p.playtimeSeconds / 3600) * 100) / 100 })),
+    };
   }
 
   listRecent(limit?: number): Promise<Player[]> {

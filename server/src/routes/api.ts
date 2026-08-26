@@ -13,6 +13,7 @@ export function apiRouter(game: GameServer): Router {
   router.get('/health', healthController(game));
   router.get('/players/online', players.online);
   router.get('/players', players.recent);
+  router.get('/ranking', players.ranking);
   router.get('/rooms', rooms.list);
 
   return router;
