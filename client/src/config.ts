@@ -20,8 +20,8 @@ export const CONFIG = {
     RADIUS: GAME.player.RADIUS,
     MAX_HP: GAME.player.MAX_HP,
     MAX_STAMINA: 100,
-    STAMINA_DRAIN: 20, // por segundo correndo
-    STAMINA_REGEN: 12, // por segundo parado/andando
+    STAMINA_DRAIN: 34, // por segundo correndo (~3 s de corrida contínua)
+    STAMINA_REGEN: 10, // por segundo parado/andando
   },
   camera: {
     PITCH: 35.264, // ângulo isométrico clássico
