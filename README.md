@@ -1,7 +1,20 @@
-# WarZombie — monolito multiplayer
+# WarZombie
 
-Jogo isométrico de sobrevivência (PlayCanvas) com servidor Node/Express + WebSocket, Postgres e Prisma,
-tudo em um único repositório/deploy.
+Jogo de sobrevivência isométrico, **multiplayer e cooperativo** (até 10 por sala), feito com PlayCanvas + TypeScript.
+
+Você entra com um nome, cria ou escolhe uma sala no lobby (pública ou privada com código) e cai num mapa com um
+**vendedor** e uma **torre** no centro. Colete gravetos e pedras, venda, compre machado e picareta para derrubar
+árvores e rochas e junte dinheiro — que é **compartilhado por toda a sala**. Com uma **Glock** na mão (e upgrades de
+dano, munição, recoil, vigor e mira laser), compre a **Bateria da Torre** e ative-a: vêm **5 waves de zumbis**
+(alguns cospem à distância e deixam você lento), cada uma com tempo limite, e no fim um **chefão** com investida,
+pancada em área, rajada de cuspes e reforços. Quanto mais jogadores, mais forte a horda. Fogo amigo está ligado:
+cuidado onde aponta. Morreu? Volta em 5 s com escudo. Perdeu o tempo de uma wave? A bateria se foi — farme outra e
+recomece. Derrube o chefão para concluir a fase 1.
+
+Tecnicamente é um **monolito**: servidor Node/Express + WebSocket autoritativo (toda a simulação roda nele),
+Postgres via Prisma e o client Vite servido pelo mesmo processo — um `docker compose up` sobe tudo.
+
+## Arquitetura
 
 ```
 warzombie/
@@ -28,6 +41,12 @@ warzombie/
 cp .env.example .env      # preencha a senha do Postgres (e portas, se precisar)
 docker compose up --build # http://localhost:3000
 ```
+
+## Commits
+
+Este repositório usa [Conventional Commits](https://www.conventionalcommits.org/pt-br/): `feat:`, `fix:`, `docs:`,
+`refactor:`, `perf:`, `test:`, `build:`, `ci:`, `chore:` — com escopo opcional (`feat(waves): ...`) e `!` para
+mudanças incompatíveis. Exemplo: `feat(shop): upgrade de mira laser`.
 
 **Segredos**: todo valor sensível vive só no `.env` (ignorado pelo git). O `docker-compose.yml` não tem senhas padrão —
 se faltar variável ele falha com uma mensagem dizendo qual. Nunca escreva chaves/senhas em código, README ou commits.
