@@ -27,6 +27,8 @@ export const GAME = {
     recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, BASE: 40 },
     /** +25% de vigor máximo por nível (corrida) */
     stamina: { MAX_LEVEL: 5, STEP: 0.25, BASE: 35 },
+    /** mira laser (mostra a linha de tiro); nível único */
+    laser: { MAX_LEVEL: 1, STEP: 1, BASE: 60 },
   },
   zombie: {
     MAX_HP: 60,

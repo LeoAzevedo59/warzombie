@@ -8,14 +8,15 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
-export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina';
+export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser';
 export interface WeaponUpgrades {
   damage: number;
   ammo: number;
   recoil: number;
   stamina: number;
+  laser: number;
 }
 /** Preço atual (da sala) do próximo nível de cada upgrade. */
 export type UpgradePrices = Record<UpgradeKind, number>;

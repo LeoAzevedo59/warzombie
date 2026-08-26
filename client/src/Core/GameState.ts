@@ -39,9 +39,9 @@ export class GameState {
   magSize: number = GAME.weapon.glock.MAG;
   reloading = false;
   /** Upgrades da Glock (por partida). */
-  upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0 };
+  upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0 };
   /** preços atuais da sala (sobem a cada compra de qualquer jogador) */
-  upgradePrices: UpgradePrices = { damage: 40, ammo: 30, recoil: 40, stamina: 35 };
+  upgradePrices: UpgradePrices = { damage: 40, ammo: 30, recoil: 40, stamina: 35, laser: 60 };
 
   /** Vigor máximo com o upgrade de corrida. */
   get maxStamina(): number {

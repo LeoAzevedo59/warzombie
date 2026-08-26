@@ -4,6 +4,7 @@ import { ItemDatabase } from '@/Items/ItemDatabase';
 import type { NetworkClient } from '@/Net/NetworkClient';
 import { accuracyPercent, damageMultiplier, isMaxed, magSize, staminaMultiplier } from '@shared/upgrades';
 import type { UpgradeKind } from '@shared/protocol';
+import { GAME } from '@shared/gameconfig';
 
 /** Painel do vendedor: vender todos os recursos da hotbar e comprar ferramentas/armas. Regras no server. */
 export class ShopUI {
@@ -100,12 +101,14 @@ export class ShopUI {
       ['ammo', 'Munição', `pente ${magSize(u)}`],
       ['recoil', 'Recoil', `precisão ${accuracyPercent(u)}%`],
       ['stamina', 'Vigor de corrida', `+${Math.round((staminaMultiplier(u) - 1) * 100)}%`],
+      ['laser', 'Mira laser', u.laser ? 'ativa' : 'mostra a linha de tiro'],
     ];
     return rows
       .map(([kind, name, effect]) => {
         const price = this.state.upgradePrices[kind];
         const btn = isMaxed(kind, u[kind]) ? '<button disabled>MAX</button>' : `<button class="upgrade" data-kind="${kind}" ${money >= price ? '' : 'disabled'}>$${price}</button>`;
-        return `<div class="recipe"><span class="recipe-label"><b>${name}</b> <span class="lvl">Lv ${u[kind]}/5</span> · ${effect}</span>${btn}</div>`;
+        const lvl = GAME.upgrades[kind].MAX_LEVEL > 1 ? `<span class="lvl">Lv ${u[kind]}/${GAME.upgrades[kind].MAX_LEVEL}</span> · ` : '';
+        return `<div class="recipe"><span class="recipe-label"><b>${name}</b> ${lvl}${effect}</span>${btn}</div>`;
       })
       .join('');
   }

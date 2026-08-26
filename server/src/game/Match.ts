@@ -67,7 +67,7 @@ export class Match {
   readonly players = new Map<string, MatchPlayer>();
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
-  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0 };
+  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0 };
   readonly zombies: ZombieSim;
   readonly waves: WaveDirector;
   private lastTick: number;

@@ -98,7 +98,8 @@ export class CombatSystem implements System {
   }
 
   private updateLaser(): void {
-    const show = this.equipment.equippedItem() === 'glock' && !this.player.stats.dead && !!this.input.state.aimPoint;
+    // laser só com o upgrade "Mira laser"
+    const show = this.state.upgrades.laser > 0 && this.equipment.equippedItem() === 'glock' && !this.player.stats.dead && !!this.input.state.aimPoint;
     if (!show) {
       if (this.laser) this.laser.enabled = false;
       return;

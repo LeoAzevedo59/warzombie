@@ -138,7 +138,7 @@ test('upgrades: dano, pente e recoil', () => {
   m.buyUpgrade('A', 'damage');
   m.buyUpgrade('A', 'ammo');
   m.buyUpgrade('A', 'recoil');
-  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0 });
+  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0, laser: 0 });
   assert.equal(m.money, 1000 - 40 - 30 - 40);
   // preço sobe para a sala: B paga mais caro pelo primeiro nível de dano
   assert.equal(m.upgradePrices().damage, Math.round(40 * 1.35));
