@@ -14,13 +14,13 @@ export class EconomyHUD {
     this.unsubs.push(
       bus.on('net:money', ({ amount, delta }) => {
         this.render(amount, delta);
-        if (delta !== 0) bus.emit('ui:toast', { text: `${delta > 0 ? '+' : '-'}$${Math.abs(delta)} no caixa da sala` });
+        if (delta !== 0) bus.emit('ui:toast', { text: `${delta > 0 ? '+' : '-'}$${Math.abs(delta)} no dinheiro` });
       }),
     );
   }
 
   private render(amount: number, delta: number): void {
-    this.el.innerHTML = `Caixa da sala<br/><b>$${amount}</b>`;
+    this.el.innerHTML = `Dinheiro<br/><b>$${amount}</b>`;
     if (delta === 0) return;
     this.el.classList.add(delta > 0 ? 'up' : 'down');
     if (this.pulseTimer) clearTimeout(this.pulseTimer);

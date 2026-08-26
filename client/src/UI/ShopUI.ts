@@ -54,7 +54,7 @@ export class ShopUI {
     this.panel.innerHTML = `
       <button class="close" title="Fechar (Esc)">✕</button>
       <h2>Vendedor</h2>
-      <p class="money-line">Caixa da sala: <b>$${money}</b></p>
+      <p class="money-line">Dinheiro: <b>$${money}</b></p>
       <div class="recipe sell-row">
         <span class="recipe-label">Vender todos os recursos da hotbar</span>
         <button class="sell" ${total > 0 ? '' : 'disabled'}>+$${total}</button>
