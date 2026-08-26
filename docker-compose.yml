@@ -4,15 +4,16 @@ services:
     container_name: warzombie-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-warzombie}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-warzombie}
-      POSTGRES_DB: ${POSTGRES_DB:-warzombie}
+      # Sem valores padrão de propósito: tudo vem do .env (nunca versionado). Faltou -> erro claro.
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env (copie de .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env (copie de .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env (copie de .env.example)}
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
       - warzombie-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warzombie} -d ${POSTGRES_DB:-warzombie}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -32,7 +33,7 @@ services:
       WS_TICK_RATE: ${WS_TICK_RATE:-20}
       # 1 liga o painel ⚙ de cheats (testar fases rápido); deixe vazio/0 em produção de verdade
       DEV_CHEATS: ${DEV_CHEATS:-0}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-warzombie}:${POSTGRES_PASSWORD:-warzombie}@db:5432/${POSTGRES_DB:-warzombie}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
     ports:
       - "${PORT:-3000}:3000"
     # Aplica as migrations versionadas (server/prisma/migrations) antes de subir a API

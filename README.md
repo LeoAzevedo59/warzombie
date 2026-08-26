@@ -25,9 +25,12 @@ warzombie/
 ## Rodando com Docker (teste completo)
 
 ```bash
-cp .env.example .env      # ajuste portas se precisar
+cp .env.example .env      # preencha a senha do Postgres (e portas, se precisar)
 docker compose up --build # http://localhost:3000
 ```
+
+**Segredos**: todo valor sensível vive só no `.env` (ignorado pelo git). O `docker-compose.yml` não tem senhas padrão —
+se faltar variável ele falha com uma mensagem dizendo qual. Nunca escreva chaves/senhas em código, README ou commits.
 
 O container `app` roda `prisma migrate deploy` (aplica as migrations versionadas) e sobe a API.
 Postgres fica exposto no host em `POSTGRES_PORT` (padrão **5434**, para não colidir com outros Postgres locais).
