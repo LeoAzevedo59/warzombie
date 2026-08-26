@@ -2,7 +2,6 @@ import * as pc from 'playcanvas';
 import { CONFIG } from '@/config';
 import type { EventBus } from '@/Core/EventBus';
 import { GameMap, chunkKey, type Chunk } from './Map';
-import type { WorldObject } from './WorldObject';
 import { HubStructure } from './Hub';
 import { Wall } from './Wall';
 import { WorldObject } from './WorldObject';
