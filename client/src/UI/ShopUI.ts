@@ -10,6 +10,7 @@ export class ShopUI {
   private panel: HTMLElement;
   private unsubs: Array<() => void> = [];
   private _open = false;
+  private tab: 'items' | 'upgrades' = 'items';
   onOpenChanged: ((open: boolean) => void) | null = null;
 
   constructor(
@@ -55,25 +56,37 @@ export class ShopUI {
   private render(): void {
     const total = this.sellTotal();
     const money = this.state.money;
-    this.panel.innerHTML = `
-      <button class="close" title="Fechar (Esc)">✕</button>
-      <h2>Vendedor</h2>
-      <p class="money-line">Dinheiro: <b>$${money}</b></p>
+    const items = `
       <div class="recipe sell-row">
         <span class="recipe-label">Vender todos os recursos da hotbar</span>
         <button class="sell" ${total > 0 ? '' : 'disabled'}>+$${total}</button>
       </div>
-      <h2>Comprar</h2>
       <div class="recipes">${ItemDatabase.shop()
         .map(
           (d) => `<div class="recipe"><span class="recipe-label"><span class="toast-icon" style="background:${d.color};display:inline-block;vertical-align:middle;margin-right:6px"></span><b>${d.name}</b></span><button class="buy" data-id="${d.id}" ${money >= (d.buy ?? 0) ? '' : 'disabled'}>$${d.buy}</button></div>`,
         )
         .join('')}</div>
-      <h2>Upgrades <span class="hint-inline">(nível é seu; o preço sobe para a sala toda a cada compra)</span></h2>
-      <div class="recipes">${this.upgradeRows(money)}</div>
       <p class="hint">Gravetos $1 · Pedras $2 · Troncos $5 · Pedras grandes $6</p>`;
+    const upgrades = `
+      <div class="recipes">${this.upgradeRows(money)}</div>
+      <p class="hint">O nível é seu; o preço sobe para a sala toda a cada compra (×1.35).</p>`;
+    this.panel.innerHTML = `
+      <button class="close" title="Fechar (Esc)">✕</button>
+      <h2>Vendedor <span class="money-line">· Dinheiro: <b>$${money}</b></span></h2>
+      <div class="tabs">
+        <button class="tab ${this.tab === 'items' ? 'active' : ''}" data-tab="items">ITENS</button>
+        <button class="tab ${this.tab === 'upgrades' ? 'active' : ''}" data-tab="upgrades">UPGRADES</button>
+      </div>
+      <div class="tab-body">${this.tab === 'items' ? items : upgrades}</div>`;
     this.panel.querySelector<HTMLButtonElement>('.close')!.onclick = () => this.setOpen(false);
-    this.panel.querySelector<HTMLButtonElement>('.sell')!.onclick = () => this.net.send({ type: 'sell' });
+    this.panel.querySelectorAll<HTMLButtonElement>('.tab').forEach((b) => {
+      b.onclick = () => {
+        this.tab = b.dataset.tab as 'items' | 'upgrades';
+        this.render();
+      };
+    });
+    const sell = this.panel.querySelector<HTMLButtonElement>('.sell');
+    if (sell) sell.onclick = () => this.net.send({ type: 'sell' });
     this.panel.querySelectorAll<HTMLButtonElement>('.buy').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
     });
