@@ -30,6 +30,7 @@ export class ShopUI {
       bus.on('net:money', () => this.renderIfOpen()),
       bus.on('net:upgrades', () => this.renderIfOpen()),
       bus.on('net:upgradePrices', () => this.renderIfOpen()),
+      bus.on('net:features', () => this.renderIfOpen()),
     );
   }
 
@@ -66,7 +67,9 @@ export class ShopUI {
         .map(
           (d) => `<div class="recipe"><span class="recipe-label"><span class="toast-icon" style="background:${d.color};display:inline-block;vertical-align:middle;margin-right:6px"></span><b>${d.name}</b></span><button class="buy" data-id="${d.id}" ${money >= (d.buy ?? 0) ? '' : 'disabled'}>$${d.buy}</button></div>`,
         )
-        .join('')}</div>`;
+        .join('')}
+        <div class="recipe feature"><span class="recipe-label"><span class="toast-icon" style="background:#4db8ff;display:inline-block;vertical-align:middle;margin-right:6px"></span><b>Minimapa</b> <span class="lvl">para a sala toda</span></span>${this.state.features.minimap ? '<button disabled>ATIVO</button>' : `<button class="buy-feature" data-feature="minimap" ${money >= GAME.features.MINIMAP_PRICE ? '' : 'disabled'}>$${GAME.features.MINIMAP_PRICE}</button>`}</div>
+      </div>`;
     const upgrades = `
       <div class="recipes">${this.upgradeRows(money)}</div>`;
     this.panel.innerHTML = `
@@ -88,6 +91,9 @@ export class ShopUI {
     if (sell) sell.onclick = () => this.net.send({ type: 'sell' });
     this.panel.querySelectorAll<HTMLButtonElement>('.buy').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
+    });
+    this.panel.querySelectorAll<HTMLButtonElement>('.buy-feature').forEach((b) => {
+      b.onclick = () => this.net.send({ type: 'buy_feature', feature: 'minimap' });
     });
     this.panel.querySelectorAll<HTMLButtonElement>('.upgrade').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'upgrade', kind: b.dataset.kind as UpgradeKind });

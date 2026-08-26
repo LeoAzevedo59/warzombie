@@ -138,6 +138,7 @@ export class WorldScene extends BaseScene {
       summary: new SummaryUI(uiRoot, bus, state.playerId),
     };
     this.ui.players.onOpenChanged = updateInputEnabled;
+    this.ui.map.setEnabled(state.features.minimap);
     this.unsubs.push(
       // Esc: fecha a loja/painel dev se abertos; senão abre/fecha o menu
       bus.on('input:escape', () => {
@@ -147,6 +148,7 @@ export class WorldScene extends BaseScene {
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
       bus.on('net:towerHp', ({ hp, maxHp }) => this.world.tower.setHpRatio(hp / maxHp)),
+      bus.on('net:features', ({ features }) => this.ui?.map.setEnabled(features.minimap)),
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);

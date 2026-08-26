@@ -131,6 +131,11 @@ export class NetworkSystem implements System {
         this.state.upgradePrices = { ...msg.prices };
         this.bus.emit('net:upgradePrices', { prices: msg.prices });
         break;
+      case 'room_features':
+        this.state.features = { ...msg.features };
+        this.bus.emit('net:features', { features: msg.features });
+        if (msg.features.minimap) this.bus.emit('ui:toast', { text: 'Minimapa ativado para a sala!' });
+        break;
       case 'tower_hp':
         this.state.towerHp = msg.hp;
         this.state.towerMaxHp = msg.maxHp;

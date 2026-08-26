@@ -21,4 +21,5 @@ export function applyGameStart(state: GameState, msg: GameStartMessage): void {
   state.towerHp = msg.towerHp;
   state.towerMaxHp = msg.towerMaxHp;
   state.structures = msg.structures.map((s) => ({ ...s }));
+  state.features = { ...msg.features };
 }

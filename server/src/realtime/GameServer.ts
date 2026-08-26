@@ -160,6 +160,8 @@ export class GameServer {
           return this.match(conn).activateBattery(conn.player.id);
         case 'upgrade':
           return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
+        case 'buy_feature':
+          return this.match(conn).buyFeature(conn.player.id, msg.feature);
         case 'place_wall':
           return this.match(conn).placeWall(conn.player.id, msg.x, msg.z, msg.yaw);
         case 'dev':
@@ -387,6 +389,7 @@ export class GameServer {
       towerHp: match.towerHp,
       towerMaxHp: GAME.hub.TOWER_HP,
       structures: [...match.structures.values()],
+      features: { ...match.features },
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

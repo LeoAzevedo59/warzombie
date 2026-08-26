@@ -48,6 +48,7 @@ const fireSchema = z.object({ type: z.literal('fire'), dx: finite, dz: finite })
 const reloadSchema = z.object({ type: z.literal('reload') });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
 const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight', 'vision']) });
+const buyFeatureSchema = z.object({ type: z.literal('buy_feature'), feature: z.enum(['minimap']) });
 const placeWallSchema = z.object({ type: z.literal('place_wall'), x: finite, z: finite, yaw: finite });
 const itemIdSchema = z.enum(Object.keys(ITEMS) as [ItemId, ...ItemId[]]);
 const devSchema = z.discriminatedUnion('action', [

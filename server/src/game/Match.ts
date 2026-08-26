@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
@@ -80,6 +80,8 @@ export class Match {
   private nextStructureId = 1;
   private nextAmbientAt: number;
   gameOver = false;
+  /** recursos comprados para a sala inteira */
+  readonly features: RoomFeatures = { minimap: false };
   private hits = new Map<number, number>();
   readonly players = new Map<string, MatchPlayer>();
   money: number;
@@ -398,6 +400,18 @@ export class Match {
     this.sendHotbar(p);
     this.waves.activate();
     this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+  }
+
+  /** Compra um recurso da sala (minimapa): paga uma vez, ativa para todos. */
+  buyFeature(playerId: string, feature: RoomFeature): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    if (this.features[feature]) throw new MatchError('invalid_message', 'A sala já tem esse recurso.');
+    const price = feature === 'minimap' ? GAME.features.MINIMAP_PRICE : 0;
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    this.features[feature] = true;
+    this.setMoney(this.money - price, -price);
+    this.io.broadcast({ type: 'room_features', features: { ...this.features } });
   }
 
   // ---------- torre / paredes ----------

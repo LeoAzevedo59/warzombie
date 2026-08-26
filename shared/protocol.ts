@@ -19,7 +19,10 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 14;
+export const PROTOCOL_VERSION = 15;
+
+export type RoomFeature = 'minimap';
+export type RoomFeatures = Record<RoomFeature, boolean>;
 
 export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight' | 'vision';
 export interface WeaponUpgrades {
@@ -196,6 +199,12 @@ export type DevAction =
   | { action: 'spawn_boss' };
 export type DevMessage = { type: 'dev' } & DevAction;
 
+/** Compra um recurso da sala (ex.: minimapa) — vale para todos os membros. */
+export interface BuyFeatureMessage {
+  type: 'buy_feature';
+  feature: RoomFeature;
+}
+
 /** Coloca a parede equipada na hotbar em (x,z) com rotação `yaw` (perto do jogador, em lugar livre). */
 export interface PlaceWallMessage {
   type: 'place_wall';
@@ -223,6 +232,7 @@ export type ClientMessage =
   | ActivateBatteryMessage
   | UpgradeMessage
   | PlaceWallMessage
+  | BuyFeatureMessage
   | DevMessage
   | RoomListMessage
   | RoomCreateMessage
@@ -275,6 +285,7 @@ export interface GameStartMessage {
   towerHp: number;
   towerMaxHp: number;
   structures: StructureSnapshot[];
+  features: RoomFeatures;
 }
 
 // ---------- partida (server -> client) ----------
@@ -472,6 +483,11 @@ export interface WaveFailedMessage {
   wave: number;
   boss: boolean;
 }
+/** Recursos da sala mudaram (alguém comprou). */
+export interface RoomFeaturesMessage {
+  type: 'room_features';
+  features: RoomFeatures;
+}
 export interface TowerHpMessage {
   type: 'tower_hp';
   hp: number;
@@ -576,6 +592,7 @@ export type ServerMessage =
   | WaveFailedMessage
   | UpgradePricesMessage
   | TowerHpMessage
+  | RoomFeaturesMessage
   | GameOverMessage
   | StructureAddedMessage
   | StructureHpMessage

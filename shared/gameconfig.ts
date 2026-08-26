@@ -27,6 +27,8 @@ export const GAME = {
   respawn: { SMALL: 60, NODE: 180 },
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
   walls: { PLACE_DIST: 3, WIDTH: 2, THICK: 0.4 },
+  /** recursos da sala (comprados uma vez, valem para todos): preço */
+  features: { MINIMAP_PRICE: 120 },
   /** zumbis ambientais fora das waves: máximo vivo (+ por jogador) e intervalo de spawn */
   ambient: { BASE_MAX: 2, PER_PLAYER: 1, INTERVAL: 20, FIRST_DELAY: 15 },
   upgrades: {

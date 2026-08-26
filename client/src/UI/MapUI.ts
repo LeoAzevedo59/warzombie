@@ -24,9 +24,19 @@ export class MapUI {
     this.canvas.height = 160;
     parent.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d')!;
+    this.canvas.style.display = 'none';
   }
 
+  /** Minimapa é um recurso comprado para a sala. */
+  setEnabled(on: boolean): void {
+    this.enabled = on;
+    this.canvas.style.display = on ? 'block' : 'none';
+  }
+
+  private enabled = false;
+
   update(): void {
+    if (!this.enabled) return;
     const ctx = this.ctx;
     const W = this.canvas.width;
     const size = CONFIG.world.CHUNK_SIZE;
