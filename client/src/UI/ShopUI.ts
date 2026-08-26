@@ -65,8 +65,7 @@ export class ShopUI {
         .map(
           (d) => `<div class="recipe"><span class="recipe-label"><span class="toast-icon" style="background:${d.color};display:inline-block;vertical-align:middle;margin-right:6px"></span><b>${d.name}</b></span><button class="buy" data-id="${d.id}" ${money >= (d.buy ?? 0) ? '' : 'disabled'}>$${d.buy}</button></div>`,
         )
-        .join('')}</div>
-      <p class="hint">Gravetos $1 · Pedras $2 · Troncos $5 · Pedras grandes $6</p>`;
+        .join('')}</div>`;
     const upgrades = `
       <div class="recipes">${this.upgradeRows(money)}</div>
       <p class="hint">O nível é seu; o preço sobe para a sala toda a cada compra (×1.35).</p>`;
