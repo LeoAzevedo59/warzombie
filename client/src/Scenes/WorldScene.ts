@@ -17,12 +17,23 @@ import { RefiningSystem } from '@/Systems/RefiningSystem';
 import { CombatSystem } from '@/Systems/CombatSystem';
 import { BuildingSystem } from '@/Systems/BuildingSystem';
 import { ZombieSystem } from '@/Systems/ZombieSystem';
+import { NetworkSystem } from '@/Systems/NetworkSystem';
+import { PlayersHUD } from '@/UI/PlayersHUD';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { InventoryUI } from '@/UI/InventoryUI';
 import { WorkbenchUI } from '@/UI/WorkbenchUI';
 import { MapUI } from '@/UI/MapUI';
 import { ToastUI } from '@/UI/ToastUI';
+
+/** Aviso de queda de conexão exibido por cima do menu (some sozinho). */
+function alertDisconnect(reason: string): void {
+  const el = document.createElement('div');
+  el.className = 'disconnect-banner';
+  el.textContent = `Conexão com o servidor perdida (${reason}).`;
+  document.getElementById('ui')?.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
 
 /** Monta o mundo jogável: entidades, systems (em ordem) e UI. */
 export class WorldScene extends BaseScene {
@@ -38,6 +49,7 @@ export class WorldScene extends BaseScene {
     map: MapUI;
     toasts: ToastUI;
     combat: CombatHUD;
+    players: PlayersHUD;
   } | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
@@ -74,6 +86,7 @@ export class WorldScene extends BaseScene {
     const crafting = new CraftingSystem(bus, inventory);
     const refining = new RefiningSystem(bus, inventory);
     const zombies = new ZombieSystem(bus, state, this.player, this.world);
+    const network = new NetworkSystem(this.game.net, bus, state, this.player, this.root);
     if (import.meta.env.DEV) {
       // handle de debug pra testes manuais no console (só em dev)
       (window as unknown as { __wz: unknown }).__wz = { app, zombies, player: this.player, state, world: this.world, bus };
@@ -91,6 +104,7 @@ export class WorldScene extends BaseScene {
       .register(zombies)
       .register(new CombatSystem(bus, this.player, this.input, equipment, zombies, this.root))
       .register(new BuildingSystem(bus, inventory, this.player, this.world))
+      .register(network)
       .start();
 
     // --- UI ---
@@ -111,11 +125,18 @@ export class WorldScene extends BaseScene {
       map: new MapUI(uiRoot, this.world, this.player, zombies),
       toasts: new ToastUI(uiRoot, bus),
       combat: new CombatHUD(uiRoot, bus, () => this.respawn()),
+      players: new PlayersHUD(uiRoot, bus, state.playerName, () => network.remotes.values(), () => this.camera.component),
     };
     this.unsubs.push(
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);
+      }),
+      // caiu a conexão: volta pro menu (o próximo Entrar reconecta)
+      bus.on('net:disconnected', ({ reason }) => {
+        console.warn('Desconectado do servidor:', reason);
+        alertDisconnect(reason);
+        bus.emit('scene:change', { scene: 'menu' });
       }),
     );
     stats.notify();
@@ -136,6 +157,7 @@ export class WorldScene extends BaseScene {
     this.world.update(this.player.position);
     this.camera.update(dt);
     this.ui?.map.update();
+    this.ui?.players.update();
   }
 
   exit(): void {
@@ -149,6 +171,7 @@ export class WorldScene extends BaseScene {
     this.ui?.workbench.dispose();
     this.ui?.map.dispose();
     this.ui?.toasts.dispose();
+    this.ui?.players.dispose();
     this.ui = null;
     super.exit();
   }

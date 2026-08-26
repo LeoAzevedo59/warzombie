@@ -1,0 +1,45 @@
+// Fonte única da verdade do banco. Fluxo: editar aqui -> `npm run db:migrate -- --name <desc>`
+// -> SQL versionado em prisma/migrations -> `prisma migrate deploy` aplica em qualquer ambiente.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Jogador identificado apenas pelo nome (passo 1: sem senha/conta).
+/// Estado persistido é o último conhecido; atualizado ao desconectar e periodicamente.
+model Player {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(16)
+  /// nome normalizado (lowercase/trim) para unicidade sem diferenciar maiúsculas
+  nameKey   String   @unique @map("name_key") @db.VarChar(16)
+  hp        Int      @default(100)
+  kills     Int      @default(0)
+  posX      Float    @default(0) @map("pos_x")
+  posZ      Float    @default(0) @map("pos_z")
+  createdAt DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  sessions PlayerSession[]
+
+  @@map("players")
+}
+
+/// Uma conexão WebSocket do jogador (auditoria de quem entrou/saiu e quando).
+model PlayerSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  playerId       String    @map("player_id") @db.Uuid
+  connectedAt    DateTime  @default(now()) @map("connected_at")
+  disconnectedAt DateTime? @map("disconnected_at")
+  /// IP visto pelo servidor (atrás de proxy: X-Forwarded-For)
+  ip             String?   @db.VarChar(64)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@map("player_sessions")
+}

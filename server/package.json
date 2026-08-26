@@ -1,0 +1,33 @@
+{
+  "name": "@warzombie/server",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server/src/index.js",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../.env --import tsx --watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=../.env dist/server/src/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate dev",
+    "db:deploy": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate deploy",
+    "db:studio": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js studio",
+    "postinstall": "prisma generate",
+    "db:status": "node --env-file-if-exists=../.env ../node_modules/prisma/build/index.js migrate status"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "express": "^5.2.1",
+    "prisma": "^6.19.3",
+    "ws": "^8.21.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.23.12",
+    "typescript": "^5.6.0"
+  }
+}

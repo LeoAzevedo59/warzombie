@@ -3,7 +3,11 @@ import type { ItemStack } from '@/Items/Item';
 
 /** Fonte única de verdade dos dados de jogo. Serializável para save/load futuro. */
 export class GameState {
-  seed = CONFIG.world.SEED;
+  seed: number = CONFIG.world.SEED;
+
+  /** Identidade no servidor (preenchida pelo `welcome` do WebSocket). */
+  playerId: string | null = null;
+  playerName = '';
 
   hp: number = CONFIG.player.MAX_HP;
   stamina: number = CONFIG.player.MAX_STAMINA;
@@ -25,6 +29,8 @@ export class GameState {
   toJSON() {
     return {
       seed: this.seed,
+      playerId: this.playerId,
+      playerName: this.playerName,
       hp: this.hp,
       stamina: this.stamina,
       inventory: this.inventory,

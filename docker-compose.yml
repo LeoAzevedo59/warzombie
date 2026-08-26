@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: warzombie-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-warzombie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-warzombie}
+      POSTGRES_DB: ${POSTGRES_DB:-warzombie}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - warzombie-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-warzombie} -d ${POSTGRES_DB:-warzombie}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: warzombie-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      WS_TICK_RATE: ${WS_TICK_RATE:-20}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-warzombie}:${POSTGRES_PASSWORD:-warzombie}@db:5432/${POSTGRES_DB:-warzombie}?schema=public
+    ports:
+      - "${PORT:-3000}:3000"
+    # Aplica as migrations versionadas (server/prisma/migrations) antes de subir a API
+    command: sh -c "npx prisma migrate deploy --schema=server/prisma/schema.prisma && node server/dist/server/src/index.js"
+
+volumes:
+  warzombie-pgdata:

@@ -5,12 +5,15 @@ import type { BaseScene } from '@/Scenes/BaseScene';
 import { MainMenu } from '@/Scenes/MainMenu';
 import { WorldScene } from '@/Scenes/WorldScene';
 import { preloadModels } from '@/Assets/ModelAssets';
+import { NetworkClient } from '@/Net/NetworkClient';
 
 /** Raiz do jogo: cria a pc.Application, gerencia a cena ativa e o frame update. */
 export class Game {
   readonly app: pc.Application;
   readonly bus = new EventBus();
   readonly state = new GameState();
+  /** Conexão com o servidor multiplayer; o join acontece no MainMenu. */
+  readonly net = new NetworkClient();
   /** Promise do preload em andamento; recriada por ensureModels() se a anterior falhou. */
   private modelsPromise: Promise<void>;
   private modelsFailed = false;
