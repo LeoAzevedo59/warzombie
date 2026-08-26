@@ -20,7 +20,8 @@ export class EconomyHUD {
   }
 
   private render(amount: number, delta: number): void {
-    this.el.innerHTML = `Dinheiro<br/><b>$${amount}</b>`;
+    this.el.innerHTML = `<b>$${amount}</b>`;
+    this.el.title = 'Dinheiro da sala';
     if (delta === 0) return;
     this.el.classList.add(delta > 0 ? 'up' : 'down');
     if (this.pulseTimer) clearTimeout(this.pulseTimer);
