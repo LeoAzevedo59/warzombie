@@ -17,7 +17,7 @@ const moveSchema = z.object({
   x: finite,
   z: finite,
   yaw: finite,
-  anim: z.enum(['Idle', 'Walk', 'Run', 'Gun_Shoot', 'Death']),
+  anim: z.enum(['Idle', 'Walk', 'Run', 'Gun_Shoot', 'Punch_Left', 'Death']),
   crouching: z.boolean(),
 });
 

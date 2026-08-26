@@ -239,7 +239,8 @@ export class NetworkSystem implements System {
 
     const pos = this.player.position;
     const yaw = this.player.entity.getEulerAngles().y;
-    const anim = (this.player.anim.state ?? 'Idle') as NetAnim;
+    const raw = this.player.anim.state ?? 'Idle';
+    const anim = (['Idle', 'Walk', 'Run', 'Gun_Shoot', 'Punch_Left', 'Death'].includes(raw) ? raw : 'Idle') as NetAnim;
     const crouching = this.player.crouching;
     const l = this.lastSent;
     if (l.x !== pos.x || l.z !== pos.z || Math.abs(l.yaw - yaw) > 0.01 || l.anim !== anim || l.crouching !== crouching) {

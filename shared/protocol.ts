@@ -67,7 +67,7 @@ export interface RoomDetail extends RoomSummary {
 }
 
 /** Nome de animação que os outros clientes reproduzem no modelo remoto. */
-export type NetAnim = 'Idle' | 'Walk' | 'Run' | 'Gun_Shoot' | 'Death';
+export type NetAnim = 'Idle' | 'Walk' | 'Run' | 'Gun_Shoot' | 'Punch_Left' | 'Death';
 
 /** Estado dinâmico de um jogador, atualizado a cada tick. */
 export interface PlayerPose {
