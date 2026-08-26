@@ -6,18 +6,25 @@ export interface WaveIO {
   waveStarted(wave: number, count: number, players: number): void;
   bossSpawned(id: number, hp: number): void;
   phaseComplete(): void;
+  /** tempo esgotado: horda removida, bateria perdida */
+  waveFailed(wave: number, boss: boolean): void;
   /** jogadores online na sala agora (escala a dificuldade) */
   playerCount(): number;
 }
 
 /**
- * Orquestra as 5 waves da fase 1 e o boss. Tempo em segundos (relógio injetável para testes).
+ * Orquestra as 5 waves da fase 1 e o chefão. Tempo em segundos (relógio injetável para testes).
+ * Cada wave tem TIME_LIMIT s para ser limpa; limpou -> próxima em BREAK s; estourou -> falha
+ * (zumbis somem, volta ao idle e a bateria foi perdida). Após a 5ª limpa vem o chefão (BOSS_TIME_LIMIT).
  * count/hp/dano escalam ×DIFFICULTY_PER_PLAYER^(n-1) com n = jogadores no início da wave.
  */
 export class WaveDirector {
   phase: WavePhase = 'idle';
   wave = 0;
+  /** instante da próxima wave (countdown) */
   private nextAt: number | null = null;
+  /** prazo para limpar a wave/chefão atual */
+  private deadline: number | null = null;
   private bossId: number | null = null;
 
   constructor(
@@ -31,12 +38,14 @@ export class WaveDirector {
   }
 
   state(): WaveState {
+    const now = this.now();
     return {
       phase: this.phase,
       wave: this.wave,
       total: GAME.waves.TOTAL,
       alive: this.sim.aliveCount,
-      nextIn: this.nextAt === null ? null : Math.max(0, Math.round(this.nextAt - this.now())),
+      nextIn: this.nextAt === null ? null : Math.max(0, Math.round(this.nextAt - now)),
+      timeLeft: this.deadline === null ? null : Math.max(0, Math.round(this.deadline - now)),
     };
   }
 
@@ -46,6 +55,7 @@ export class WaveDirector {
     this.phase = 'countdown';
     this.wave = 0;
     this.nextAt = this.now() + GAME.waves.FIRST_DELAY;
+    this.deadline = null;
   }
 
   /** Chamado a cada tick; retorna true se o estado público mudou (para broadcast). */
@@ -53,34 +63,40 @@ export class WaveDirector {
     const now = this.now();
     switch (this.phase) {
       case 'countdown':
-      case 'wave':
         if (this.nextAt !== null && now >= this.nextAt) {
-          if (this.wave < GAME.waves.TOTAL) {
-            this.startWave(this.wave + 1);
-            return true;
-          }
-        }
-        // última wave limpa -> boss
-        if (this.phase === 'wave' && this.wave === GAME.waves.TOTAL && this.sim.aliveCount === 0) {
-          this.spawnBoss();
+          if (this.wave < GAME.waves.TOTAL) this.startWave(this.wave + 1);
+          else this.spawnBoss();
           return true;
         }
         return false;
-      case 'boss':
-        if (this.bossId !== null && !this.sim.zombies.has(this.bossId)) {
-          this.phase = 'complete';
-          this.nextAt = null;
-          this.io.phaseComplete();
+      case 'wave':
+        if (this.sim.aliveCount === 0) {
+          // limpou: respiro e próxima (ou chefão)
+          this.phase = 'countdown';
+          this.deadline = null;
+          this.nextAt = now + GAME.waves.BREAK;
           return true;
         }
-        // boss removido do mapa só depois do corpo sumir; considere morto quando state === 'dead'
-        if (this.bossId !== null && this.sim.zombies.get(this.bossId)?.state === 'dead') {
-          this.phase = 'complete';
-          this.nextAt = null;
-          this.io.phaseComplete();
+        if (this.deadline !== null && now >= this.deadline) {
+          this.fail(false);
           return true;
         }
         return false;
+      case 'boss': {
+        const boss = this.bossId !== null ? this.sim.zombies.get(this.bossId) : undefined;
+        if (!boss || boss.state === 'dead') {
+          this.phase = 'complete';
+          this.nextAt = null;
+          this.deadline = null;
+          this.io.phaseComplete();
+          return true;
+        }
+        if (this.deadline !== null && now >= this.deadline) {
+          this.fail(true);
+          return true;
+        }
+        return false;
+      }
       default:
         return false;
     }
@@ -101,6 +117,17 @@ export class WaveDirector {
     this.spawnBoss();
   }
 
+  private fail(boss: boolean): void {
+    const wave = this.wave;
+    this.sim.clear();
+    this.phase = 'idle';
+    this.wave = 0;
+    this.nextAt = null;
+    this.deadline = null;
+    this.bossId = null;
+    this.io.waveFailed(wave, boss);
+  }
+
   private difficulty(players: number): number {
     return Math.pow(GAME.waves.DIFFICULTY_PER_PLAYER, Math.max(0, players - 1));
   }
@@ -119,7 +146,8 @@ export class WaveDirector {
     }
     this.wave = n;
     this.phase = 'wave';
-    this.nextAt = n < GAME.waves.TOTAL ? this.now() + GAME.waves.INTERVAL : null;
+    this.nextAt = null;
+    this.deadline = this.now() + GAME.waves.TIME_LIMIT;
     this.io.waveStarted(n, count, players);
   }
 
@@ -132,6 +160,7 @@ export class WaveDirector {
     this.bossId = boss.id;
     this.phase = 'boss';
     this.nextAt = null;
+    this.deadline = this.now() + GAME.waves.BOSS_TIME_LIMIT;
     this.io.bossSpawned(boss.id, boss.maxHp);
   }
 }

@@ -30,6 +30,9 @@ export class WaveHUD {
       }),
       bus.on('wave:started', ({ wave, count }) => this.showBanner(`WAVE ${wave}`, `${count} zumbis a caminho`)),
       bus.on('boss:spawned', () => this.showBanner('CHEFÃO', 'Ele está vindo. Não deixe ele chegar perto.')),
+      bus.on('wave:failed', ({ wave, boss }) =>
+        this.showBanner('TEMPO ESGOTADO', boss ? 'O chefão venceu. A bateria foi perdida — compre outra e recomece.' : `A wave ${wave} não foi limpa a tempo. A bateria foi perdida — compre outra e recomece.`, 6000),
+      ),
       bus.on('phase:complete', () => {
         this.showBanner('FASE 1 CONCLUÍDA', 'O chefão caiu. A sala está livre.', 8000);
         this.render();
@@ -68,13 +71,13 @@ export class WaveHUD {
         line = 'Torre desligada — compre uma <b>Bateria</b> e coloque na torre (E)';
         break;
       case 'countdown':
-        line = `Primeira wave em <b>${s.nextIn ?? 0}s</b>`;
+        line = s.wave === 0 ? `Primeira wave em <b>${s.nextIn ?? 0}s</b>` : s.wave < s.total ? `Wave ${s.wave} limpa! Próxima em <b>${s.nextIn ?? 0}s</b>` : `Wave ${s.wave} limpa! O chefão chega em <b>${s.nextIn ?? 0}s</b>`;
         break;
       case 'wave':
-        line = `Wave <b>${s.wave}/${s.total}</b> · vivos: <b>${s.alive}</b>` + (s.nextIn !== null ? ` · próxima em <b>${s.nextIn}s</b>` : ' · elimine todos para chamar o chefão');
+        line = `Wave <b>${s.wave}/${s.total}</b> · vivos: <b>${s.alive}</b> · <span class="${(s.timeLeft ?? 99) <= 15 ? 'urgent' : ''}">tempo: <b>${s.timeLeft ?? 0}s</b></span>`;
         break;
       case 'boss':
-        line = `<span class="boss-label">CHEFÃO</span> · vivos: <b>${s.alive}</b>`;
+        line = `<span class="boss-label">CHEFÃO</span> · vivos: <b>${s.alive}</b> · <span class="${(s.timeLeft ?? 99) <= 20 ? 'urgent' : ''}">tempo: <b>${s.timeLeft ?? 0}s</b></span>`;
         break;
       case 'complete':
         line = '<span class="done">Fase 1 concluída!</span>';

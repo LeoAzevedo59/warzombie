@@ -62,7 +62,8 @@ export class LobbyScene extends BaseScene {
         state.wave = msg.wave;
         state.upgrades = { ...msg.upgrades };
         state.magSize = msg.magSize;
-        state.ammo = msg.magSize;
+        state.ammo = msg.ammo;
+        state.upgradePrices = { ...msg.upgradePrices };
         bus.emit('scene:change', { scene: 'world' });
         return;
       case 'error':

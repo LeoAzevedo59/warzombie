@@ -39,7 +39,7 @@ export class PlayerStats {
       // esgotou correndo; segurando Shift ainda -> anda, sem regenerar até soltar
     } else {
       this.exhausted = false;
-      this.state.stamina = Math.min(p.MAX_STAMINA, before + p.STAMINA_REGEN * dt);
+      this.state.stamina = Math.min(this.state.maxStamina, before + p.STAMINA_REGEN * dt);
     }
 
     if (Math.abs(this.state.stamina - before) > 0.01) this.notify();
@@ -58,7 +58,7 @@ export class PlayerStats {
   /** Vida e vigor cheios (respawn). */
   restore(): void {
     this.state.hp = CONFIG.player.MAX_HP;
-    this.state.stamina = CONFIG.player.MAX_STAMINA;
+    this.state.stamina = this.state.maxStamina;
     this.exhausted = false;
     this.notify();
   }
@@ -68,7 +68,7 @@ export class PlayerStats {
       hp: this.state.hp,
       stamina: this.state.stamina,
       maxHp: CONFIG.player.MAX_HP,
-      maxStamina: CONFIG.player.MAX_STAMINA,
+      maxStamina: this.state.maxStamina,
     });
   }
 }

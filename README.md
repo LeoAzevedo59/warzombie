@@ -94,7 +94,8 @@ Regras:
 
 ## Waves e boss (M3)
 
-- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** ([8, 12, 16, 22, 30] zumbis) com 60 s entre elas.
+- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** ([8, 12, 16, 22, 30] zumbis). Cada wave tem **90 s para ser limpa** (chefão: 180 s); limpou → próxima em 8 s; **estourou o tempo → a horda some, a bateria é perdida e tudo recomeça da wave 1** com outra bateria.
+- **Upgrades** no vendedor (dano +20%/nível, munição +4/nível, recoil −2°/nível, vigor de corrida +25%/nível; 5 níveis): o nível é por jogador, mas o **preço é da sala** — cada compra de um tipo multiplica o próximo preço por 1.35 para todos. A Glock vem com **5 balas** (pente 10; recarregue com R).
 - Quantidade, vida e dano escalam ×1.5 por jogador online (`GAME.waves` / `GAME.zombie` em `shared/gameconfig.ts`).
 - Zumbis correm a 5.2 (andar do jogador = 4, correr = 7.5): **é preciso correr para fugir**. ~35% da horda são **cuspidores** (roxos): lançam um projétil à distância que dá dano e **lentidão de 50% por 2,5 s**.
 - Wave 5 limpa → **chefão** (30× a vida, corre a 6.8, **rajada de 3 cuspes** à distância com lentidão, **investida** com knockback, **pancada em área** com aviso no chão e **invoca 3 zumbis** a cada 20 s). Chefão morto → `phase_complete`, sala vira `FINISHED`.

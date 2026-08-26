@@ -66,6 +66,7 @@ test('vender e comprar movem o dinheiro da sala', () => {
   m.buy('A', 'glock');
   assert.equal(m.money, 0);
   assert.deepEqual(a.hotbar[0], { itemId: 'glock', count: 1 });
+  assert.equal(a.mag, GAME.weapon.glock.START_MAG);
   a.snapshot.x = 20;
   assert.throws(() => m.sell('A'), (e: MatchError) => e.code === 'too_far');
 });
@@ -89,6 +90,7 @@ test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
   const b = m.addPlayer(snap('B', 5, 0));
   advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
   a.hotbar[0] = { itemId: 'glock', count: 1 };
+  a.mag = GAME.weapon.glock.MAG;
   for (let i = 0; i < 4; i++) {
     m.fire('A', 1, 0);
     advance(400);
@@ -136,8 +138,15 @@ test('upgrades: dano, pente e recoil', () => {
   m.buyUpgrade('A', 'damage');
   m.buyUpgrade('A', 'ammo');
   m.buyUpgrade('A', 'recoil');
-  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1 });
+  assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0 });
   assert.equal(m.money, 1000 - 40 - 30 - 40);
+  // preço sobe para a sala: B paga mais caro pelo primeiro nível de dano
+  assert.equal(m.upgradePrices().damage, Math.round(40 * 1.35));
+  b.snapshot.x = GAME.hub.VENDOR.x;
+  m.buyUpgrade('B', 'damage');
+  assert.equal(b.upgrades.damage, 1);
+  assert.equal(m.money, 1000 - 40 - 30 - 40 - Math.round(40 * 1.35));
+  b.snapshot.x = GAME.hub.VENDOR.x + 5;
   a.mag = 0;
   m.reload('A');
   advance(GAME.weapon.glock.RELOAD * 1000 + 1);

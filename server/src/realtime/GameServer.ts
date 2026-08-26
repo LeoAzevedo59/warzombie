@@ -350,7 +350,9 @@ export class GameServer {
       equipped: mp.equipped,
       wave: match.waveState(),
       upgrades: { ...mp.upgrades },
+      upgradePrices: match.upgradePrices(),
       magSize: match.magSizeOf(mp),
+      ammo: mp.mag,
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

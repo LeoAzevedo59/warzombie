@@ -17,7 +17,7 @@ export class CombatHUD {
   private countdown: number | null = null;
   private slowedUntil = 0;
   private shieldUntil = 0;
-  private upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0 };
+  private upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0 };
   private shieldTimer: number | null = null;
 
   constructor(

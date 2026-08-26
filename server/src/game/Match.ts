@@ -1,8 +1,8 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import type { ItemId } from '../../../shared/items.js';
 import { dist, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { damageMultiplier, emptyUpgrades, magSize, spreadDegrees, upgradePrice } from '../../../shared/upgrades.js';
+import type { DevAction, PlayerSnapshot, ProjectileSnapshot, ServerMessage, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import { damageMultiplier, emptyUpgrades, isMaxed, magSize, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -66,6 +66,8 @@ export class Match {
   private hits = new Map<number, number>();
   readonly players = new Map<string, MatchPlayer>();
   money: number;
+  /** compras de upgrade por tipo na sala (define o preço para todos) */
+  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0 };
   readonly zombies: ZombieSim;
   readonly waves: WaveDirector;
   private lastTick: number;
@@ -109,6 +111,10 @@ export class Match {
         phaseComplete: () => {
           this.io.broadcast({ type: 'phase_complete' });
           this.io.onPhaseComplete();
+        },
+        waveFailed: (wave, boss) => {
+          this.io.broadcast({ type: 'wave_failed', wave, boss });
+          this.io.onWaveChanged(0);
         },
         playerCount: () => this.players.size,
       },
@@ -155,7 +161,7 @@ export class Match {
       equipped: 0,
       dead: false,
       respawnAt: 0,
-      mag: GAME.weapon.glock.MAG,
+      mag: GAME.weapon.glock.START_MAG,
       reloadUntil: 0,
       nextFireAt: 0,
       lastHitAt: -Infinity,
@@ -207,16 +213,22 @@ export class Match {
     return magSize(p.upgrades);
   }
 
-  /** Compra um nível de upgrade da arma (dinheiro da sala; efeito só para este jogador). */
+  upgradePrices(): UpgradePrices {
+    return pricesFor(this.upgradePurchases);
+  }
+
+  /** Compra um nível de upgrade (dinheiro da sala; nível só deste jogador; preço sobe para todos). */
   buyUpgrade(playerId: string, kind: UpgradeKind): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    const price = upgradePrice(kind, p.upgrades[kind]);
-    if (price === null) throw new MatchError('invalid_message', 'Upgrade já está no máximo.');
+    if (isMaxed(kind, p.upgrades[kind])) throw new MatchError('invalid_message', 'Upgrade já está no máximo.');
+    const price = upgradePriceFor(kind, this.upgradePurchases[kind]);
     if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
     p.upgrades[kind]++;
+    this.upgradePurchases[kind]++;
     this.setMoney(this.money - price, -price);
     this.io.send(playerId, { type: 'upgrades', upgrades: { ...p.upgrades } });
+    this.io.broadcast({ type: 'upgrade_prices', prices: this.upgradePrices() });
     if (kind === 'ammo') this.sendAmmo(p);
   }
 
@@ -307,6 +319,11 @@ export class Match {
       throw new MatchError(r.code, msg);
     }
     this.setMoney(this.money - r.price, -r.price);
+    if (itemId === 'glock') {
+      p.mag = GAME.weapon.glock.START_MAG;
+      p.reloadUntil = 0;
+      this.sendAmmo(p);
+    }
     this.sendHotbar(p);
   }
 

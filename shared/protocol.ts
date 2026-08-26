@@ -8,14 +8,17 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
-export type UpgradeKind = 'damage' | 'ammo' | 'recoil';
+export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina';
 export interface WeaponUpgrades {
   damage: number;
   ammo: number;
   recoil: number;
+  stamina: number;
 }
+/** Preço atual (da sala) do próximo nível de cada upgrade. */
+export type UpgradePrices = Record<UpgradeKind, number>;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -222,7 +225,9 @@ export interface GameStartMessage {
   equipped: number;
   wave: WaveState;
   upgrades: WeaponUpgrades;
+  upgradePrices: UpgradePrices;
   magSize: number;
+  ammo: number;
 }
 
 // ---------- partida (server -> client) ----------
@@ -341,6 +346,8 @@ export interface WaveState {
   alive: number;
   /** s até a próxima wave (ou até a primeira), null se não há próxima agendada */
   nextIn: number | null;
+  /** s restantes para limpar a wave/chefão atual (null fora de wave) */
+  timeLeft: number | null;
 }
 
 /** Projétil (cuspe) em voo, simulado no servidor. */
@@ -408,6 +415,17 @@ export interface ZombieDiedMessage {
 export interface PhaseCompleteMessage {
   type: 'phase_complete';
 }
+/** Tempo esgotado: a horda some, a bateria é perdida e as waves voltam ao zero. */
+export interface WaveFailedMessage {
+  type: 'wave_failed';
+  wave: number;
+  boss: boolean;
+}
+/** Preços atuais (da sala) dos upgrades; muda a cada compra de qualquer jogador. */
+export interface UpgradePricesMessage {
+  type: 'upgrade_prices';
+  prices: UpgradePrices;
+}
 export interface KnockbackMessage {
   type: 'knockback';
   dx: number;
@@ -471,6 +489,8 @@ export type ServerMessage =
   | BossSlamMessage
   | ZombieDiedMessage
   | PhaseCompleteMessage
+  | WaveFailedMessage
+  | UpgradePricesMessage
   | KnockbackMessage
   | SlowedMessage
   | ShieldMessage

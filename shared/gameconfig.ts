@@ -10,16 +10,23 @@ export const GAME = {
     HUB_RADIUS: 3,
   },
   weapon: {
-    glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 10, RELOAD: 1.5 },
+    /** START_MAG: balas ao comprar a arma (o pente cheio só depois de recarregar) */
+    glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 10, START_MAG: 5, RELOAD: 1.5 },
   },
-  /** Upgrades da arma comprados no vendedor (por jogador, por partida). Preço por nível. */
+  /**
+   * Upgrades comprados no vendedor. Níveis são por jogador, mas o PREÇO é da sala:
+   * cada compra de um tipo (por qualquer jogador) multiplica o próximo preço por PRICE_GROWTH.
+   */
   upgrades: {
+    PRICE_GROWTH: 1.35,
     /** +20% de dano por nível */
-    damage: { MAX_LEVEL: 5, STEP: 0.2, PRICES: [40, 60, 90, 130, 180] },
+    damage: { MAX_LEVEL: 5, STEP: 0.2, BASE: 40 },
     /** +4 balas no pente por nível */
-    ammo: { MAX_LEVEL: 5, STEP: 4, PRICES: [30, 50, 70, 100, 140] },
+    ammo: { MAX_LEVEL: 5, STEP: 4, BASE: 30 },
     /** recoil = dispersão (graus) do tiro em torno da mira; cada nível reduz STEP graus */
-    recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, PRICES: [40, 60, 90, 130, 180] },
+    recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, BASE: 40 },
+    /** +25% de vigor máximo por nível (corrida) */
+    stamina: { MAX_LEVEL: 5, STEP: 0.25, BASE: 35 },
   },
   zombie: {
     MAX_HP: 60,
@@ -64,8 +71,12 @@ export const GAME = {
     BASE_COUNT: [8, 12, 16, 22, 30],
     /** multiplicador de quantidade, vida e dano por jogador adicional */
     DIFFICULTY_PER_PLAYER: 1.5,
-    /** s entre o início de uma wave e o início da próxima */
-    INTERVAL: 60,
+    /** s para limpar cada wave; estourou -> horda some e a bateria é perdida (recomeça do zero) */
+    TIME_LIMIT: 90,
+    /** s para matar o chefão */
+    BOSS_TIME_LIMIT: 180,
+    /** s de respiro entre uma wave limpa e a próxima */
+    BREAK: 8,
     /** primeira wave começa isso depois de ativar a bateria */
     FIRST_DELAY: 5,
     /** raio (em unidades) ao redor do centro onde os zumbis nascem */

@@ -1,5 +1,5 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
-import type { ProjectileSnapshot, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
+import type { ProjectileSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
 export interface GameEvents {
@@ -50,6 +50,8 @@ export interface GameEvents {
   'player:slowed': { factor: number; seconds: number };
   'net:shield': { playerId: string; seconds: number };
   'net:upgrades': { upgrades: WeaponUpgrades };
+  'net:upgradePrices': { prices: UpgradePrices };
+  'wave:failed': { wave: number; boss: boolean };
   'net:knockback': { dx: number; dz: number; force: number };
   'wave:state': { wave: WaveState };
   'wave:started': { wave: number; count: number; players: number };

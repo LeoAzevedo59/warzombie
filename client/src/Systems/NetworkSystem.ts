@@ -123,7 +123,15 @@ export class NetworkSystem implements System {
       case 'upgrades':
         this.state.upgrades = { ...msg.upgrades };
         this.bus.emit('net:upgrades', { upgrades: msg.upgrades });
+        this.player.stats.notify();
         this.bus.emit('ui:toast', { text: 'Upgrade comprado!' });
+        break;
+      case 'upgrade_prices':
+        this.state.upgradePrices = { ...msg.prices };
+        this.bus.emit('net:upgradePrices', { prices: msg.prices });
+        break;
+      case 'wave_failed':
+        this.bus.emit('wave:failed', { wave: msg.wave, boss: msg.boss });
         break;
       case 'ammo':
         this.state.ammo = msg.mag;

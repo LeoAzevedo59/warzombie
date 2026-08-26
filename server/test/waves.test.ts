@@ -25,6 +25,7 @@ function setup(players: number) {
       waveStarted: (w, count, n) => events.push(`wave:${w}:${count}:${n}`),
       bossSpawned: () => events.push('boss'),
       phaseComplete: () => events.push('complete'),
+      waveFailed: (w, boss) => events.push(`failed:${w}:${boss}`),
       playerCount: () => players,
     },
     () => now,
@@ -32,7 +33,7 @@ function setup(players: number) {
   return { sim, waves, events, hits, advance: (s: number) => (now += s) };
 }
 
-test('waves escalam ×1.5 por jogador e seguem o intervalo de 60s', () => {
+test('waves escalam ×1.5 por jogador; limpar chama a próxima após BREAK', () => {
   const { sim, waves, events, advance } = setup(3);
   waves.activate();
   assert.equal(waves.state().phase, 'countdown');
@@ -44,12 +45,37 @@ test('waves escalam ×1.5 por jogador e seguem o intervalo de 60s', () => {
   const z = [...sim.alive()][0];
   assert.equal(z.maxHp, Math.round(GAME.zombie.MAX_HP * mult));
   assert.equal(z.damage, Math.round(GAME.zombie.DAMAGE * mult));
-  assert.equal(waves.state().nextIn, 60);
-  advance(59);
+  assert.equal(waves.state().timeLeft, GAME.waves.TIME_LIMIT);
+  advance(30);
+  assert.equal(waves.tick(), false); // ainda com zumbis vivos: nada muda
+  for (const zb of [...sim.alive()]) sim.damage(zb, 9999);
+  assert.ok(waves.tick());
+  assert.equal(waves.state().phase, 'countdown');
+  assert.equal(waves.state().nextIn, GAME.waves.BREAK);
+  advance(GAME.waves.BREAK);
+  assert.ok(waves.tick());
+  assert.equal(waves.wave, 2);
+});
+
+test('estourar o tempo da wave remove a horda e volta ao zero (bateria perdida)', () => {
+  const { sim, waves, events, advance } = setup(1);
+  waves.activate();
+  advance(GAME.waves.FIRST_DELAY);
+  waves.tick();
+  assert.equal(waves.wave, 1);
+  advance(GAME.waves.TIME_LIMIT - 1);
   assert.equal(waves.tick(), false);
   advance(1);
   assert.ok(waves.tick());
-  assert.equal(waves.wave, 2);
+  assert.equal(waves.state().phase, 'idle');
+  assert.equal(waves.wave, 0);
+  assert.equal(sim.zombies.size, 0);
+  assert.ok(events.includes('failed:1:false'));
+  // nova bateria recomeça da wave 1
+  waves.activate();
+  advance(GAME.waves.FIRST_DELAY);
+  waves.tick();
+  assert.equal(waves.wave, 1);
 });
 
 test('depois da wave 5 limpa vem o boss; boss morto conclui a fase', () => {
@@ -59,10 +85,10 @@ test('depois da wave 5 limpa vem o boss; boss morto conclui a fase', () => {
   for (let w = 1; w <= 5; w++) {
     waves.tick();
     assert.equal(waves.wave, w);
-    advance(GAME.waves.INTERVAL);
+    for (const z of [...sim.alive()]) sim.damage(z, 9999);
+    waves.tick(); // limpa -> countdown
+    advance(GAME.waves.BREAK);
   }
-  assert.equal(waves.tick(), false); // wave 5 sem próxima agendada, zumbis ainda vivos
-  for (const z of [...sim.alive()]) sim.damage(z, 9999);
   assert.ok(waves.tick());
   assert.equal(waves.state().phase, 'boss');
   assert.ok(events.includes('boss'));
