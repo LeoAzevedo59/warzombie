@@ -139,6 +139,7 @@ export class NetworkSystem implements System {
       case 'tower_hp':
         this.state.towerHp = msg.hp;
         this.state.towerMaxHp = msg.maxHp;
+        this.state.towerLevel = msg.level;
         this.bus.emit('net:towerHp', { hp: msg.hp, maxHp: msg.maxHp });
         break;
       case 'game_over':

@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 export type RoomFeature = 'minimap';
 export type RoomFeatures = Record<RoomFeature, boolean>;
@@ -205,6 +205,15 @@ export type DevAction =
   | { action: 'spawn_boss' };
 export type DevMessage = { type: 'dev' } & DevAction;
 
+/** Reforça a torre da sala (+HP máximo, cura). */
+export interface TowerUpgradeMessage {
+  type: 'tower_upgrade';
+}
+/** Repara a torre até a vida máxima (custo proporcional à vida faltante). */
+export interface TowerRepairMessage {
+  type: 'tower_repair';
+}
+
 /** Compra um recurso da sala (ex.: minimapa) — vale para todos os membros. */
 export interface BuyFeatureMessage {
   type: 'buy_feature';
@@ -240,6 +249,8 @@ export type ClientMessage =
   | UpgradeMessage
   | PlaceWallMessage
   | BuyFeatureMessage
+  | TowerUpgradeMessage
+  | TowerRepairMessage
   | DevMessage
   | RoomListMessage
   | RoomCreateMessage
@@ -291,6 +302,7 @@ export interface GameStartMessage {
   tower: { x: number; z: number };
   towerHp: number;
   towerMaxHp: number;
+  towerLevel: number;
   structures: StructureSnapshot[];
   features: RoomFeatures;
 }
@@ -506,6 +518,8 @@ export interface TowerHpMessage {
   type: 'tower_hp';
   hp: number;
   maxHp: number;
+  /** nível de reforço da torre (define o próximo preço) */
+  level: number;
 }
 /** Torre destruída: a partida recomeça do zero em `restartIn` s. */
 export interface GameOverMessage {

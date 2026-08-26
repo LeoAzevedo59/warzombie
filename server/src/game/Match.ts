@@ -2,7 +2,7 @@ import { GAME } from '../../../shared/gameconfig.js';
 import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, upgradePriceFor } from '../../../shared/upgrades.js';
+import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -76,6 +76,11 @@ export class Match {
   /** instante (ms) em que cada recurso removido renasce */
   private respawnAt = new Map<number, number>();
   towerHp: number = GAME.hub.TOWER_HP;
+  towerLevel = 0;
+
+  get towerMaxHp(): number {
+    return towerMaxHp(this.towerLevel);
+  }
   readonly structures = new Map<number, StructureSnapshot>();
   private nextStructureId = 1;
   private nextAmbientAt: number;
@@ -416,10 +421,38 @@ export class Match {
 
   // ---------- torre / paredes ----------
 
+  /** Reforça a torre: +HP máximo e cura o mesmo valor (dinheiro da sala; preço sobe por nível). */
+  upgradeTower(playerId: string): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    if (this.gameOver) throw new MatchError('invalid_message', 'A torre foi destruída.');
+    const price = towerUpgradePrice(this.towerLevel);
+    if (price === null) throw new MatchError('invalid_message', 'A torre já está no máximo.');
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    this.towerLevel++;
+    this.towerHp = Math.min(this.towerMaxHp, this.towerHp + GAME.towerUpgrade.HP_STEP);
+    this.setMoney(this.money - price, -price);
+    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
+  }
+
+  /** Repara a torre até o máximo (dinheiro da sala). */
+  repairTower(playerId: string): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    if (this.gameOver) throw new MatchError('invalid_message', 'A torre foi destruída.');
+    const missing = this.towerMaxHp - this.towerHp;
+    if (missing <= 0) throw new MatchError('invalid_message', 'A torre já está com vida cheia.');
+    const price = towerRepairPrice(missing);
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    this.towerHp = this.towerMaxHp;
+    this.setMoney(this.money - price, -price);
+    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
+  }
+
   damageTower(amount: number): void {
     if (this.gameOver || this.towerHp <= 0) return;
     this.towerHp = Math.max(0, this.towerHp - amount);
-    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: GAME.hub.TOWER_HP });
+    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
     if (this.towerHp <= 0) {
       this.gameOver = true;
       this.zombies.clear();

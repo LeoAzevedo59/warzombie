@@ -40,6 +40,22 @@ export function staminaMultiplier(u: WeaponUpgrades): number {
   return 1 + GAME.upgrades.stamina.STEP * u.stamina;
 }
 
+/** Preço do próximo reforço da torre (null no máximo). */
+export function towerUpgradePrice(level: number): number | null {
+  const c = GAME.towerUpgrade;
+  return level >= c.MAX_LEVEL ? null : Math.round(c.BASE_PRICE * Math.pow(c.GROWTH, level));
+}
+
+/** Preço para reparar a torre dado quanto falta de vida. */
+export function towerRepairPrice(missingHp: number): number {
+  if (missingHp <= 0) return 0;
+  return Math.max(GAME.towerRepair.MIN_PRICE, Math.ceil(missingHp * GAME.towerRepair.PRICE_PER_HP));
+}
+
+export function towerMaxHp(level: number): number {
+  return GAME.hub.TOWER_HP + GAME.towerUpgrade.HP_STEP * level;
+}
+
 /** Altura ortográfica da câmera com o upgrade Visão. */
 export function cameraOrthoHeight(u: WeaponUpgrades): number {
   return GAME.camera.ORTHO_HEIGHT + GAME.camera.VISION_STEP * u.vision;

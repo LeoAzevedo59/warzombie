@@ -69,6 +69,7 @@ export class GameState {
   tower = { x: 4, z: 4 };
   towerHp = 1500;
   towerMaxHp = 1500;
+  towerLevel = 0;
   /** paredes colocadas na sala (snapshot inicial; depois mantidas pelo World) */
   structures: StructureSnapshot[] = [];
   /** recursos da sala (minimapa começa desligado) */

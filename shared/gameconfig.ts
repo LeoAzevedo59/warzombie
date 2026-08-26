@@ -31,6 +31,10 @@ export const GAME = {
   walls: { PLACE_DIST: 3, WIDTH: 2, THICK: 0.4 },
   /** recursos da sala (comprados uma vez, valem para todos): preço */
   features: { MINIMAP_PRICE: 120 },
+  /** reforço da torre (sala): +HP máximo por nível (e cura esse valor), preço base × GROWTH^nível */
+  towerUpgrade: { HP_STEP: 500, BASE_PRICE: 100, GROWTH: 1.35, MAX_LEVEL: 10 },
+  /** reparo da torre: $ por ponto de vida faltante e preço mínimo */
+  towerRepair: { PRICE_PER_HP: 0.1, MIN_PRICE: 10 },
   /** zumbis ambientais fora das waves: máximo vivo (+ por jogador) e intervalo de spawn */
   ambient: { BASE_MAX: 2, PER_PLAYER: 1, INTERVAL: 20, FIRST_DELAY: 15 },
   upgrades: {

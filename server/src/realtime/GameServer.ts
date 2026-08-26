@@ -9,7 +9,6 @@ import {
   type ServerMessage,
 } from '../../../shared/protocol.js';
 import { env } from '../config/env.js';
-import { GAME } from '../../../shared/gameconfig.js';
 import { createLogger } from '../lib/logger.js';
 import { RoomModel } from '../models/RoomModel.js';
 import { Match, MatchError } from '../game/Match.js';
@@ -162,6 +161,10 @@ export class GameServer {
           return this.match(conn).activateBattery(conn.player.id);
         case 'upgrade':
           return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
+        case 'tower_repair':
+          return this.match(conn).repairTower(conn.player.id);
+        case 'tower_upgrade':
+          return this.match(conn).upgradeTower(conn.player.id);
         case 'buy_feature':
           return this.match(conn).buyFeature(conn.player.id, msg.feature);
         case 'place_wall':
@@ -389,7 +392,8 @@ export class GameServer {
       ammo: mp.mag,
       tower: match.towerPos,
       towerHp: match.towerHp,
-      towerMaxHp: GAME.hub.TOWER_HP,
+      towerMaxHp: match.towerMaxHp,
+      towerLevel: match.towerLevel,
       structures: [...match.structures.values()],
       features: { ...match.features },
     });

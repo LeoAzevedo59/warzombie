@@ -222,3 +222,27 @@ test('faca acerta o zumbi à frente, não o de trás', () => {
   m.melee('A', 1, 0); // cooldown: ignorado
   assert.equal(front.hp, GAME.zombie.MAX_HP - GAME.weapon.knife.DAMAGE);
 });
+
+test('reforço da torre: +500 de máximo e cura, preço sobe', () => {
+  const { m, snap } = setup();
+  m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  m.money = 1000;
+  m.damageTower(600);
+  m.upgradeTower('A');
+  assert.equal(m.towerMaxHp, GAME.hub.TOWER_HP + 500);
+  assert.equal(m.towerHp, GAME.hub.TOWER_HP - 600 + 500);
+  assert.equal(m.money, 900);
+  m.upgradeTower('A');
+  assert.equal(m.money, 900 - Math.round(100 * 1.35));
+});
+
+test('reparo da torre cobra pela vida faltante e enche', () => {
+  const { m, snap } = setup();
+  m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  m.money = 500;
+  assert.throws(() => m.repairTower('A'), (e: MatchError) => e.code === 'invalid_message');
+  m.damageTower(400);
+  m.repairTower('A');
+  assert.equal(m.towerHp, m.towerMaxHp);
+  assert.equal(m.money, 500 - 40);
+});
