@@ -3,6 +3,7 @@ import type { System } from '@/Core/GameLoop';
 import type { EventBus } from '@/Core/EventBus';
 import type { Player } from '@/Entities/Player/Player';
 import { makeCylinder, makeSphere } from '@/Assets/Primitives';
+import type { GameState } from '@/Core/GameState';
 import type { ProjectileSnapshot } from '@shared/protocol';
 import { mapBounds } from '@shared/worldgen';
 
@@ -14,13 +15,23 @@ export class EffectsSystem implements System {
   private bounds = mapBounds();
   private telegraphs: Array<{ entity: pc.Entity; ttl: number; total: number }> = [];
   private projectiles = new Map<number, { entity: pc.Entity; target: pc.Vec3 }>();
+  /** anéis de escudo por jogador (posição atualizada a cada frame) */
+  private shields = new Map<string, { entity: pc.Entity; ttl: number }>();
 
   constructor(
     bus: EventBus,
     private player: Player,
     private sceneRoot: pc.Entity,
+    private state: GameState,
+    private positionOf: (id: string) => pc.Vec3 | null,
   ) {
     this.unsubs.push(
+      bus.on('net:shield', ({ playerId, seconds }) => {
+        this.shields.get(playerId)?.entity.destroy();
+        const ring = makeCylinder({ color: '#4db8ff', scale: [1.6, 0.05, 1.6], emissive: 1.2 });
+        this.sceneRoot.addChild(ring);
+        this.shields.set(playerId, { entity: ring, ttl: seconds });
+      }),
       bus.on('net:knockback', ({ dx, dz, force }) => this.knockback.set(dx * force, 0, dz * force)),
       bus.on('net:projectiles', ({ projectiles }) => this.applyProjectiles(projectiles)),
       bus.on('boss:slam', ({ x, z, radius, windup }) => {
@@ -55,6 +66,19 @@ export class EffectsSystem implements System {
   }
 
   update(dt: number): void {
+    for (const [id, sh] of this.shields) {
+      sh.ttl -= dt;
+      const pos = this.positionOf(id);
+      if (sh.ttl <= 0 || !pos) {
+        sh.entity.destroy();
+        this.shields.delete(id);
+        continue;
+      }
+      sh.entity.setPosition(pos.x, 0.05, pos.z);
+      const pulse = 1.5 + 0.15 * Math.sin(sh.ttl * 8);
+      sh.entity.setLocalScale(pulse, 0.05, pulse);
+    }
+    void this.state;
     for (const p of this.projectiles.values()) {
       const pos = p.entity.getPosition();
       const t = 1 - Math.exp(-20 * dt);
@@ -91,5 +115,7 @@ export class EffectsSystem implements System {
     this.telegraphs = [];
     for (const p of this.projectiles.values()) p.entity.destroy();
     this.projectiles.clear();
+    for (const sh of this.shields.values()) sh.entity.destroy();
+    this.shields.clear();
   }
 }

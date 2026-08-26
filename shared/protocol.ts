@@ -8,7 +8,7 @@
 
 import type { ItemId, ItemStack } from './items.js';
 
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 export const MAX_ROOM_PLAYERS = 10;
 export const ROOM_NAME_MIN = 2;
@@ -339,6 +339,13 @@ export interface StateMessage {
   projectiles: ProjectileSnapshot[];
 }
 
+/** Jogador nasceu/renasceu com escudo: sem dano nem lentidão por `seconds`. */
+export interface ShieldMessage {
+  type: 'shield';
+  playerId: string;
+  seconds: number;
+}
+
 /** Jogador foi atingido por um cuspe: anda a `factor` da velocidade por `seconds`. */
 export interface SlowedMessage {
   type: 'slowed';
@@ -444,6 +451,7 @@ export type ServerMessage =
   | PhaseCompleteMessage
   | KnockbackMessage
   | SlowedMessage
+  | ShieldMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | StateMessage

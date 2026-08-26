@@ -21,6 +21,8 @@ export interface MatchPlayer {
   lastHitAt: number;
   /** (dev) multiplicador de dano da arma */
   damageMult: number;
+  /** invulnerável (sem dano/lentidão) até este instante (ms) */
+  shieldUntil: number;
 }
 
 export class MatchError extends Error {
@@ -83,7 +85,11 @@ export class Match {
           if (p) this.damagePlayer(p, amount, undefined, byZombie);
         },
         knockback: (playerId, dx, dz, force) => this.io.send(playerId, { type: 'knockback', dx, dz, force }),
-        slowPlayer: (playerId, factor, seconds) => this.io.broadcast({ type: 'slowed', playerId, factor, seconds }),
+        slowPlayer: (playerId, factor, seconds) => {
+          const p = this.players.get(playerId);
+          if (!p || this.isShielded(p)) return;
+          this.io.broadcast({ type: 'slowed', playerId, factor, seconds });
+        },
         bossSlam: (x, z, radius, windup) => this.io.broadcast({ type: 'boss_slam', x, z, radius, windup }),
         zombieDied: (z, killerId) => this.onZombieDied(z, killerId),
       },
@@ -151,8 +157,10 @@ export class Match {
       nextFireAt: 0,
       lastHitAt: -Infinity,
       damageMult: 1,
+      shieldUntil: 0,
     };
     this.players.set(snapshot.id, p);
+    this.grantShield(p);
     return p;
   }
 
@@ -170,6 +178,17 @@ export class Match {
     const p = this.get(playerId);
     if (p.dead) throw new MatchError('dead', 'Você está morto.');
     return p;
+  }
+
+  /** Escudo de spawn: ninguém consegue causar dano nem lentidão por SPAWN_SHIELD s. */
+  private grantShield(p: MatchPlayer): void {
+    const secs = GAME.player.SPAWN_SHIELD;
+    p.shieldUntil = this.now() + secs * 1000;
+    this.io.broadcast({ type: 'shield', playerId: p.snapshot.id, seconds: secs });
+  }
+
+  isShielded(p: MatchPlayer): boolean {
+    return this.now() < p.shieldUntil;
   }
 
   private sendHotbar(p: MatchPlayer): void {
@@ -374,7 +393,7 @@ export class Match {
   }
 
   damagePlayer(target: MatchPlayer, amount: number, by?: string, _byZombie?: number): void {
-    if (target.dead) return;
+    if (target.dead || this.isShielded(target)) return;
     target.snapshot.hp = Math.max(0, target.snapshot.hp - amount);
     this.io.broadcast({ type: 'hp', playerId: target.snapshot.id, hp: target.snapshot.hp, by });
     if (target.snapshot.hp <= 0) {
@@ -411,6 +430,7 @@ export class Match {
         p.snapshot.z = 0;
         p.snapshot.anim = 'Idle';
         this.io.broadcast({ type: 'player_respawned', playerId: p.snapshot.id, x: 0, z: 0, hp: p.snapshot.hp });
+        this.grantShield(p);
       }
     }
   }

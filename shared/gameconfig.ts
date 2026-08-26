@@ -1,6 +1,6 @@
 /** Regras numéricas compartilhadas por client e server (o server é a autoridade; o client só prevê). */
 export const GAME = {
-  player: { MAX_HP: 100, RESPAWN_SECONDS: 5, RADIUS: 0.35 },
+  player: { MAX_HP: 100, RESPAWN_SECONDS: 5, RADIUS: 0.35, /** s de invulnerabilidade ao nascer/renascer */ SPAWN_SHIELD: 5 },
   interaction: {
     /** distância máxima player -> objeto para pegar/bater */
     RADIUS: 1.6,

@@ -14,6 +14,8 @@ export class CombatHUD {
   private flashTimer: number | null = null;
   private countdown: number | null = null;
   private slowedUntil = 0;
+  private shieldUntil = 0;
+  private shieldTimer: number | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -53,6 +55,16 @@ export class CombatHUD {
         this.render();
       }),
       bus.on('player:damaged', ({ special }) => this.showFlash(special)),
+      bus.on('net:shield', ({ playerId, seconds }) => {
+        if (playerId !== myId) return;
+        this.shieldUntil = Date.now() + seconds * 1000;
+        if (this.shieldTimer) clearInterval(this.shieldTimer);
+        this.shieldTimer = window.setInterval(() => {
+          this.render();
+          if (Date.now() >= this.shieldUntil && this.shieldTimer) clearInterval(this.shieldTimer);
+        }, 250);
+        this.render();
+      }),
       bus.on('player:slowed', ({ seconds }) => {
         this.slowedUntil = Date.now() + seconds * 1000;
         this.render();
@@ -101,13 +113,16 @@ export class CombatHUD {
       hint = '';
     }
     const slow = Date.now() < this.slowedUntil ? '<br/><span class="slowed">☠ Lento! (cuspe)</span>' : '';
-    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span>${hint ? '<br/>' + hint : ''}${slow}`;
+    const shieldLeft = Math.ceil((this.shieldUntil - Date.now()) / 1000);
+    const shield = shieldLeft > 0 ? `<br/><span class="shield">🛡 Escudo ${shieldLeft}s</span>` : '';
+    this.panel.innerHTML = `Zumbis: <b>${this.alive}</b> · Abates: <span class="kills">${this.kills}</span>${hint ? '<br/>' + hint : ''}${shield}${slow}`;
   }
 
   dispose(): void {
     this.unsubs.forEach((u) => u());
     if (this.flashTimer) clearTimeout(this.flashTimer);
     if (this.countdown) clearInterval(this.countdown);
+    if (this.shieldTimer) clearInterval(this.shieldTimer);
     this.panel.remove();
     this.flash.remove();
     this.death.remove();

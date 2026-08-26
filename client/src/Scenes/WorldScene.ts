@@ -102,7 +102,7 @@ export class WorldScene extends BaseScene {
       .register(new CombatSystem(bus, state, this.player, this.input, equipment, net, this.root, (id) => network.positionOf(id)))
       .register(network)
       .register(zombies)
-      .register(new EffectsSystem(bus, this.player, this.root))
+      .register(new EffectsSystem(bus, this.player, this.root, state, (id) => network.positionOf(id)))
       .start();
 
     // --- UI ---

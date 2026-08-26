@@ -55,6 +55,9 @@ export class NetworkSystem implements System {
         this.bus.emit('net:zombies', { zombies: msg.zombies });
         this.bus.emit('net:projectiles', { projectiles: msg.projectiles });
         break;
+      case 'shield':
+        this.bus.emit('net:shield', { playerId: msg.playerId, seconds: msg.seconds });
+        break;
       case 'slowed':
         if (msg.playerId === this.state.playerId) {
           this.player.applySlow(msg.factor, msg.seconds);

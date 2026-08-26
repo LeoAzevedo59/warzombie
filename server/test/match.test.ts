@@ -69,10 +69,24 @@ test('vender e comprar movem o dinheiro da sala', () => {
   assert.throws(() => m.sell('A'), (e: MatchError) => e.code === 'too_far');
 });
 
+test('escudo de spawn bloqueia dano e lentidão por 5s', () => {
+  const { m, snap, advance, sent } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  const b = m.addPlayer(snap('B', 5, 0));
+  assert.ok(sent.some((s) => s.msg.type === 'shield'));
+  a.hotbar[0] = { itemId: 'glock', count: 1 };
+  m.fire('A', 1, 0);
+  assert.equal(b.snapshot.hp, 100);
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
+  m.fire('A', 1, 0);
+  assert.equal(b.snapshot.hp, 75);
+});
+
 test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
   const { m, snap, advance, last, sent } = setup();
   const a = m.addPlayer(snap('A', 0, 0));
   const b = m.addPlayer(snap('B', 5, 0));
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
   a.hotbar[0] = { itemId: 'glock', count: 1 };
   for (let i = 0; i < 4; i++) {
     m.fire('A', 1, 0);

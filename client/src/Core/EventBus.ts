@@ -48,6 +48,7 @@ export interface GameEvents {
   'net:zombies': { zombies: ZombieSnapshot[] };
   'net:projectiles': { projectiles: ProjectileSnapshot[] };
   'player:slowed': { factor: number; seconds: number };
+  'net:shield': { playerId: string; seconds: number };
   'net:knockback': { dx: number; dz: number; force: number };
   'wave:state': { wave: WaveState };
   'wave:started': { wave: number; count: number; players: number };
