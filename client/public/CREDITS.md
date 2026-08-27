@@ -28,5 +28,6 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 
 | Arquivo | Fonte | Autor | Licença |
 | --- | --- | --- | --- |
+| `menu.mp3` | [Oldschool Horror Theme](https://opengameart.org/content/oldschool-horror-theme) (primeiros 2 min) | EmoPreben | CC0 1.0 |
 | `calm.mp3` | [Forest Ambience](https://opengameart.org/content/forest-ambience) | TinyWorlds | CC0 1.0 |
 | `tension.mp3` | [Horror Loop](https://opengameart.org/content/horror-loop) | TinyWorlds | CC0 1.0 |

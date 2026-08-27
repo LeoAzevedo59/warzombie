@@ -42,7 +42,7 @@ const SFX_VARIANTS = {
 } as const;
 
 export type SfxName = keyof typeof SFX_VARIANTS;
-export type MusicName = 'calm' | 'tension';
+export type MusicName = 'menu' | 'calm' | 'tension';
 
 /** Volume base por som (1 = normal). */
 const BASE_VOLUME: Partial<Record<SfxName, number>> = {
@@ -59,7 +59,9 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   shop_close: 0.8,
 };
 
-const MUSIC_URLS: Record<MusicName, string> = { calm: '/music/calm.mp3', tension: '/music/tension.mp3' };
+const MUSIC_URLS: Record<MusicName, string> = { menu: '/music/menu.mp3', calm: '/music/calm.mp3', tension: '/music/tension.mp3' };
+const MUSIC_PAUSED_KEY = 'warzombie:musicPaused';
+const MUSIC_VOLUME = 0.45;
 
 /** Distância (m) além da qual um som posicional não é ouvido. */
 const HEAR_RADIUS = 26;
@@ -90,6 +92,14 @@ export class AudioEngine {
   /** último instante em que cada som tocou (limita spam) */
   private lastPlayed = new Map<SfxName, number>();
   muted = false;
+  /** música pausada pelo usuário (botão); persiste entre sessões */
+  musicPaused = (() => {
+    try {
+      return localStorage.getItem(MUSIC_PAUSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   /** Cria/retoma o AudioContext. Chame a partir de um gesto do usuário. */
   unlock(): void {
@@ -102,7 +112,7 @@ export class AudioEngine {
       this.sfxBus.gain.value = 1;
       this.sfxBus.connect(this.master);
       this.musicBus = this.ctx.createGain();
-      this.musicBus.gain.value = 0.45;
+      this.musicBus.gain.value = this.musicPaused ? 0 : MUSIC_VOLUME;
       this.musicBus.connect(this.master);
       void this.loadAll();
     }
@@ -212,6 +222,21 @@ export class AudioEngine {
     src.connect(gain).connect(this.musicBus);
     src.start();
     this.musicSources.set(name, { src, gain });
+  }
+
+  /** Pausa/retoma a música (os loops continuam rodando; só o ganho vai a zero). */
+  setMusicPaused(paused: boolean): void {
+    this.musicPaused = paused;
+    try {
+      localStorage.setItem(MUSIC_PAUSED_KEY, paused ? '1' : '0');
+    } catch {
+      /* storage indisponível */
+    }
+    if (!this.ctx || !this.musicBus) return;
+    const now = this.ctx.currentTime;
+    this.musicBus.gain.cancelScheduledValues(now);
+    this.musicBus.gain.setValueAtTime(this.musicBus.gain.value, now);
+    this.musicBus.gain.linearRampToValueAtTime(paused ? 0 : MUSIC_VOLUME, now + 0.4);
   }
 
   setMusicVolume(v: number): void {

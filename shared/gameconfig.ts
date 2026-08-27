@@ -11,7 +11,7 @@ export const GAME = {
   },
   weapon: {
     /** START_MAG: balas ao comprar a arma (o pente cheio só depois de recarregar) */
-    glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 10, START_MAG: 5, RELOAD: 1.5 },
+    glock: { DAMAGE: 25, COOLDOWN: 0.3, RANGE: 14, HIT_RADIUS: 0.6, MAG: 5, START_MAG: 5, RELOAD: 1.5 },
     /** faca: corpo a corpo num arco à frente */
     knife: { DAMAGE: 18, COOLDOWN: 0.5, RANGE: 1.8, ARC_DEG: 100 },
   },
@@ -44,7 +44,7 @@ export const GAME = {
     /** +20% de dano por nível */
     damage: { MAX_LEVEL: 5, STEP: 0.2, BASE: 40 },
     /** +4 balas no pente por nível */
-    ammo: { MAX_LEVEL: 5, STEP: 4, BASE: 30 },
+    ammo: { MAX_LEVEL: 5, STEP: 3, BASE: 30 },
     /** recoil = dispersão (graus) do tiro em torno da mira; cada nível reduz STEP graus */
     recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, BASE: 40 },
     /** +25% de vigor máximo por nível (corrida) */

@@ -101,7 +101,7 @@ test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
   assert.equal(a.snapshot.pvpKills, 1);
   assert.equal(b.snapshot.deaths, 1);
   assert.equal((last('player_died')!.msg as { killerId: string }).killerId, 'A');
-  assert.equal(a.mag, 6);
+  assert.equal(a.mag, GAME.weapon.glock.MAG - 4);
   m.tick();
   assert.ok(b.dead);
   advance(5000);
@@ -154,7 +154,7 @@ test('upgrades: dano, pente e recoil', () => {
   m.reload('A');
   advance(GAME.weapon.glock.RELOAD * 1000 + 1);
   m.tick();
-  assert.equal(a.mag, GAME.weapon.glock.MAG + 4);
+  assert.equal(a.mag, GAME.weapon.glock.MAG + GAME.upgrades.ammo.STEP);
   m.fire('A', 1, 0);
   assert.equal(b.snapshot.hp, 100 - Math.round(25 * 1.2));
 });

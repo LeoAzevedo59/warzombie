@@ -98,7 +98,7 @@ export class WorldScene extends BaseScene {
     const network = new NetworkSystem(net, bus, state, this.player, this.root);
     const zombies = new ZombieSystem(bus, this.root);
     // handle de debug/teste no console (o servidor é autoritativo, então expor isso não dá vantagem)
-    (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net, zombies };
+    (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net, zombies, loop: this.loop };
 
     this.loop
       .register(this.input)

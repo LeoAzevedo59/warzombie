@@ -123,7 +123,7 @@ export class World {
   }
 
   /** Tudo que bloqueia movimento. */
-  *obstacles(): IterableIterator<{ position: pc.Vec3; solidRadius: number }> {
+  *obstacles(): IterableIterator<{ position: pc.Vec3; solidRadius: number; segment?: { yaw: number; halfLen: number; radius: number } }> {
     yield* this.objects();
     yield* this.structures();
     yield* this.walls.values();

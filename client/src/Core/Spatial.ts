@@ -1,6 +1,6 @@
 import * as pc from 'playcanvas';
 
-export { pushOutCircle, isClearOfCircles } from '@shared/math';
+export { pushOutCircle, pushOutCapsule, isClearOfCircles } from '@shared/math';
 
 /**
  * Convenção de facing do jogo: personagens "olham" pelo eixo +Z local (modelos do worker.glb

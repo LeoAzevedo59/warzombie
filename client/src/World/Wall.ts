@@ -16,7 +16,10 @@ const WALL_MODEL: Record<string, { key: ModelKey; height: number }> = {
 export class Wall {
   readonly entity: pc.Entity;
   readonly id: number;
+  /** raio grosseiro (usado pelo server/zumbis); o player colide com a cápsula (ver `segment`) */
   readonly solidRadius = GAME.walls.WIDTH / 2;
+  /** colisão precisa: segmento de meia-largura WIDTH/2 com raio THICK/2, na direção `yaw` */
+  readonly segment: { yaw: number; halfLen: number; radius: number };
   private hpFill: pc.Entity;
   private hpBar: pc.Entity;
   maxHp: number;
@@ -27,6 +30,7 @@ export class Wall {
     this.entity = new pc.Entity(`wall#${s.id}`);
     this.entity.setPosition(s.x, 0, s.z);
     this.entity.setEulerAngles(0, s.yaw, 0);
+    this.segment = { yaw: s.yaw, halfLen: GAME.walls.WIDTH / 2, radius: GAME.walls.THICK / 2 + 0.05 };
     const def = WALL_MODEL[s.kind] ?? WALL_MODEL.wall_wood;
     const h = def.height;
     const model = instantiateModel(def.key);

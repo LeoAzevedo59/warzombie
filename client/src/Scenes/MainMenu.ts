@@ -1,5 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { MenuDiorama } from './MenuDiorama';
+import { MusicToggle } from '@/UI/MusicToggle';
+import { audio } from '@/Assets/SoundAssets';
 import { isValidName, NAME_MAX } from '@shared/protocol';
 
 const NAME_STORAGE_KEY = 'warzombie:name';
@@ -8,9 +10,12 @@ const NAME_STORAGE_KEY = 'warzombie:name';
 export class MainMenu extends BaseScene {
   private el: HTMLElement | null = null;
   private diorama: MenuDiorama | null = null;
+  private musicToggle: MusicToggle | null = null;
 
   enter(): void {
     this.diorama = new MenuDiorama(this.game.app, this.root, this.game.ensureModels());
+    audio.setMusic('menu'); // começa no primeiro clique/tecla (política de autoplay do navegador)
+    this.musicToggle = new MusicToggle(this.game.ui);
     this.el = document.createElement('div');
     this.el.className = 'menu';
     this.el.innerHTML = `
@@ -72,6 +77,8 @@ export class MainMenu extends BaseScene {
   exit(): void {
     this.diorama?.dispose();
     this.diorama = null;
+    this.musicToggle?.dispose();
+    this.musicToggle = null;
     this.el?.remove();
     super.exit();
   }

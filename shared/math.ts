@@ -19,7 +19,37 @@ export function pushOutCircle(x: number, z: number, cx: number, cz: number, minD
   const dx = x - cx;
   const dz = z - cz;
   const d2 = dx * dx + dz * dz;
-  if (d2 >= minDist * minDist || d2 < 1e-8) return null;
+  if (d2 >= minDist * minDist) return null;
+  if (d2 < 1e-8) return { x: cx + minDist, z: cz }; // exatamente no centro: empurra para +x
+  const d = Math.sqrt(d2);
+  const push = minDist - d;
+  return { x: x + (dx / d) * push, z: z + (dz / d) * push };
+}
+
+/**
+ * Empurra (x,z) para fora de uma cápsula: segmento centrado em (cx,cz) com direção `yaw` (graus,
+ * eixo X local girado em torno de Y como no PlayCanvas: (cos, -sin)), meia-largura `halfLen` e raio `minDist`.
+ */
+export function pushOutCapsule(x: number, z: number, cx: number, cz: number, yawDeg: number, halfLen: number, minDist: number): XZ | null {
+  const a = (yawDeg * Math.PI) / 180;
+  const ux = Math.cos(a);
+  const uz = -Math.sin(a);
+  // projeção do ponto no eixo do segmento, limitada às pontas
+  const px = x - cx;
+  const pz = z - cz;
+  let t = px * ux + pz * uz;
+  if (t > halfLen) t = halfLen;
+  else if (t < -halfLen) t = -halfLen;
+  const qx = cx + ux * t;
+  const qz = cz + uz * t;
+  const dx = x - qx;
+  const dz = z - qz;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= minDist * minDist) return null;
+  if (d2 < 1e-8) {
+    // em cima da linha: sai pela normal do segmento
+    return { x: x + -uz * minDist, z: z + ux * minDist };
+  }
   const d = Math.sqrt(d2);
   const push = minDist - d;
   return { x: x + (dx / d) * push, z: z + (dz / d) * push };

@@ -62,6 +62,7 @@ conv $IMP/impactBell_heavy_000.ogg wave_bell -af "asetrate=44100*0.8,aresample=4
 conv $IMP/impactBell_heavy_001.ogg wave_clear -af volume=1.1
 conv $UI/bong_001.ogg battery_on
 # ---- música ----
+ffmpeg -hide_banner -loglevel error -y -i oga/horror_theme.mp3 -t 120 -af "afade=t=out:st=117:d=3" -ac 2 -ar 44100 -c:a libmp3lame -b:a 96k "$M/menu.mp3"
 ffmpeg -hide_banner -loglevel error -y -i oga/forest_ambience.mp3 -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/calm.mp3"
 ffmpeg -hide_banner -loglevel error -y -i oga/horror/horror_loop.mp3 -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/tension.mp3"
 # ---- modelos ----

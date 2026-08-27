@@ -1,5 +1,7 @@
 import { BaseScene } from './BaseScene';
 import { MenuDiorama } from './MenuDiorama';
+import { MusicToggle } from '@/UI/MusicToggle';
+import { audio } from '@/Assets/SoundAssets';
 import { isValidRoomName, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
 import { applyGameStart } from '@/Core/GameStart';
 
@@ -10,6 +12,7 @@ import { applyGameStart } from '@/Core/GameStart';
 export class LobbyScene extends BaseScene {
   private el: HTMLElement | null = null;
   private diorama: MenuDiorama | null = null;
+  private musicToggle: MusicToggle | null = null;
   private rooms: RoomSummary[] = [];
   private room: RoomDetail | null = null;
   private status = '';
@@ -21,6 +24,8 @@ export class LobbyScene extends BaseScene {
 
   enter(): void {
     this.diorama = new MenuDiorama(this.game.app, this.root, this.game.ensureModels());
+    audio.setMusic('menu'); // começa no primeiro clique/tecla (política de autoplay do navegador)
+    this.musicToggle = new MusicToggle(this.game.ui);
     const { net, bus, ui } = this.game;
     this.el = document.createElement('div');
     this.el.className = 'menu lobby';
@@ -261,6 +266,8 @@ export class LobbyScene extends BaseScene {
   exit(): void {
     this.diorama?.dispose();
     this.diorama = null;
+    this.musicToggle?.dispose();
+    this.musicToggle = null;
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
     if (this.rankingTimer) clearInterval(this.rankingTimer);
