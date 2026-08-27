@@ -66,7 +66,7 @@ ffmpeg -hide_banner -loglevel error -y -i oga/forest_ambience.mp3 -ac 2 -ar 4410
 ffmpeg -hide_banner -loglevel error -y -i oga/horror/horror_loop.mp3 -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/tension.mp3"
 # ---- modelos ----
 NK="kenney_nature-kit/Models/GLTF format"; SK="kenney_survival-kit/Models/GLB format"
-for n in tree_default tree_oak tree_detailed tree_pineDefaultA tree_pineRoundA tree_thin rock_largeA rock_largeC rock_largeE rock_smallA rock_smallC stone_smallA grass grass_large grass_leafs flower_redA flower_yellowA flower_purpleA mushroom_red mushroom_tanGroup stump_round log plant_bush plant_bushSmall; do cp "$NK/$n.glb" "$MD/nature/$n.glb"; done
+for n in tree_default tree_oak tree_detailed tree_pineDefaultA tree_pineRoundA tree_thin stone_largeA stone_largeC stone_largeE stone_tallB stone_tallG rock_smallA rock_smallC stone_smallA grass grass_large grass_leafs flower_redA flower_yellowA flower_purpleA mushroom_red mushroom_tanGroup stump_round log plant_bush plant_bushSmall; do cp "$NK/$n.glb" "$MD/nature/$n.glb"; done
 for n in resource-stone resource-wood tree-log-small fence fence-fortified metal-panel-screws workbench tent campfire-pit signpost box barrel; do cp "$SK/$n.glb" "$MD/props/$n.glb"; done
 for n in WaterTower Barrel TrafficCone_1 TrafficBarrier_1 Pallet Blood_1 Blood_2 Vehicle_Pickup CinderBlock Chest; do cp "glb/$n.glb" "$MD/props/zak_$(echo $n | tr A-Z a-z).glb"; done
 mkdir -p "$MD/props/Textures"; cp "$SK/Textures/colormap.png" "$MD/props/Textures/"

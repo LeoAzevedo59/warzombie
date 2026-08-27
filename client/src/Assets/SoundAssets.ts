@@ -118,7 +118,7 @@ export class AudioEngine {
     const ctx = this.ctx!;
     const jobs: Promise<void>[] = [];
     const load = (key: string, url: string) =>
-      fetch(url)
+      fetch(`${url}?v=${__BUILD_ID__}`)
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${r.status} ${url}`))))
         .then((ab) => ctx.decodeAudioData(ab))
         .then((buf) => {

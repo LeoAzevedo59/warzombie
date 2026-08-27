@@ -22,9 +22,11 @@ export type ModelKey =
   | 'tree_pine'
   | 'tree_pine_round'
   | 'tree_thin'
-  | 'rock_a'
-  | 'rock_c'
-  | 'rock_e'
+  | 'stone_a'
+  | 'stone_c'
+  | 'stone_e'
+  | 'stone_tall_b'
+  | 'stone_tall_g'
   | 'rock_small'
   | 'rock_small_flat'
   | 'stone_small'
@@ -95,9 +97,12 @@ export const MODELS: Record<ModelKey, ModelDef> = {
   tree_pine: M('/models/nature/tree_pineDefaultA.glb', 3.4),
   tree_pine_round: M('/models/nature/tree_pineRoundA.glb', 3.4),
   tree_thin: M('/models/nature/tree_thin.glb', 3.2),
-  rock_a: M('/models/nature/rock_largeA.glb', 2.6),
-  rock_c: M('/models/nature/rock_largeC.glb', 2.3),
-  rock_e: M('/models/nature/rock_largeE.glb', 2.3),
+  // rochas mineráveis: pedra cinza (sem topo de grama) para não confundir com o cenário
+  stone_a: M('/models/nature/stone_largeA.glb', 2.6),
+  stone_c: M('/models/nature/stone_largeC.glb', 2.3),
+  stone_e: M('/models/nature/stone_largeE.glb', 2.3),
+  stone_tall_b: M('/models/nature/stone_tallB.glb', 2.2),
+  stone_tall_g: M('/models/nature/stone_tallG.glb', 2.6),
   rock_small: M('/models/nature/rock_smallA.glb', 1.6),
   rock_small_flat: M('/models/nature/rock_smallC.glb', 1.8),
   stone_small: M('/models/nature/stone_smallA.glb', 1.4),
@@ -225,7 +230,7 @@ export function preloadModels(app: pc.Application): Promise<void> {
   const loads = (Object.entries(MODELS) as [ModelKey, ModelDef][]).map(
     ([key, def]) =>
       new Promise<void>((resolve, reject) => {
-        app.assets.loadFromUrl(def.url, 'container', (err, asset) => {
+        app.assets.loadFromUrl(`${def.url}?v=${__BUILD_ID__}`, 'container', (err, asset) => {
           if (err || !asset) {
             reject(new Error(`Falha ao carregar modelo "${key}" (${def.url}): ${err}`));
             return;

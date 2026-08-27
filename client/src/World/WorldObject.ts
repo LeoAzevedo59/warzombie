@@ -11,7 +11,7 @@ const VARIANTS: Record<WorldObjectKind, ModelKey[]> = {
   stick: ['log_small'],
   stone: ['resource_stone'],
   tree: ['tree_default', 'tree_oak', 'tree_detailed', 'tree_pine', 'tree_pine_round', 'tree_thin'],
-  rock: ['rock_a', 'rock_c', 'rock_e'],
+  rock: ['stone_tall_b', 'stone_c', 'stone_tall_g', 'stone_e', 'stone_tall_b'],
 };
 
 /** Tamanho do X de destaque no chão por tipo. */

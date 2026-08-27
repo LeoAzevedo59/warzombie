@@ -3,6 +3,8 @@ import { defineConfig } from 'vite';
 const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:3000';
 
 export default defineConfig({
+  // id do build injetado nas URLs de assets (sons/modelos) para furar o cache do navegador a cada deploy
+  define: { __BUILD_ID__: JSON.stringify(Date.now().toString(36)) },
   resolve: {
     alias: {
       '@': new URL('./src', import.meta.url).pathname,
