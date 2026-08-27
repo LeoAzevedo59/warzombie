@@ -18,8 +18,8 @@ conv oga/pg/Pistol/Sounds/pistol_Gunshot.wav gun_shot -af "afade=t=out:st=0.55:d
 # gun_reload = mag_out + mag_in (450 ms) + cock_back (950 ms) + cock_forward (1200 ms) mixados (ver commit)
 conv $RPG/metalClick.ogg gun_empty -af volume=1.2
 # golpe de faca: whoosh sintetizado (ruído rosa filtrado com envelope), sem asset externo
-ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.32:r=44100:a=0.9" -af "bandpass=f=850:w=500,bandpass=f=850:w=700,afade=t=in:d=0.06,afade=t=out:st=0.14:d=0.18,volume=6,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_1.mp3"
-ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.3:r=44100:a=0.9:seed=7" -af "bandpass=f=1150:w=600,bandpass=f=1150:w=800,afade=t=in:d=0.05,afade=t=out:st=0.13:d=0.17,volume=6,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_2.mp3"
+ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.2:r=44100:a=0.9" -af "bandpass=f=420:w=300,bandpass=f=420:w=450,afade=t=in:d=0.03,afade=t=out:st=0.08:d=0.12,volume=7,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_1.mp3"
+ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.18:r=44100:a=0.9:seed=7" -af "bandpass=f=520:w=350,bandpass=f=520:w=500,afade=t=in:d=0.03,afade=t=out:st=0.07:d=0.11,volume=7,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_2.mp3"
 conv $RPG/drawKnife1.ogg knife_draw
 conv $RPG/bookOpen.ogg shop_open
 conv $RPG/bookClose.ogg shop_close
