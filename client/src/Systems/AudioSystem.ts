@@ -69,8 +69,8 @@ export class AudioSystem implements System {
       }),
       bus.on('zombie:attack', ({ x, z }) => audio.play('zombie_attack', { x, z })),
       bus.on('player:damaged', ({ amount }) => {
-        audio.play('hit_soft', { volume: 0.9 });
-        if (amount >= 5) audio.play('player_hurt', { volume: 0.8 });
+        audio.play('hit_soft', { volume: 0.7 });
+        if (amount >= 5) audio.play('player_hurt', { volume: 0.7 });
       }),
       bus.on('player:died', () => audio.play('player_death')),
       bus.on('player:respawned', () => audio.play('ui_confirm')),

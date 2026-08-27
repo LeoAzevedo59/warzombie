@@ -55,6 +55,9 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   boss_roar: 1,
   coins: 0.7,
   knife_swing: 0.5,
+  player_hurt: 0.4,
+  player_death: 0.5,
+  hit_soft: 0.5,
   shop_open: 0.8,
   shop_close: 0.8,
 };
