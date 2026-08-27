@@ -32,6 +32,8 @@ const SFX_VARIANTS = {
   ui_click: 1,
   ui_open: 1,
   ui_close: 1,
+  shop_open: 1,
+  shop_close: 1,
   ui_error: 1,
   ui_confirm: 1,
   wave_bell: 1,
@@ -52,6 +54,8 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   wave_bell: 0.9,
   boss_roar: 1,
   coins: 0.7,
+  shop_open: 0.8,
+  shop_close: 0.8,
 };
 
 const MUSIC_URLS: Record<MusicName, string> = { calm: '/music/calm.mp3', tension: '/music/tension.mp3' };

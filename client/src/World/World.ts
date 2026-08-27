@@ -4,10 +4,11 @@ import type { EventBus } from '@/Core/EventBus';
 import { GameMap, chunkKey, makeDirtPatch, type Chunk } from './Map';
 import { HubStructure } from './Hub';
 import { Wall } from './Wall';
+import { Drop } from './Drop';
 import { WorldObject } from './WorldObject';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import { generateChunk } from '@shared/worldgen';
-import type { StructureSnapshot } from '@shared/protocol';
+import type { DroppedItem, StructureSnapshot } from '@shared/protocol';
 import { isChunkInBounds, mapBounds, toChunkCoord } from '@shared/worldgen';
 
 /** Mantém os chunks ativos ao redor de um ponto focal (o player) e as estruturas fixas do hub. */
@@ -18,6 +19,8 @@ export class World {
   readonly vendor: HubStructure;
   readonly tower: HubStructure;
   readonly walls = new Map<number, Wall>();
+  /** itens largados no chão */
+  readonly drops = new Map<number, Drop>();
   /** cenografia do hub com colisão (picape, barris...) */
   private decorObstacles: Array<{ position: pc.Vec3; solidRadius: number }> = [];
 
@@ -134,6 +137,20 @@ export class World {
     this.walls.set(s.id, w);
   }
 
+  addDrop(d: DroppedItem): void {
+    if (this.drops.has(d.id)) return;
+    const drop = new Drop(d);
+    this.root.addChild(drop.entity);
+    this.drops.set(d.id, drop);
+  }
+
+  removeDrop(id: number): void {
+    const d = this.drops.get(id);
+    if (!d) return;
+    d.destroy();
+    this.drops.delete(id);
+  }
+
   setWallHp(id: number, hp: number): void {
     this.walls.get(id)?.setHp(hp);
   }
@@ -165,6 +182,7 @@ export class World {
   /** Animações leves dos objetos (tremor ao ser golpeado). */
   updateObjects(dt: number): void {
     for (const c of this.chunks.values()) for (const o of c.objects) o.update(dt);
+    for (const d of this.drops.values()) d.update(dt);
   }
 
   findObject(id: number): WorldObject | null {
@@ -192,5 +210,7 @@ export class World {
     this.tower.destroy();
     for (const w of this.walls.values()) w.destroy();
     this.walls.clear();
+    for (const d of this.drops.values()) d.destroy();
+    this.drops.clear();
   }
 }

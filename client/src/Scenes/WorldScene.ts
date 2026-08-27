@@ -22,7 +22,6 @@ import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
 import { SummaryUI } from '@/UI/SummaryUI';
 import { BuildSystem } from '@/Systems/BuildSystem';
-import { cameraOrthoHeight } from '@shared/upgrades';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
@@ -77,6 +76,7 @@ export class WorldScene extends BaseScene {
     this.root.addChild(this.world.root);
     this.world.init();
     for (const s of state.structures) this.world.addWall(s);
+    for (const d of state.drops) this.world.addDrop(d);
     this.world.tower.setHpRatio(state.towerHp / state.towerMaxHp);
 
     // --- player ---
@@ -88,7 +88,6 @@ export class WorldScene extends BaseScene {
     this.root.addChild(this.player.entity);
     this.player.initAnimation();
     this.camera.follow(this.player.entity);
-    this.camera.setOrthoHeight(cameraOrthoHeight(state.upgrades));
     this.world.update(this.player.position);
 
     // --- systems (ordem = ordem de execução) ---
@@ -150,10 +149,14 @@ export class WorldScene extends BaseScene {
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('equip:changed', ({ itemId }) => this.player.setEquipped(itemId)),
+      bus.on('input:drop', () => {
+        if (!this.stats.dead && equipment.equippedItem()) net.send({ type: 'drop_item' });
+      }),
+      bus.on('net:dropAdded', ({ drop }) => this.world.addDrop(drop)),
+      bus.on('net:dropRemoved', ({ id }) => this.world.removeDrop(id)),
       bus.on('net:ammo', ({ reloading }) => {
         if (reloading !== this.player.fx.reloading) this.player.fx.setReloading(reloading, GAME.weapon.glock.RELOAD);
       }),
-      bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
       bus.on('net:towerHp', ({ hp, maxHp }) => this.world.tower.setHpRatio(hp / maxHp)),
       bus.on('net:features', ({ features }) => this.ui?.map.setEnabled(features.minimap)),
       bus.on('player:died', () => {

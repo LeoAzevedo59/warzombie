@@ -81,7 +81,6 @@ export class PlayersHUD {
         <li>Vida <b>${Math.round(this.state.hp)}/${GAME.player.MAX_HP}</b></li>
         <li>Vigor <b>${Math.round(this.state.stamina)}/${Math.round(this.state.maxStamina)}</b> <span class="lvl">Lv ${u.stamina} · +${Math.round((staminaMultiplier(u) - 1) * 100)}%</span></li>
         <li>Peso <b>${this.state.carriedWeight}/${maxWeight(u)}</b> <span class="lvl">Lv ${u.weight}</span></li>
-        <li>Visão <b>+${u.vision * 15}%</b> <span class="lvl">Lv ${u.vision}</span></li>
         <li>Abates <b>${this.state.kills}</b></li>
       </ul>
       <button class="resume">Voltar ao jogo (Esc)</button>

@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DroppedItem, DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
@@ -83,6 +83,10 @@ export class Match {
   }
   readonly structures = new Map<number, StructureSnapshot>();
   private nextStructureId = 1;
+  /** itens largados no chão (somem após DROP_TTL) */
+  readonly drops = new Map<number, DroppedItem>();
+  private dropExpiresAt = new Map<number, number>();
+  private nextDropId = 1;
   private nextAmbientAt: number;
   gameOver = false;
   /** recursos comprados para a sala inteira */
@@ -91,7 +95,7 @@ export class Match {
   readonly players = new Map<string, MatchPlayer>();
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
-  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0, vision: 0 };
+  readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
   /** torre desta sala (ponto aleatório, longe do centro e livre de obstáculos) */
   readonly towerPos: { x: number; z: number };
   readonly zombies: ZombieSim;
@@ -350,6 +354,46 @@ export class Match {
     this.obstacleCache = null;
     this.io.broadcast({ type: 'object_removed', objectId: o.id });
     this.sendHotbar(p);
+  }
+
+  /** Larga a pilha inteira do slot equipado no chão, na frente do jogador. */
+  dropItem(playerId: string): void {
+    const p = this.alive(playerId);
+    const stack = p.hotbar[p.equipped];
+    if (!stack) throw new MatchError('invalid_message', 'Nada equipado para largar.');
+    // cai num ponto aleatório ao redor do jogador (vários drops seguidos não empilham)
+    const ang = this.rand() * Math.PI * 2;
+    const r = 0.7 + this.rand() * 0.5;
+    const b = mapBounds();
+    const x = Math.min(b.maxX, Math.max(b.minX, p.snapshot.x + Math.sin(ang) * r));
+    const z = Math.min(b.maxZ, Math.max(b.minZ, p.snapshot.z + Math.cos(ang) * r));
+    p.hotbar[p.equipped] = null;
+    const drop: DroppedItem = { id: this.nextDropId++, itemId: stack.itemId, count: stack.count, x, z };
+    this.drops.set(drop.id, drop);
+    this.dropExpiresAt.set(drop.id, this.now() + GAME.drops.TTL * 1000);
+    this.io.broadcast({ type: 'drop_added', drop });
+    this.sendHotbar(p);
+  }
+
+  /** Pega um item largado (qualquer jogador), respeitando espaço e peso da hotbar. */
+  pickupDrop(playerId: string, id: number): void {
+    const p = this.alive(playerId);
+    const d = this.drops.get(id);
+    if (!d) throw new MatchError('invalid_message', 'Esse item já foi pego.');
+    if (dist(p.snapshot, d) > GAME.interaction.RADIUS + 0.5) throw new MatchError('too_far', 'Chegue mais perto.');
+    const stacks = [{ itemId: d.itemId, count: d.count }];
+    if (!canFit(p.hotbar, stacks)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+    if (!fitsWeight(p.hotbar, stacks, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
+    addItem(p.hotbar, d.itemId, d.count);
+    this.removeDrop(id);
+    this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
+    this.sendHotbar(p);
+  }
+
+  private removeDrop(id: number): void {
+    this.drops.delete(id);
+    this.dropExpiresAt.delete(id);
+    this.io.broadcast({ type: 'drop_removed', id });
   }
 
   selectSlot(playerId: string, index: number): void {
@@ -665,6 +709,8 @@ export class Match {
       this.obstacleCache = null;
       this.io.broadcast({ type: 'object_respawned', objectId: id });
     }
+    // itens largados expiram
+    for (const [id, at] of this.dropExpiresAt) if (now >= at) this.removeDrop(id);
     // zumbis ambientais: sempre alguns no mapa, mesmo sem wave
     if (now >= this.nextAmbientAt) {
       this.nextAmbientAt = now + GAME.ambient.INTERVAL * 1000;

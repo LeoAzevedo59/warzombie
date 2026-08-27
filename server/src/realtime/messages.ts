@@ -41,6 +41,8 @@ const roomStartSchema = z.object({ type: z.literal('room_start') });
 const objectId = z.number().int().nonnegative();
 const pickupSchema = z.object({ type: z.literal('pickup'), objectId });
 const hitNodeSchema = z.object({ type: z.literal('hit_node'), objectId });
+const dropItemSchema = z.object({ type: z.literal('drop_item') });
+const pickupDropSchema = z.object({ type: z.literal('pickup_drop'), id: z.number().int().nonnegative() });
 const selectSlotSchema = z.object({ type: z.literal('select_slot'), index: z.number().int().min(0).max(HOTBAR_SLOTS - 1) });
 const sellSchema = z.object({ type: z.literal('sell') });
 const buySchema = z.object({ type: z.literal('buy'), itemId: z.enum(Object.keys(ITEMS) as [ItemId, ...ItemId[]]) });
@@ -48,7 +50,7 @@ const fireSchema = z.object({ type: z.literal('fire'), dx: finite, dz: finite })
 const reloadSchema = z.object({ type: z.literal('reload') });
 const meleeSchema = z.object({ type: z.literal('melee'), dx: finite, dz: finite });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
-const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight', 'vision']) });
+const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight']) });
 const towerUpgradeSchema = z.object({ type: z.literal('tower_upgrade') });
 const towerRepairSchema = z.object({ type: z.literal('tower_repair') });
 const buyFeatureSchema = z.object({ type: z.literal('buy_feature'), feature: z.enum(['minimap']) });
@@ -69,6 +71,8 @@ const baseSchema = z.discriminatedUnion('type', [
   moveSchema,
   pingSchema,
   pickupSchema,
+  dropItemSchema,
+  pickupDropSchema,
   hitNodeSchema,
   selectSlotSchema,
   sellSchema,

@@ -1,6 +1,6 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
 import type { SfxName } from '@/Assets/SoundAssets';
-import type { PlayerSummary, ProjectileSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
+import type { DroppedItem, PlayerSummary, ProjectileSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
 export interface GameEvents {
@@ -10,6 +10,8 @@ export interface GameEvents {
   'input:closePanel': void;
   'input:escape': void;
   'input:place': void;
+  /** tecla Q: larga a pilha equipada no chão */
+  'input:drop': void;
   /** roda do mouse (para girar a parede no modo construção) */
   'input:wheel': { delta: number };
   'input:selectSlot': { index: number };
@@ -69,6 +71,8 @@ export interface GameEvents {
   'net:structureAdded': { structure: StructureSnapshot };
   'net:structureHp': { id: number; hp: number };
   'net:structureRemoved': { id: number };
+  'net:dropAdded': { drop: DroppedItem };
+  'net:dropRemoved': { id: number };
   'net:objectRespawned': { objectId: number };
   'net:knockback': { dx: number; dz: number; force: number };
   'wave:state': { wave: WaveState };

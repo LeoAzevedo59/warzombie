@@ -21,10 +21,12 @@ export const GAME = {
    */
   /** Peso: capacidade base e quanto o personagem desacelera carregado (no limite: velocidade × (1 - SLOW_AT_FULL)) */
   weight: { BASE_CAPACITY: 30, SLOW_AT_FULL: 0.5 },
-  /** Câmera: altura ortográfica base (menor = mais perto) e ganho por nível do upgrade Visão */
-  camera: { ORTHO_HEIGHT: 6.5, VISION_STEP: 1.2 },
+  /** Câmera: altura ortográfica (menor = mais perto) */
+  camera: { ORTHO_HEIGHT: 6.5 },
   /** vigor gasto por hit em árvore/rocha (client) */
   farming: { STAMINA_PER_HIT: 8 },
+  /** itens largados no chão somem depois de TTL s */
+  drops: { TTL: 180 },
   /** recursos renascem depois de coletados (s) */
   respawn: { SMALL: 60, NODE: 180 },
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
@@ -52,7 +54,6 @@ export const GAME = {
     /** +10 de capacidade de peso por nível */
     weight: { MAX_LEVEL: 5, STEP: 10, BASE: 35 },
     /** visão: amplia a câmera por nível */
-    vision: { MAX_LEVEL: 5, STEP: 1, BASE: 35 },
   },
   zombie: {
     MAX_HP: 60,

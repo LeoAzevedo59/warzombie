@@ -134,7 +134,6 @@ export class ShopUI {
       ['stamina', 'Vigor de corrida', `+${Math.round((staminaMultiplier(u) - 1) * 100)}%`],
       ['laser', 'Mira laser', u.laser ? 'ativa' : 'mostra a linha de tiro'],
       ['weight', 'Peso', `capacidade ${maxWeight(u)}`],
-      ['vision', 'Visão', `campo de visão +${u.vision * 15}%`],
     ];
     return rows
       .map(([kind, name, effect]) => {

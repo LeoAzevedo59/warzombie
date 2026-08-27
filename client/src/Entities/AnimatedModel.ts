@@ -44,6 +44,7 @@ export class AnimatedModel {
   private restPose: RestBone[] = [];
   private app: pc.AppBase | null = null;
   private durations = new Map<CharacterAnimName, number>();
+  private loops = new Map<CharacterAnimName, boolean>();
 
   /**
    * @param owner entity pai (dona do anim component)
@@ -69,6 +70,7 @@ export class AnimatedModel {
     for (const t of tracks) {
       this.anim.assignAnimation(t.name, t.track!, undefined, 1, t.loop ?? true);
       this.durations.set(t.name, t.track!.duration);
+      this.loops.set(t.name, t.loop ?? true);
     }
     // O primeiro estado atribuído é o que o baseLayer começa tocando; garantimos que seja `initial`
     if (tracks[0]?.name !== initial) this.anim.baseLayer?.play(initial);
@@ -103,6 +105,8 @@ export class AnimatedModel {
   }
 
   private onFrameUpdate(): void {
+    // estado não-loop que terminou (Death): segura o último frame em vez de voltar à bind pose
+    if (this.current && this.loops.get(this.current) === false && (this.anim?.baseLayer?.activeStateProgress ?? 0) >= 0.999) return;
     this.purgeStaleTargets();
     this.resetToRestPose();
   }

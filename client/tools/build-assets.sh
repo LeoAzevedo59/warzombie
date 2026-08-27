@@ -20,6 +20,8 @@ conv $RPG/metalClick.ogg gun_empty -af volume=1.2
 conv $RPG/knifeSlice.ogg knife_swing_1
 conv $RPG/knifeSlice2.ogg knife_swing_2
 conv $RPG/drawKnife1.ogg knife_draw
+conv $RPG/bookOpen.ogg shop_open
+conv $RPG/bookClose.ogg shop_close
 # ---- zumbis ----
 i=1; for n in 16 17 18 21 20; do conv oga/zombies/zombies/zombie-$n.wav zombie_growl_$i; i=$((i+1)); done
 i=1; for n in 1 8 9 15; do conv oga/zombies/zombies/zombie-$n.wav zombie_attack_$i; i=$((i+1)); done
@@ -61,7 +63,7 @@ conv $IMP/impactBell_heavy_001.ogg wave_clear -af volume=1.1
 conv $UI/bong_001.ogg battery_on
 # ---- música ----
 ffmpeg -hide_banner -loglevel error -y -i oga/forest_ambience.mp3 -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/calm.mp3"
-ffmpeg -hide_banner -loglevel error -y -i oga/dark_ambience_loop.ogg -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/tension.mp3"
+ffmpeg -hide_banner -loglevel error -y -i oga/horror/horror_loop.mp3 -ac 2 -ar 44100 -c:a libmp3lame -q:a 3 "$M/tension.mp3"
 # ---- modelos ----
 NK="kenney_nature-kit/Models/GLTF format"; SK="kenney_survival-kit/Models/GLB format"
 for n in tree_default tree_oak tree_detailed tree_pineDefaultA tree_pineRoundA tree_thin rock_largeA rock_largeC rock_largeE rock_smallA rock_smallC stone_smallA grass grass_large grass_leafs flower_redA flower_yellowA flower_purpleA mushroom_red mushroom_tanGroup stump_round log plant_bush plant_bushSmall; do cp "$NK/$n.glb" "$MD/nature/$n.glb"; done

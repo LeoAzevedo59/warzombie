@@ -169,6 +169,10 @@ export class GameServer {
           return this.match(conn).buyFeature(conn.player.id, msg.feature);
         case 'place_wall':
           return this.match(conn).placeWall(conn.player.id, msg.x, msg.z, msg.yaw);
+        case 'drop_item':
+          return this.match(conn).dropItem(conn.player.id);
+        case 'pickup_drop':
+          return this.match(conn).pickupDrop(conn.player.id, msg.id);
         case 'dev':
           if (!env.devCheats) return this.send(conn, { type: 'error', code: 'dev_disabled', message: 'Cheats desligados neste servidor.' });
           log.warn(`[dev] ${conn.player.name}: ${msg.action}`);
@@ -395,6 +399,7 @@ export class GameServer {
       towerMaxHp: match.towerMaxHp,
       towerLevel: match.towerLevel,
       structures: [...match.structures.values()],
+      drops: [...match.drops.values()],
       features: { ...match.features },
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);

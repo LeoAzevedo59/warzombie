@@ -126,7 +126,15 @@ export class Zombie {
   }
 
   update(dt: number): void {
-    if (this.dead) this.deadTime += dt;
+    if (this.dead) {
+      this.deadTime += dt;
+      // afunda no chão nos últimos 0,6 s antes de o corpo ser removido
+      if (this.deadTime > CONFIG.zombie.CORPSE_TIME - 0.6) {
+        const p = this.entity.getPosition();
+        this.entity.setPosition(p.x, p.y - 1.4 * dt, p.z);
+        this.target.y = this.entity.getPosition().y;
+      }
+    }
     this.hpBar.setEulerAngles(0, CONFIG.camera.YAW, 0); // barra sempre de frente pra câmera isométrica
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
@@ -134,7 +142,7 @@ export class Zombie {
     }
     const t = 1 - Math.exp(-LERP_SPEED * dt);
     const pos = this.entity.getPosition();
-    this.entity.setPosition(pos.x + (this.target.x - pos.x) * t, 0, pos.z + (this.target.z - pos.z) * t);
+    this.entity.setPosition(pos.x + (this.target.x - pos.x) * t, this.dead ? pos.y : 0, pos.z + (this.target.z - pos.z) * t);
     const diff = ((this.targetYaw - this.currentYaw + 540) % 360) - 180;
     this.currentYaw += diff * t;
     this.entity.setEulerAngles(0, this.currentYaw, 0);

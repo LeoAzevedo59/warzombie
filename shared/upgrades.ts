@@ -1,10 +1,10 @@
 import { GAME } from './gameconfig.js';
 import type { UpgradeKind, UpgradePrices, WeaponUpgrades } from './protocol.js';
 
-export const UPGRADE_KINDS: UpgradeKind[] = ['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight', 'vision'];
+export const UPGRADE_KINDS: UpgradeKind[] = ['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight'];
 
 export function emptyUpgrades(): WeaponUpgrades {
-  return { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0, vision: 0 };
+  return { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
 }
 
 /** Preço da sala para o próximo nível dado quantas compras desse tipo já houve na sala. */
@@ -20,7 +20,6 @@ export function pricesFor(roomPurchases: Record<UpgradeKind, number>): UpgradePr
     stamina: upgradePriceFor('stamina', roomPurchases.stamina),
     laser: upgradePriceFor('laser', roomPurchases.laser),
     weight: upgradePriceFor('weight', roomPurchases.weight),
-    vision: upgradePriceFor('vision', roomPurchases.vision),
   };
 }
 
@@ -54,11 +53,6 @@ export function towerRepairPrice(missingHp: number): number {
 
 export function towerMaxHp(level: number): number {
   return GAME.hub.TOWER_HP + GAME.towerUpgrade.HP_STEP * level;
-}
-
-/** Altura ortográfica da câmera com o upgrade Visão. */
-export function cameraOrthoHeight(u: WeaponUpgrades): number {
-  return GAME.camera.ORTHO_HEIGHT + GAME.camera.VISION_STEP * u.vision;
 }
 
 /** Capacidade de peso com o upgrade. */

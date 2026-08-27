@@ -24,7 +24,7 @@ export const PROTOCOL_VERSION = 17;
 export type RoomFeature = 'minimap';
 export type RoomFeatures = Record<RoomFeature, boolean>;
 
-export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight' | 'vision';
+export type UpgradeKind = 'damage' | 'ammo' | 'recoil' | 'stamina' | 'laser' | 'weight';
 export interface WeaponUpgrades {
   damage: number;
   ammo: number;
@@ -32,7 +32,6 @@ export interface WeaponUpgrades {
   stamina: number;
   laser: number;
   weight: number;
-  vision: number;
 }
 /** Preço atual (da sala) do próximo nível de cada upgrade. */
 export type UpgradePrices = Record<UpgradeKind, number>;
@@ -156,6 +155,15 @@ export interface PickupMessage {
   type: 'pickup';
   objectId: number;
 }
+/** Larga no chão a pilha inteira do slot equipado (tecla Q). */
+export interface DropItemMessage {
+  type: 'drop_item';
+}
+/** Pega um item largado no chão (precisa estar perto). */
+export interface PickupDropMessage {
+  type: 'pickup_drop';
+  id: number;
+}
 /** Um hit em árvore/rocha (o client manda a cada HIT_INTERVAL enquanto segura o canal). */
 export interface HitNodeMessage {
   type: 'hit_node';
@@ -238,6 +246,8 @@ export type ClientMessage =
   | MoveMessage
   | PingMessage
   | PickupMessage
+  | DropItemMessage
+  | PickupDropMessage
   | HitNodeMessage
   | SelectSlotMessage
   | SellMessage
@@ -304,6 +314,8 @@ export interface GameStartMessage {
   towerMaxHp: number;
   towerLevel: number;
   structures: StructureSnapshot[];
+  /** itens largados no chão */
+  drops: DroppedItem[];
   features: RoomFeatures;
 }
 
@@ -326,6 +338,22 @@ export interface ItemGainedMessage {
   type: 'item_gained';
   itemId: ItemId;
   count: number;
+}
+/** Item largado no chão por um jogador (some sozinho depois de um tempo). */
+export interface DroppedItem {
+  id: number;
+  itemId: ItemId;
+  count: number;
+  x: number;
+  z: number;
+}
+export interface DropAddedMessage {
+  type: 'drop_added';
+  drop: DroppedItem;
+}
+export interface DropRemovedMessage {
+  type: 'drop_removed';
+  id: number;
 }
 export interface ObjectRemovedMessage {
   type: 'object_removed';
@@ -604,6 +632,8 @@ export type ServerMessage =
   | MoneyMessage
   | ItemGainedMessage
   | ObjectRemovedMessage
+  | DropAddedMessage
+  | DropRemovedMessage
   | NodeHitMessage
   | ShotMessage
   | MeleeSwingMessage

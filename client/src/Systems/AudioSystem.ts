@@ -87,10 +87,11 @@ export class AudioSystem implements System {
       bus.on('wave:failed', () => audio.play('ui_error')),
       bus.on('net:gameOver', () => audio.play('ui_error', { volume: 1 })),
       bus.on('wave:state', ({ wave }) => this.onPhase(wave.phase)),
+      bus.on('net:dropAdded', ({ drop }) => audio.play('hit_soft', { x: drop.x, z: drop.z, volume: 0.6 })),
       bus.on('net:structureAdded', ({ structure }) => audio.play('wall_place', { x: structure.x, z: structure.z })),
       bus.on('net:structureRemoved', ({ id }) => audio.play('wall_break', at(this.world.walls.get(id)?.position))),
-      bus.on('shop:open', () => audio.play('ui_open')),
-      bus.on('input:closePanel', () => audio.play('ui_close')),
+      bus.on('shop:open', () => audio.play('shop_open')),
+      bus.on('input:closePanel', () => audio.play('shop_close')),
       bus.on('shop:transaction', ({ kind }) => audio.play(kind === 'buy' ? 'coins' : 'coins', { variant: kind === 'buy' ? 0 : 1 })),
       bus.on('equip:changed', ({ itemId }) => {
         if (itemId === 'knife') audio.play('knife_draw');

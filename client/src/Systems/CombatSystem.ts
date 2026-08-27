@@ -9,7 +9,6 @@ import type { InputSystem } from './InputSystem';
 import type { EquipmentSystem } from './EquipmentSystem';
 import type { NetworkClient } from '@/Net/NetworkClient';
 
-const TRACER_TIME = 0.07;
 const MUZZLE_HEIGHT = 1.2;
 
 /**
@@ -23,7 +22,6 @@ export class CombatSystem implements System {
   private cooldown = 0;
   private dir = new pc.Vec3();
   private tmp = new pc.Vec3();
-  private tracers: Array<{ entity: pc.Entity; ttl: number }> = [];
   /** mira laser: da arma até o alcance máximo, na direção do mouse (o recoil desvia o tiro real disso) */
   private laser: pc.Entity | null = null;
   private laserDir = new pc.Vec3();
@@ -45,8 +43,9 @@ export class CombatSystem implements System {
       bus.on('net:shot', ({ playerId, dx, dz, length }) => {
         const from = this.playerPosition(playerId);
         if (!from) return;
-        this.dir.set(dx, 0, dz);
-        this.spawnTracer(from, length);
+        void dx;
+        void dz;
+        void length;
         if (playerId === this.state.playerId) this.player.playShoot();
         else this.bus.emit('remote:shot', { playerId });
       }),
@@ -56,14 +55,6 @@ export class CombatSystem implements System {
   update(dt: number): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.updateLaser();
-    for (let i = this.tracers.length - 1; i >= 0; i--) {
-      const t = this.tracers[i];
-      t.ttl -= dt;
-      if (t.ttl <= 0) {
-        t.entity.destroy();
-        this.tracers.splice(i, 1);
-      }
-    }
   }
 
   get canFire(): boolean {
@@ -137,19 +128,8 @@ export class CombatSystem implements System {
     this.laser.setEulerAngles(0, Math.atan2(this.laserDir.x, this.laserDir.z) * pc.math.RAD_TO_DEG, 0);
   }
 
-  private spawnTracer(from: pc.Vec3, length: number): void {
-    const e = makeBox({ color: '#ffd34d', scale: [0.035, 0.035, length], emissive: 1.5 });
-    const mid = this.tmp.copy(this.dir).mulScalar(length / 2).add(from);
-    e.setPosition(mid.x, MUZZLE_HEIGHT, mid.z);
-    e.setEulerAngles(0, Math.atan2(this.dir.x, this.dir.z) * pc.math.RAD_TO_DEG, 0);
-    this.sceneRoot.addChild(e);
-    this.tracers.push({ entity: e, ttl: TRACER_TIME });
-  }
-
   dispose(): void {
     this.unsubs.forEach((u) => u());
-    for (const t of this.tracers) t.entity.destroy();
-    this.tracers = [];
     this.laser?.destroy();
     this.laser = null;
   }

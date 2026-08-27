@@ -1,6 +1,6 @@
 # Créditos de assets
 
-Todos os assets abaixo são gratuitos para uso comercial. Os arquivos em `public/` foram
+Todos os assets abaixo são CC0 (domínio público). Os arquivos em `public/` foram
 convertidos/recortados a partir das fontes originais (ver `client/tools/build-assets.sh`).
 
 ## Modelos 3D
@@ -16,7 +16,7 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 | Sons | Fonte | Autor | Licença |
 | --- | --- | --- | --- |
 | chop, mine, tree_break, rock_break, wall_*, hit_*, step_*, wave_bell, wave_clear | [Impact Sounds](https://kenney.nl/assets/impact-sounds) | Kenney | CC0 1.0 |
-| knife_*, gun_empty, pickup_*, coins_* | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 1.0 |
+| knife_*, gun_empty, pickup_*, coins_*, shop_open/close | [RPG Audio](https://kenney.nl/assets/rpg-audio) | Kenney | CC0 1.0 |
 | ui_*, battery_on | [Interface Sounds](https://kenney.nl/assets/interface-sounds) | Kenney | CC0 1.0 |
 | gun_shot, gun_reload | [Pistol, animations, sounds for GoDot](https://opengameart.org/content/pistol-animations-sounds-for-godot) (áudio de David Fluher) | MilitaryG | CC0 1.0 |
 | zombie_growl_*, zombie_attack_*, boss_roar | [Zombies Sound Pack](https://opengameart.org/content/zombies-sound-pack) | Summoning Wars | CC0 1.0 |
@@ -28,4 +28,4 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 | Arquivo | Fonte | Autor | Licença |
 | --- | --- | --- | --- |
 | `calm.mp3` | [Forest Ambience](https://opengameart.org/content/forest-ambience) | TinyWorlds | CC0 1.0 |
-| `tension.mp3` | [Dark Ambience Loop](https://opengameart.org/content/dark-ambience-loop) | Iwan Gabovitch ([qubodup.net](https://qubodup.net)) | **CC-BY 3.0** — atribuição obrigatória: "Dark Ambience Loop by Iwan Gabovitch" |
+| `tension.mp3` | [Horror Loop](https://opengameart.org/content/horror-loop) | TinyWorlds | CC0 1.0 |

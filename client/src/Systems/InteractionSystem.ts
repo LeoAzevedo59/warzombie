@@ -6,10 +6,11 @@ import type { Player } from '@/Entities/Player/Player';
 import type { World } from '@/World/World';
 import type { WorldObject } from '@/World/WorldObject';
 import type { HubStructure } from '@/World/Hub';
+import type { Drop } from '@/World/Drop';
 import type { NetworkClient } from '@/Net/NetworkClient';
 import type { EquipmentSystem } from './EquipmentSystem';
 
-type Interactable = WorldObject | HubStructure;
+type Interactable = WorldObject | HubStructure | Drop;
 
 interface HitChannel {
   target: WorldObject;
@@ -38,6 +39,12 @@ export class InteractionSystem implements System {
     this.unsubs.push(
       bus.on('input:interact', () => this.interact()),
       bus.on('net:nodeHit', ({ objectId, hits }) => this.world.findObject(objectId)?.setHits(hits)),
+      bus.on('net:dropRemoved', ({ id }) => {
+        if (this.target?.kind === 'drop' && this.target.id === id) {
+          this.target = null;
+          this.refreshLabel();
+        }
+      }),
       bus.on('net:objectRemoved', ({ objectId }) => {
         const obj = this.world.findObject(objectId);
         if (!obj) return;
@@ -54,7 +61,7 @@ export class InteractionSystem implements System {
     let best: Interactable | null = null;
     let bestScore = Infinity;
 
-    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.structures()];
+    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.structures(), ...this.world.drops.values()];
     for (const obj of candidates) {
       const p = obj.position;
       const dx = p.x - pos.x;
@@ -119,7 +126,7 @@ export class InteractionSystem implements System {
     const t = this.target;
     let label: string | null = null;
     if (t) {
-      label = this.isHub(t) ? t.promptLabel() : t.promptLabel(this.hasTool(t), this.channel?.target === t);
+      label = this.isHub(t) || t.kind === 'drop' ? t.promptLabel() : t.promptLabel(this.hasTool(t), this.channel?.target === t);
     }
     if (label === this.lastLabel) return;
     this.lastLabel = label;
@@ -129,6 +136,10 @@ export class InteractionSystem implements System {
   private interact(): void {
     const t = this.target;
     if (!t) return;
+    if (t.kind === 'drop') {
+      this.net.send({ type: 'pickup_drop', id: t.id });
+      return;
+    }
     if (this.isHub(t)) {
       if (t.kind === 'vendor') this.bus.emit('shop:open');
       else this.net.send({ type: 'activate_battery' });

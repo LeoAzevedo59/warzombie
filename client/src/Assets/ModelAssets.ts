@@ -63,7 +63,11 @@ export type ModelKey =
   | 'blood_2'
   | 'pickup'
   | 'cinder'
-  | 'chest';
+  | 'chest'
+  | 'zak_knife'
+  | 'zak_pistol'
+  | 'zak_axe'
+  | 'tool_pickaxe';
 
 interface ModelDef {
   url: string;
@@ -133,6 +137,10 @@ export const MODELS: Record<ModelKey, ModelDef> = {
   pickup: M('/models/props/zak_vehicle_pickup.glb', 1),
   cinder: M('/models/props/zak_cinderblock.glb', 1),
   chest: M('/models/props/zak_chest.glb', 1),
+  zak_knife: M('/models/props/zak_knife.glb', 0.9),
+  zak_pistol: M('/models/props/zak_pistol.glb', 0.8),
+  zak_axe: M('/models/props/zak_axe.glb', 0.8),
+  tool_pickaxe: M('/models/props/tool-pickaxe.glb', 3.2),
 };
 
 /** Nomes lógicos de animação usados pelo jogo/protocolo (Idle, Walk, Run, Punch_Left...) e extras dos novos rigs. */

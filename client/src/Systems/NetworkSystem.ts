@@ -156,6 +156,12 @@ export class NetworkSystem implements System {
       case 'structure_hp':
         this.bus.emit('net:structureHp', { id: msg.id, hp: msg.hp });
         break;
+      case 'drop_added':
+        this.bus.emit('net:dropAdded', { drop: msg.drop });
+        break;
+      case 'drop_removed':
+        this.bus.emit('net:dropRemoved', { id: msg.id });
+        break;
       case 'structure_removed':
         this.bus.emit('net:structureRemoved', { id: msg.id });
         break;

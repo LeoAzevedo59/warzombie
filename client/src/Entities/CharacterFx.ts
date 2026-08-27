@@ -1,5 +1,5 @@
 import * as pc from 'playcanvas';
-import { makeSphere } from '@/Assets/Primitives';
+import { muzzleFlashMaterial } from '@/Assets/MuzzleFlash';
 
 /**
  * Efeitos procedurais por cima da animação esquelética (o rig do Zombie Apocalypse Kit não tem tracks
@@ -16,6 +16,7 @@ export class CharacterFx {
   private pos = new pc.Vec3();
   private recoil = 0;
   private flashTimer = 0;
+  private flashRoll = 0;
   private reloadT = -1;
   private reloadDuration = 1.5;
   private app: pc.AppBase | null;
@@ -28,7 +29,9 @@ export class CharacterFx {
     this.pistol = model.findByName('Pistol');
     if (this.pistol) {
       // o clarão fica no root do modelo e é posicionado em mundo (pistola + frente do personagem)
-      this.flash = makeSphere({ name: 'muzzle-flash', color: '#ffd27a', scale: [0.24, 0.24, 0.24], emissive: 3 });
+      // sprite em estrela (aditivo), virado para a câmera a cada disparo
+      this.flash = new pc.Entity('muzzle-flash');
+      this.flash.addComponent('render', { type: 'plane', material: muzzleFlashMaterial(), castShadows: false, receiveShadows: false });
       this.flash.enabled = false;
       model.addChild(this.flash);
     }
@@ -43,7 +46,9 @@ export class CharacterFx {
     this.flashTimer = 0.06;
     if (this.flash) {
       this.flash.enabled = true;
-      this.flash.setLocalScale(0.18 + Math.random() * 0.12, 0.18 + Math.random() * 0.12, 0.18 + Math.random() * 0.12);
+      const s = 0.5 + Math.random() * 0.35;
+      this.flash.setLocalScale(s, 1, s);
+      this.flashRoll = Math.random() * 360;
     }
   }
 
@@ -68,8 +73,15 @@ export class CharacterFx {
         wt.getZ(this.fwd);
         this.fwd.y = 0;
         this.fwd.normalize();
-        this.pos.copy(this.pistol.getPosition()).add(this.fwd.mulScalar(0.55));
+        this.pos.copy(this.pistol.getPosition()).add(this.fwd.mulScalar(0.5));
         this.flash.setPosition(this.pos);
+        // plano (normal +Y) virado para a câmera, com um giro aleatório em torno do eixo de visão
+        const cam = this.app?.root.findComponent('camera') as pc.CameraComponent | undefined;
+        if (cam) {
+          this.flash.setRotation(cam.entity.getRotation());
+          this.flash.rotateLocal(90, 0, 0);
+          this.flash.rotateLocal(0, this.flashRoll, 0);
+        }
       }
       if (this.flashTimer <= 0 && this.flash) this.flash.enabled = false;
     }

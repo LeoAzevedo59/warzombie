@@ -1,7 +1,7 @@
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
-import type { PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
+import type { DroppedItem, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
 import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
 import { totalWeight } from '@shared/items';
 
@@ -40,9 +40,9 @@ export class GameState {
   magSize: number = GAME.weapon.glock.MAG;
   reloading = false;
   /** Upgrades da Glock (por partida). */
-  upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0, vision: 0 };
+  upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
   /** preços atuais da sala (sobem a cada compra de qualquer jogador) */
-  upgradePrices: UpgradePrices = { damage: 40, ammo: 30, recoil: 40, stamina: 35, laser: 60, weight: 35, vision: 35 };
+  upgradePrices: UpgradePrices = { damage: 40, ammo: 30, recoil: 40, stamina: 35, laser: 60, weight: 35 };
 
   get carriedWeight(): number {
     return totalWeight(this.inventory);
@@ -72,6 +72,7 @@ export class GameState {
   towerLevel = 0;
   /** paredes colocadas na sala (snapshot inicial; depois mantidas pelo World) */
   structures: StructureSnapshot[] = [];
+  drops: DroppedItem[] = [];
   /** recursos da sala (minimapa começa desligado) */
   features: RoomFeatures = { minimap: false };
 
