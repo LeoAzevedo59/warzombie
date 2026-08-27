@@ -540,3 +540,23 @@ test('ferramenta derruba parede: machado na madeira (3 golpes), picareta no ferr
   m.hitWall('A', gate.id);
   assert.ok(!m.structures.has(gate.id));
 });
+
+test('(dev) pilha cheia, itens infinitos e upgrades de graça', () => {
+  const { m, snap, last } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  m.dev('A', { action: 'give', itemId: 'wall_wood' });
+  assert.equal(a.hotbar[0]?.count, 5);
+  m.dev('A', { action: 'infinite_items', on: true });
+  m.placeWall('A', 2, 0, 0);
+  assert.equal(a.hotbar[0]?.count, 5); // não gastou
+  m.dev('A', { action: 'infinite_items', on: false });
+  m.placeWall('A', -2, 0, 0);
+  assert.equal(a.hotbar[0]?.count, 4);
+  m.dev('A', { action: 'upgrade', kind: 'damage' });
+  m.dev('A', { action: 'upgrade', kind: 'ammo' });
+  assert.deepEqual([a.upgrades.damage, a.upgrades.ammo], [1, 1]);
+  assert.equal(m.money, 0); // de graça
+  m.dev('A', { action: 'tower_upgrade' });
+  assert.equal(m.towerLevel, 1);
+  assert.equal((last('tower_hp')!.msg as { level: number }).level, 1);
+});

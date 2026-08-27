@@ -24,6 +24,8 @@ export interface MatchPlayer {
   lastHitAt: number;
   /** (dev) multiplicador de dano da arma */
   damageMult: number;
+  /** (dev) paredes/consumíveis não são gastos ao usar */
+  infiniteItems: boolean;
   /** invulnerável (sem dano/lentidão) até este instante (ms) */
   shieldUntil: number;
   upgrades: WeaponUpgrades;
@@ -298,6 +300,7 @@ export class Match {
       nextUseAt: 0,
       lastHitAt: -Infinity,
       damageMult: 1,
+      infiniteItems: false,
       shieldUntil: 0,
       upgrades: emptyUpgrades(),
       infectedZombieId: null,
@@ -537,8 +540,10 @@ export class Match {
     if (p.snapshot.hp >= GAME.player.MAX_HP) throw new MatchError('invalid_message', 'Sua vida já está cheia.');
     p.nextUseAt = now + GAME.consumable.USE_COOLDOWN * 1000;
     p.snapshot.hp = Math.min(GAME.player.MAX_HP, p.snapshot.hp + def.heal);
-    stack.count--;
-    if (stack.count <= 0) p.hotbar[p.equipped] = null;
+    if (!p.infiniteItems) {
+      stack.count--;
+      if (stack.count <= 0) p.hotbar[p.equipped] = null;
+    }
     this.io.broadcast({ type: 'hp', playerId, hp: p.snapshot.hp });
     this.sendHotbar(p);
   }
@@ -666,8 +671,10 @@ export class Match {
     if (dist({ x, z }, GAME.hub.VENDOR) < 3) throw new MatchError('blocked', 'Não dá para bloquear o vendedor.');
     const slot = p.hotbar.findIndex((s) => s?.itemId === kind);
     const stack = p.hotbar[slot]!;
-    stack.count--;
-    if (stack.count <= 0) p.hotbar[slot] = null;
+    if (!p.infiniteItems) {
+      stack.count--;
+      if (stack.count <= 0) p.hotbar[slot] = null;
+    }
     const s: StructureSnapshot = { id: this.nextStructureId++, kind, x, z, yaw, hp: WALL_HP[kind], maxHp: WALL_HP[kind] };
     this.structures.set(s.id, s);
     this.obstacleCache = null;
@@ -729,8 +736,28 @@ export class Match {
         this.setMoney(Math.max(0, this.money + a.amount), a.amount);
         return;
       case 'give':
-        if (addItem(p.hotbar, a.itemId, 1) > 0) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+        // pilha cheia (ferramentas/armas têm stackMax 1)
+        if (addItem(p.hotbar, a.itemId, ITEMS[a.itemId].stackMax) === ITEMS[a.itemId].stackMax) throw new MatchError('hotbar_full', 'Hotbar cheia.');
+        if (a.itemId === 'glock') {
+          p.mag = magSize(p.upgrades);
+          this.sendAmmo(p);
+        }
         this.sendHotbar(p);
+        return;
+      case 'infinite_items':
+        p.infiniteItems = a.on;
+        return;
+      case 'upgrade':
+        if (isMaxed(a.kind, p.upgrades[a.kind])) throw new MatchError('invalid_message', 'Upgrade já está no máximo.');
+        p.upgrades[a.kind]++;
+        this.io.send(playerId, { type: 'upgrades', upgrades: { ...p.upgrades } });
+        if (a.kind === 'ammo') this.sendAmmo(p);
+        return;
+      case 'tower_upgrade':
+        if (towerUpgradePrice(this.towerLevel) === null) throw new MatchError('invalid_message', 'A antena já está no máximo.');
+        this.towerLevel++;
+        this.towerHp = Math.min(this.towerMaxHp, this.towerHp + GAME.towerUpgrade.HP_STEP);
+        this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
         return;
       case 'damage_mult':
         p.damageMult = a.value;

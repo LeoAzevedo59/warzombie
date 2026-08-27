@@ -233,7 +233,14 @@ export interface UpgradeMessage {
 /** Cheats de desenvolvimento — só aceitos quando o servidor roda com DEV_CHEATS ligado. */
 export type DevAction =
   | { action: 'money'; amount: number }
+  /** dá uma pilha cheia do item */
   | { action: 'give'; itemId: ItemId }
+  /** colocar parede / usar consumível não gasta o item */
+  | { action: 'infinite_items'; on: boolean }
+  /** +1 nível de upgrade da arma, de graça */
+  | { action: 'upgrade'; kind: UpgradeKind }
+  /** +1 reforço da antena, de graça */
+  | { action: 'tower_upgrade' }
   | { action: 'damage_mult'; value: number }
   | { action: 'heal' }
   | { action: 'kill_zombies' }

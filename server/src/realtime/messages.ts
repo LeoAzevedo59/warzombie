@@ -63,6 +63,9 @@ const itemIdSchema = z.enum(Object.keys(ITEMS) as [ItemId, ...ItemId[]]);
 const devSchema = z.discriminatedUnion('action', [
   z.object({ type: z.literal('dev'), action: z.literal('money'), amount: z.number().int().min(-100000).max(100000) }),
   z.object({ type: z.literal('dev'), action: z.literal('give'), itemId: itemIdSchema }),
+  z.object({ type: z.literal('dev'), action: z.literal('infinite_items'), on: z.boolean() }),
+  z.object({ type: z.literal('dev'), action: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight']) }),
+  z.object({ type: z.literal('dev'), action: z.literal('tower_upgrade') }),
   z.object({ type: z.literal('dev'), action: z.literal('damage_mult'), value: z.number().min(1).max(1000) }),
   z.object({ type: z.literal('dev'), action: z.literal('heal') }),
   z.object({ type: z.literal('dev'), action: z.literal('kill_zombies') }),
