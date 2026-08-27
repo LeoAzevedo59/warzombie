@@ -12,6 +12,19 @@ const WALL_MODEL: Record<string, { key: ModelKey; height: number }> = {
   wall_iron: { key: 'fence_iron', height: 1.7 },
 };
 
+/** AABB (no espaço local do modelo já escalado, antes de entrar na cena) de todos os meshes. */
+function modelBounds(model: pc.Entity): pc.BoundingBox | null {
+  let out: pc.BoundingBox | null = null;
+  for (const r of model.findComponents('render') as pc.RenderComponent[]) {
+    for (const mi of r.meshInstances) {
+      const b = mi.aabb;
+      if (!out) out = new pc.BoundingBox(b.center.clone(), b.halfExtents.clone());
+      else out.add(b);
+    }
+  }
+  return out;
+}
+
 /** Parede colocada por um jogador: cerca sólida com barra de vida. */
 export class Wall {
   readonly entity: pc.Entity;
@@ -36,6 +49,9 @@ export class Wall {
     const model = instantiateModel(def.key);
     // GLB: 0,5 de largura, 0,52 de altura, ~0,05 de espessura
     model.setLocalScale(GAME.walls.WIDTH / 0.5, h / 0.52, GAME.walls.THICK / 0.05);
+    // a origem do GLB fica num canto: centraliza pela AABB real para a parede nascer onde o fantasma mostrou
+    const box = modelBounds(model);
+    if (box) model.setLocalPosition(-box.center.x, -(box.center.y - box.halfExtents.y), -box.center.z);
     this.entity.addChild(model);
     this.hpBar = new pc.Entity('hpbar');
     this.hpBar.setLocalPosition(0, h + 0.35, 0);
