@@ -5,7 +5,7 @@ import type { GameState } from '@/Core/GameState';
 import type { NetworkClient } from '@/Net/NetworkClient';
 import type { Player } from '@/Entities/Player/Player';
 import { RemotePlayer } from '@/Entities/Player/RemotePlayer';
-import type { NetAnim, PlayerSnapshot, ServerMessage } from '@shared/protocol';
+import { NET_ANIMS, type NetAnim, type PlayerSnapshot, type ServerMessage } from '@shared/protocol';
 import { applyGameStart } from '@/Core/GameStart';
 
 /** Envio da própria pose ao servidor (Hz). Independe do tick do servidor. */
@@ -332,7 +332,7 @@ export class NetworkSystem implements System {
     const pos = this.player.position;
     const yaw = this.player.entity.getEulerAngles().y;
     const raw = this.player.anim.state ?? 'Idle';
-    const anim = (['Idle', 'Walk', 'Run', 'Gun_Shoot', 'Punch_Left', 'Death'].includes(raw) ? raw : 'Idle') as NetAnim;
+    const anim: NetAnim = (NET_ANIMS as readonly string[]).includes(raw) ? (raw as NetAnim) : 'Idle';
     const crouching = this.player.crouching;
     const l = this.lastSent;
     if (l.x !== pos.x || l.z !== pos.z || Math.abs(l.yaw - yaw) > 0.01 || l.anim !== anim || l.crouching !== crouching) {
