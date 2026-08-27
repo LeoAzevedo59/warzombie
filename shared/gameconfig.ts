@@ -78,6 +78,8 @@ export const GAME = {
     STRUCTURE_DAMAGE_MULT: 3,
     /** preferência pela torre: distância até a torre é multiplicada por isso ao escolher alvo */
     TOWER_BIAS: 0.7,
+    /** jogador vivo a até isso da torre é defendido: a horda ataca ele antes da torre */
+    GUARD_RADIUS: 10,
     /** chute: mais dano (x2.75), knockback, cooldown longo */
     SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 2.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
     /** fração da horda que nasce como cuspidor (ataque à distância que dá lentidão) */

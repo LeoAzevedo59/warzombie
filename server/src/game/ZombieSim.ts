@@ -333,6 +333,7 @@ export class ZombieSim {
 
   /**
    * Alvo mais próximo. Caçadores consideram a torre (com preferência); paredes só quando travados.
+   * Jogador vivo a até GUARD_RADIUS da torre "defende" a antena: a horda vai nele antes da torre.
    * Infectado: só jogadores, e quem o matou (focusId) tem prioridade absoluta enquanto estiver vivo.
    */
   private nearest(z: Zombie, living: Target[]): { t: Target; d: number } | null {
@@ -340,15 +341,20 @@ export class ZombieSim {
     let bd = Infinity;
     let bs = Infinity;
     const infected = z.kind === 'infected';
+    const tower = z.hunter ? living.find((t) => t.kind === 'tower') : undefined;
+    const isPlayer = (t: Target) => !t.kind || t.kind === 'player';
+    const guarding = (t: Target) => !!tower && isPlayer(t) && dist(t.position, tower.position) <= GAME.zombie.GUARD_RADIUS;
+    const guarded = !!tower && living.some(guarding);
     for (const t of living) {
       if (t.kind === 'wall') continue;
-      if (t.kind === 'tower' && !z.hunter) continue;
+      if (t.kind === 'tower' && (!z.hunter || guarded)) continue;
       if (infected) {
         if ((t.kind && t.kind !== 'player') || t.id === z.ownerId) continue;
         if (t.id === z.focusId) return { t, d: Math.max(0, dist(z, t.position) - (t.radius ?? 0)) };
       }
       const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
-      const score = t.kind === 'tower' ? d * GAME.zombie.TOWER_BIAS : d;
+      // a torre (ou quem a defende) ganha a preferência da horda
+      const score = t.kind === 'tower' || (guarded && guarding(t)) ? d * GAME.zombie.TOWER_BIAS : d;
       if (score < bs) {
         bs = score;
         bd = d;
