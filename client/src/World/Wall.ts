@@ -1,14 +1,15 @@
 import * as pc from 'playcanvas';
 import { GAME } from '@shared/gameconfig';
-import { makeBox } from '@/Assets/Primitives';
+import { colorMaterial, makeBox } from '@/Assets/Primitives';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import type { StructureSnapshot } from '@shared/protocol';
 import { CONFIG } from '@/config';
 
 /** Modelo (Kenney Survival Kit) por tipo de parede; cada GLB tem 0,5 x 0,52 — escalado para WIDTH x altura. */
-const WALL_MODEL: Record<string, { key: ModelKey; height: number }> = {
+const WALL_MODEL: Record<string, { key: ModelKey; height: number; color?: string }> = {
   wall_wood: { key: 'fence_wood', height: 1.5 },
-  wall_stone: { key: 'fence_stone', height: 1.6 },
+  // o kit não tem cerca de pedra: a reforçada (madeira) recebe um material cinza-pedra chapado
+  wall_stone: { key: 'fence_stone', height: 1.6, color: '#8e959c' },
   wall_iron: { key: 'fence_iron', height: 1.7 },
 };
 
@@ -47,6 +48,10 @@ export class Wall {
     const def = WALL_MODEL[s.kind] ?? WALL_MODEL.wall_wood;
     const h = def.height;
     const model = instantiateModel(def.key);
+    if (def.color) {
+      const mat = colorMaterial(def.color);
+      for (const r of model.findComponents('render') as pc.RenderComponent[]) r.meshInstances.forEach((mi) => (mi.material = mat));
+    }
     // GLB: 0,5 de largura, 0,52 de altura, ~0,05 de espessura
     model.setLocalScale(GAME.walls.WIDTH / 0.5, h / 0.52, GAME.walls.THICK / 0.05);
     // a origem do GLB fica num canto: centraliza pela AABB real para a parede nascer onde o fantasma mostrou
