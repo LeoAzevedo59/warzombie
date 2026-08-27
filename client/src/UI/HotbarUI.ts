@@ -60,7 +60,7 @@ export class HotbarUI {
       s.itemId === 'glock'
         ? `<div class="ammo-ring" style="background:conic-gradient(#7ed957 ${((100 * this.ammo.mag) / Math.max(1, this.ammo.magSize)).toFixed(1)}%, #1c232c 0)"></div><span class="ammo-count">${this.ammo.mag}/${this.ammo.magSize}</span>`
         : '';
-    return `<div class="${cls}" data-index="${i}" title="${def.name}">${ammo}${number}${itemIconHtml(s.itemId, 24, 'icon')}${def.name}<span class="count">${s.count > 1 ? s.count : ''}</span></div>`;
+    return `<div class="${cls}" data-index="${i}" title="${def.name}">${ammo}${number}${itemIconHtml(s.itemId, 24, 'icon')}<span class="name">${def.name}</span><span class="count">${s.count > 1 ? s.count : ''}</span></div>`;
   }
 
   private render(): void {

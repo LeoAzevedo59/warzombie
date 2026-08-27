@@ -37,7 +37,10 @@
       .item-icon { display: inline-block; background-color: var(--c); -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; flex-shrink: 0; }
       .slot .icon { width: 24px; height: 24px; margin-bottom: 3px; }
       .shop-icon { vertical-align: middle; margin-right: 8px; }
-      .slot .count { position: absolute; right: 4px; bottom: 2px; font-size: 11px; font-weight: bold; }
+      /* quantidade como badge no canto superior direito: não pisa no nome do item */
+      .slot .count { position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ffd34d; color: #0b0f14; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+      .slot .count:empty { display: none; }
+      .slot .name { max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1; font-size: 10px; letter-spacing: -.2px; }
       .slot .slot-number { position: absolute; left: 4px; top: 2px; font-size: 10px; color: #6b7681; font-weight: bold; }
       .slot.equipped { border-color: #ffd34d; box-shadow: 0 0 0 1px #ffd34d, 0 0 8px rgba(255,211,77,.5); }
       .slot.equipped .slot-number { color: #ffd34d; }
