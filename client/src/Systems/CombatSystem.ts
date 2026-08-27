@@ -9,6 +9,7 @@ import type { InputSystem } from './InputSystem';
 import type { EquipmentSystem } from './EquipmentSystem';
 import type { NetworkClient } from '@/Net/NetworkClient';
 import { ITEMS } from '@shared/items';
+import { canFireRunning } from '@shared/upgrades';
 
 const MUZZLE_HEIGHT = 1.2;
 
@@ -90,6 +91,10 @@ export class CombatSystem implements System {
       return;
     }
     if (!this.canFire) return;
+    if (this.player.running && this.player.velocity.lengthSq() > 0.0025 && !canFireRunning(this.state.upgrades)) {
+      this.bus.emit('ui:toast', { text: 'Não dá para atirar correndo — pare (ou compre o Recoil máximo).' });
+      return;
+    }
     if (this.state.ammo <= 0) {
       this.bus.emit('audio:sfx', { name: 'gun_empty' });
       this.bus.emit('ui:toast', { text: 'Sem munição — aperte R para recarregar' });

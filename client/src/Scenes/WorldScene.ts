@@ -113,7 +113,7 @@ export class WorldScene extends BaseScene {
 
     this.loop
       .register(this.input)
-      .register(new MovementSystem(this.input, controller, this.player, state))
+      .register(new MovementSystem(this.input, controller, this.player, state, bus))
       .register(new CollisionSystem(this.player, this.world))
       .register(equipment)
       .register(new InteractionSystem(bus, this.player, this.world, equipment, net))

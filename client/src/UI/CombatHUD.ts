@@ -1,6 +1,7 @@
 import type { EventBus } from '@/Core/EventBus';
 import type { ItemId } from '@/Items/Item';
 import { GAME } from '@shared/gameconfig';
+import { accuracyPercent, canFireRunning, type Stance } from '@shared/upgrades';
 import type { WeaponUpgrades } from '@shared/protocol';
 
 /** Contador de zumbis/abates, munição, flash de dano e tela de morte com contagem de respawn. */
@@ -18,6 +19,8 @@ export class CombatHUD {
   private slowedUntil = 0;
   private shieldUntil = 0;
   private shieldTimer: number | null = null;
+  private stance: Stance = 'idle';
+  private upgrades: WeaponUpgrades;
 
   constructor(
     parent: HTMLElement,
@@ -27,7 +30,7 @@ export class CombatHUD {
     initialUpgrades?: WeaponUpgrades,
   ) {
     this.kills = initialKills;
-    void initialUpgrades;
+    this.upgrades = initialUpgrades ? { ...initialUpgrades } : { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
     this.panel = document.createElement('div');
     this.panel.className = 'hud-status';
     parent.appendChild(this.panel);
@@ -56,6 +59,14 @@ export class CombatHUD {
       }),
       bus.on('net:ammo', (a) => {
         this.ammo = a;
+        this.render();
+      }),
+      bus.on('player:stance', ({ stance }) => {
+        this.stance = stance;
+        this.render();
+      }),
+      bus.on('net:upgrades', ({ upgrades }) => {
+        this.upgrades = { ...upgrades };
         this.render();
       }),
       bus.on('player:damaged', ({ special }) => this.showFlash(special)),
@@ -148,6 +159,15 @@ export class CombatHUD {
     if (shieldLeft > 0) parts.push(`<span class="shield">🛡 Escudo ${shieldLeft}s</span>`);
     if (Date.now() < this.slowedUntil) parts.push('<span class="slowed">☠ Lento!</span>');
     if (this.equipped === 'glock' && this.ammo.reloading) parts.push('<span class="hud-cooldown">Recarregando...</span>');
+    if (this.equipped === 'glock') {
+      // precisão pela postura: parado > andando > correndo (correndo só com o Recoil máximo)
+      const label = this.stance === 'run' ? 'correndo' : this.stance === 'walk' ? 'andando' : 'parado';
+      parts.push(
+        this.stance === 'run' && !canFireRunning(this.upgrades)
+          ? '<span class="accuracy bad">🎯 Correndo: não atira</span>'
+          : `<span class="accuracy ${this.stance === 'idle' ? 'good' : ''}">🎯 Precisão ${accuracyPercent(this.upgrades, this.stance)}% (${label})</span>`,
+      );
+    }
     void this.alive;
     void this.kills;
     this.panel.innerHTML = parts.join(' · ');

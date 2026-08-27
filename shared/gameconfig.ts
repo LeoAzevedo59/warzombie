@@ -69,6 +69,13 @@ export const GAME = {
     weight: { MAX_LEVEL: 5, STEP: 10, BASE: 35 },
     /** visão: amplia a câmera por nível */
   },
+  /**
+   * Precisão por postura: a dispersão do tiro é multiplicada por IDLE/WALK/RUN_MULT (parado atira
+   * melhor; andando pior). Correr e atirar só com o Recoil no último nível. O server classifica a
+   * postura pela velocidade vinda das poses (m/s): acima de RUN_MIN_SPEED = correndo, acima de
+   * WALK_MIN_SPEED = andando; sem pose nova há IDLE_AFTER_MS = parado.
+   */
+  accuracy: { IDLE_MULT: 0.75, WALK_MULT: 1.4, RUN_MULT: 2.0, WALK_MIN_SPEED: 0.8, RUN_MIN_SPEED: 5.0, IDLE_AFTER_MS: 250 },
   zombie: {
     MAX_HP: 60,
     DAMAGE: 16,

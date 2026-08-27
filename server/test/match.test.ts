@@ -654,3 +654,54 @@ test('bateria: vai para a mão (slot travado), avisa a sala e vira isca de todos
   m.selectSlot('A', 0);
   assert.equal(a.equipped, 0);
 });
+
+test('precisão por postura: parado dispersa menos, andando mais; correndo só atira com o Recoil máximo', () => {
+  let now = 0;
+  const sent: ServerMessage[] = [];
+  const m = new Match(1337, 0, { send: (_to, msg) => sent.push(msg), broadcast: (msg) => sent.push(msg), onMoneyChanged: () => undefined, onWaveChanged: () => undefined, onPhaseComplete: () => undefined, onGameOver: () => undefined }, () => now, () => 1); // rand=1: desvio máximo (+spread)
+  const a = m.addPlayer({ id: 'A', name: 'A', character: 'matt', trophies: 0, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x: 0, z: 0, yaw: 0, anim: 'Idle', crouching: false });
+  a.hotbar[0] = { itemId: 'glock', count: 1 };
+  a.mag = 10;
+  const shotAngle = () => {
+    const s = [...sent].reverse().find((x) => x.type === 'shot') as { dx: number; dz: number };
+    return (Math.atan2(s.dx, s.dz) * 180) / Math.PI;
+  };
+  const base = GAME.upgrades.recoil.BASE_SPREAD;
+  // parado (sem pose recente)
+  now = 1000;
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - base * GAME.accuracy.IDLE_MULT) < 0.01, 'parado: spread × IDLE_MULT');
+  // andando: poses a 4 m/s
+  const walk = (speed: number) => {
+    for (let i = 0; i < 6; i++) {
+      now += 50;
+      const nx = a.snapshot.x + speed * 0.05;
+      m.notePose('A', nx, 0);
+      a.snapshot.x = nx;
+    }
+  };
+  now += 1000;
+  walk(4);
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - base * GAME.accuracy.WALK_MULT) < 0.01, 'andando: spread × WALK_MULT');
+  // correndo (7.5 m/s): sem Recoil máximo o tiro não sai
+  now += 1000;
+  walk(7.5);
+  const magBefore = a.mag;
+  const shotsBefore = sent.filter((x) => x.type === 'shot').length;
+  m.fire('A', 0, 1);
+  assert.equal(a.mag, magBefore, 'correndo sem Recoil máximo: não gasta bala');
+  assert.equal(sent.filter((x) => x.type === 'shot').length, shotsBefore);
+  // Recoil máximo libera atirar correndo (spread base 2° × RUN_MULT)
+  a.upgrades.recoil = GAME.upgrades.recoil.MAX_LEVEL;
+  now += 1000;
+  walk(7.5);
+  m.fire('A', 0, 1);
+  assert.equal(a.mag, magBefore - 1);
+  const maxed = base - GAME.upgrades.recoil.STEP * GAME.upgrades.recoil.MAX_LEVEL;
+  assert.ok(Math.abs(shotAngle() - maxed * GAME.accuracy.RUN_MULT) < 0.01, 'correndo com Recoil máximo: spread × RUN_MULT');
+  // parou (sem poses por IDLE_AFTER_MS): volta a ser "parado"
+  now += GAME.accuracy.IDLE_AFTER_MS + 1000;
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - maxed * GAME.accuracy.IDLE_MULT) < 0.01);
+});

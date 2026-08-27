@@ -265,6 +265,7 @@ export class GameServer {
     // morto (ou embarcado no helicóptero) não se move: o servidor mantém a pose
     const mp = conn.room?.match?.players.get(p.id);
     if (mp?.dead || mp?.boarded) return;
+    conn.room?.match?.notePose(p.id, pose.x, pose.z);
     p.x = pose.x;
     p.z = pose.z;
     p.yaw = pose.yaw;

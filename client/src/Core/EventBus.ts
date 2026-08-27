@@ -73,6 +73,8 @@ export interface GameEvents {
   'net:zombies': { zombies: ZombieSnapshot[] };
   'net:projectiles': { projectiles: ProjectileSnapshot[] };
   'player:slowed': { factor: number; seconds: number };
+  /** postura do jogador local mudou (parado/andando/correndo): muda a precisão do tiro */
+  'player:stance': { stance: 'idle' | 'walk' | 'run' };
   'net:shield': { playerId: string; seconds: number };
   'net:upgrades': { upgrades: WeaponUpgrades };
   'net:upgradePrices': { prices: UpgradePrices };

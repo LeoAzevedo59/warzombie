@@ -2,7 +2,7 @@ import { GAME } from '../../../shared/gameconfig.js';
 import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, isWallKind, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
+import { batteryPrice, canFireRunning, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegreesFor, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor, type Stance } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -37,6 +37,9 @@ export interface MatchPlayer {
   eliminated: boolean;
   /** está com a bateria na hotbar (fica na mão; todos os zumbis vão atrás) */
   carrying: boolean;
+  /** velocidade (m/s, suavizada) estimada pelas poses e instante da última pose — define a postura ao atirar */
+  speed: number;
+  lastPoseAt: number;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -324,6 +327,8 @@ export class Match {
       boarded: false,
       eliminated: false,
       carrying: false,
+      speed: 0,
+      lastPoseAt: 0,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -371,6 +376,26 @@ export class Match {
     target.respawnAt = this.now(); // o tick renasce agora
     this.io.broadcast({ type: 'player_revived', playerId: targetId, byId: playerId });
     this.io.broadcast({ type: 'revive_price', price: this.revivePrice() });
+  }
+
+  /** Pose nova do client (antes de aplicá-la ao snapshot): atualiza a velocidade estimada. */
+  notePose(playerId: string, x: number, z: number): void {
+    const p = this.players.get(playerId);
+    if (!p) return;
+    const now = this.now();
+    const dt = (now - p.lastPoseAt) / 1000;
+    if (p.lastPoseAt > 0 && dt > 0 && dt < 1) {
+      const v = Math.hypot(x - p.snapshot.x, z - p.snapshot.z) / dt;
+      p.speed = p.speed * 0.5 + v * 0.5;
+    }
+    p.lastPoseAt = now;
+  }
+
+  /** Postura atual: sem pose há IDLE_AFTER_MS = parado; senão pela velocidade estimada. */
+  stanceOf(p: MatchPlayer): Stance {
+    const a = GAME.accuracy;
+    if (this.now() - p.lastPoseAt > a.IDLE_AFTER_MS) return 'idle';
+    return p.speed >= a.RUN_MIN_SPEED ? 'run' : p.speed >= a.WALK_MIN_SPEED ? 'walk' : 'idle';
   }
 
   private get(playerId: string): MatchPlayer {
@@ -765,15 +790,18 @@ export class Match {
     if (this.equippedItem(p) !== 'glock') throw new MatchError('no_weapon', 'Equipe a Glock.');
     const now = this.now();
     if (now < p.nextFireAt || now < p.reloadUntil) return; // spam: ignora silenciosamente
+    // correndo só atira com o Recoil no máximo (o client já avisa; aqui é a garantia)
+    const stance = this.stanceOf(p);
+    if (stance === 'run' && !canFireRunning(p.upgrades)) return;
     if (p.mag <= 0) {
       this.sendAmmo(p);
       return;
     }
     p.mag--;
     p.nextFireAt = now + w.COOLDOWN * 1000;
-    // recoil: o tiro sai desviado da mira por até ±spread graus (menos com upgrade)
+    // recoil: o tiro sai desviado da mira por até ±spread graus (menos com upgrade; parado é mais preciso, andando menos)
     const aim = normalize2(dx, dz);
-    const spread = (spreadDegrees(p.upgrades) * Math.PI) / 180;
+    const spread = (spreadDegreesFor(p.upgrades, stance) * Math.PI) / 180;
     const angle = Math.atan2(aim.dx, aim.dz) + (this.rand() * 2 - 1) * spread;
     const dir = { dx: Math.sin(angle), dz: Math.cos(angle) };
     const from = p.snapshot;

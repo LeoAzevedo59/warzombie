@@ -1,4 +1,5 @@
 import type { System } from '@/Core/GameLoop';
+import type { EventBus } from '@/Core/EventBus';
 import type { GameState } from '@/Core/GameState';
 import type { Player } from '@/Entities/Player/Player';
 import type { PlayerController } from '@/Entities/Player/PlayerController';
@@ -9,13 +10,21 @@ import type { InputSystem } from './InputSystem';
 export class MovementSystem implements System {
   readonly name = 'Movement';
   private bounds = World.mapBounds();
+  private lastStance: 'idle' | 'walk' | 'run' | null = null;
 
   constructor(
     private input: InputSystem,
     private controller: PlayerController,
     private player: Player,
     private state: GameState,
+    private bus: EventBus,
   ) {}
+
+  /** Postura atual (mesma classificação que o servidor faz pela velocidade). */
+  get stance(): 'idle' | 'walk' | 'run' {
+    const v = this.player.velocity.length();
+    return v < 0.05 ? 'idle' : this.player.running ? 'run' : 'walk';
+  }
 
   update(dt: number): void {
     this.controller.apply(this.input.state);
@@ -34,5 +43,11 @@ export class MovementSystem implements System {
 
     this.state.playerPosition.x = x;
     this.state.playerPosition.z = z;
+
+    const stance = this.stance;
+    if (stance !== this.lastStance) {
+      this.lastStance = stance;
+      this.bus.emit('player:stance', { stance });
+    }
   }
 }

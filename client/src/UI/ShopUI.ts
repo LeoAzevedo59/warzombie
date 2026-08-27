@@ -148,7 +148,7 @@ export class ShopUI {
     const rows: Array<[UpgradeKind, string, string]> = [
       ['damage', 'Dano', `+${Math.round((damageMultiplier(u) - 1) * 100)}%`],
       ['ammo', 'Munição', `pente ${magSize(u)}`],
-      ['recoil', 'Recoil', `precisão ${accuracyPercent(u)}%`],
+      ['recoil', 'Recoil', `precisão ${accuracyPercent(u, 'idle')}% parado · ${accuracyPercent(u, 'walk')}% andando${isMaxed('recoil', u.recoil) ? ' · atira correndo' : ' · MAX libera atirar correndo'}`],
       ['stamina', 'Vigor de corrida', `+${Math.round((staminaMultiplier(u) - 1) * 100)}%`],
       ['laser', 'Mira laser', u.laser ? 'ativa' : 'mostra a linha de tiro'],
       ['weight', 'Peso', `capacidade ${maxWeight(u)}`],
