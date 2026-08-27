@@ -35,11 +35,12 @@ const DECOR_PER_CHUNK = 26;
 const DECOR_TOTAL_WEIGHT = DECOR_POOL.reduce((a, d) => a + d.weight, 0);
 
 /** Disco achatado de terra (radius x radius*ratio), um pouco acima do chão para não brigar com a grama. */
-export function makeDirtPatch(app: pc.Application, x: number, z: number, radius: number, ratio: number, yaw: number): pc.Entity {
+/** `y` distinto por mancha evita z-fighting onde duas se sobrepõem (todas na mesma altura piscavam). */
+export function makeDirtPatch(app: pc.Application, x: number, z: number, radius: number, ratio: number, yaw: number, y = 0.012): pc.Entity {
   const e = new pc.Entity('dirt');
   e.addComponent('render', { type: 'cylinder', material: groundMaterial(app, 'dirt', radius / 2), castShadows: false });
   e.setLocalScale(radius * 2, 0.02, radius * 2 * ratio);
-  e.setLocalPosition(x, 0.012, z);
+  e.setLocalPosition(x, y, z);
   e.setLocalEulerAngles(0, yaw, 0);
   return e;
 }
@@ -82,7 +83,7 @@ export class GameMap {
       const x = originX + 2 + rand() * (size - 4);
       const z = originZ + 2 + rand() * (size - 4);
       if (x * x + z * z < clear2 * 2) continue;
-      root.addChild(makeDirtPatch(this.app, x, z, 2.5 + rand() * 3.5, 0.55 + rand() * 0.6, rand() * 180));
+      root.addChild(makeDirtPatch(this.app, x, z, 2.5 + rand() * 3.5, 0.55 + rand() * 0.6, rand() * 180, 0.012 + rand() * 0.03));
     }
     for (let i = 0; i < DECOR_PER_CHUNK; i++) {
       const x = originX + rand() * size;

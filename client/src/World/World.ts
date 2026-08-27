@@ -30,7 +30,7 @@ export class World {
   ) {
     this.root = new pc.Entity('world');
     // clareira de terra batida do acampamento
-    this.root.addChild(makeDirtPatch(app, 0, 0, 7.5, 0.8, 30));
+    this.root.addChild(makeDirtPatch(app, 0, 0, 7.5, 0.8, 30, 0.05)); // acima das manchas dos chunks
     this.vendor = new HubStructure('vendor');
     this.tower = new HubStructure('tower', towerPos);
     this.root.addChild(this.vendor.entity);
@@ -40,11 +40,11 @@ export class World {
 
   /** Cenário fixo ao redor do hub (Zombie Apocalypse Kit): picape abandonada, barris, cones, sangue. */
   private buildHubDecor(): void {
-    const place = (key: ModelKey, x: number, z: number, yaw: number, solidRadius = 0, scale = 1): void => {
+    const place = (key: ModelKey, x: number, z: number, yaw: number, solidRadius = 0, scale = 1, y = 0): void => {
       const e = instantiateModel(key);
       const s = e.getLocalScale().x * scale;
       e.setLocalScale(s, s, s);
-      e.setLocalPosition(x, 0, z);
+      e.setLocalPosition(x, y, z);
       e.setLocalEulerAngles(0, yaw, 0);
       this.root.addChild(e);
       if (solidRadius > 0) this.decorObstacles.push({ position: e.getPosition(), solidRadius });
@@ -56,8 +56,8 @@ export class World {
     place('barrel', 6.8, -4.2, 0, 0.4);
     place('pallet', 6.2, 7.2, 20);
     place('cinder', 6.9, 7.6, 70);
-    place('blood_1', 2.5, -7.5, 40);
-    place('blood_2', -7, -1.5, 0);
+    place('blood_1', 2.5, -7.5, 40, 0, 1, 0.07); // decais acima da clareira de terra (y=0.05)
+    place('blood_2', -7, -1.5, 0, 0, 1, 0.07);
     place('chest', -2.6, -5.2, 160, 0.4);
   }
 

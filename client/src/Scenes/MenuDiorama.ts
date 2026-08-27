@@ -70,11 +70,11 @@ export class MenuDiorama {
     this.root.addChild(ground);
     this.root.addChild(makeDirtPatch(this.app, 0.5, 2, 6, 0.7, 20));
 
-    const place = (key: ModelKey, x: number, z: number, yaw: number, scale = 1): pc.Entity => {
+    const place = (key: ModelKey, x: number, z: number, yaw: number, scale = 1, y = 0): pc.Entity => {
       const e = instantiateModel(key);
       const s = e.getLocalScale().x * scale;
       e.setLocalScale(s, s, s);
-      e.setLocalPosition(x, 0, z);
+      e.setLocalPosition(x, y, z);
       e.setLocalEulerAngles(0, yaw, 0);
       this.root.addChild(e);
       return e;
@@ -85,8 +85,8 @@ export class MenuDiorama {
     place('barrel', 3.9, 2.6, 40);
     place('cone', 0.4, 0.2, 15);
     place('barrier', 3.4, -0.4, -25);
-    place('blood_1', 1.2, 1.4, 70);
-    place('blood_2', -2.2, 3.5, 0);
+    place('blood_1', 1.2, 1.4, 70, 1, 0.04);
+    place('blood_2', -2.2, 3.5, 0, 1, 0.04);
     place('pallet', 3.2, -0.6, 10);
     place('tree_oak', -8, 8, 0);
     place('tree_pine', -3.5, 12, 30);
