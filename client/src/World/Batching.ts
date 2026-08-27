@@ -5,12 +5,12 @@ import * as pc from 'playcanvas';
  * era uma entity com o próprio draw call — ~1.900 mesh instances no mundo, ~1.200 draw calls por
  * frame antes de qualquer zumbi, tudo ainda projetando sombra (segundo passe). O BatchManager do
  * PlayCanvas funde mesh instances com o mesmo material num único draw call por lote; lotes têm no
- * máximo MAX_AABB de lado para a câmera ainda descartar o que está fora da tela.
+ * máximo MAX_AABB de lado para a câmera ainda descartar o que está fora da tela (24 dava 413 lotes; 40 reduz bem mais os draw calls).
  *
  * Só para o que nunca muda: árvores/rochas coletáveis (WorldObject) e paredes ficam de fora.
  */
 const GROUP_NAME = 'world_static';
-const MAX_AABB = 24;
+const MAX_AABB = 40;
 let groupId: number | null = null;
 
 /** Id do grupo de batching estático (criado uma vez por app). */
