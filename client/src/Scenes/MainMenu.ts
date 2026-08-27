@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { MenuDiorama } from './MenuDiorama';
 import { isValidName, NAME_MAX } from '@shared/protocol';
 
 const NAME_STORAGE_KEY = 'warzombie:name';
@@ -6,8 +7,10 @@ const NAME_STORAGE_KEY = 'warzombie:name';
 /** Menu inicial em DOM: escolhe o nome e entra no servidor. */
 export class MainMenu extends BaseScene {
   private el: HTMLElement | null = null;
+  private diorama: MenuDiorama | null = null;
 
   enter(): void {
+    this.diorama = new MenuDiorama(this.game.app, this.root, this.game.ensureModels());
     this.el = document.createElement('div');
     this.el.className = 'menu';
     this.el.innerHTML = `
@@ -17,12 +20,7 @@ export class MainMenu extends BaseScene {
         <input id="name" type="text" maxlength="${NAME_MAX}" placeholder="Seu nome" spellcheck="false" />
         <button id="play" type="submit">Entrar</button>
       </form>
-      <div class="status" id="status"></div>
-      <div class="controls">
-        WASD / Setas — mover · Shift — correr · Ctrl — agachar<br/>
-        Mouse — mirar · Clique — atacar (Faca) / atirar (Glock) · R — recarregar · E — coletar / negociar · parede: clique coloca, roda gira<br/>
-        1-5 — equipar item da hotbar (machado/picareta precisam estar equipados) · Esc — fechar loja
-      </div>`;
+      <div class="status" id="status"></div>`;
     this.game.ui.appendChild(this.el);
 
     const form = this.el.querySelector<HTMLFormElement>('form.join')!;
@@ -67,9 +65,13 @@ export class MainMenu extends BaseScene {
     };
   }
 
-  update(): void {}
+  update(dt: number): void {
+    this.diorama?.update(dt);
+  }
 
   exit(): void {
+    this.diorama?.dispose();
+    this.diorama = null;
     this.el?.remove();
     super.exit();
   }

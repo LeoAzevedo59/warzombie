@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { MenuDiorama } from './MenuDiorama';
 import { isValidRoomName, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
 import { applyGameStart } from '@/Core/GameStart';
 
@@ -8,6 +9,7 @@ import { applyGameStart } from '@/Core/GameStart';
  */
 export class LobbyScene extends BaseScene {
   private el: HTMLElement | null = null;
+  private diorama: MenuDiorama | null = null;
   private rooms: RoomSummary[] = [];
   private room: RoomDetail | null = null;
   private status = '';
@@ -18,6 +20,7 @@ export class LobbyScene extends BaseScene {
   private rankingTimer: number | null = null;
 
   enter(): void {
+    this.diorama = new MenuDiorama(this.game.app, this.root, this.game.ensureModels());
     const { net, bus, ui } = this.game;
     this.el = document.createElement('div');
     this.el.className = 'menu lobby';
@@ -120,8 +123,10 @@ export class LobbyScene extends BaseScene {
           <h2>Criar sala</h2>
           <form class="create-form">
             <input id="rname" maxlength="24" placeholder="Nome da sala" autocomplete="off" />
-            <label><input type="radio" name="vis" value="PUBLIC" checked /> Pública</label>
-            <label><input type="radio" name="vis" value="PRIVATE" /> Privada (código)</label>
+            <div class="vis">
+              <label><input type="radio" name="vis" value="PUBLIC" checked /> 🌐 Pública</label>
+              <label><input type="radio" name="vis" value="PRIVATE" /> 🔒 Privada (código)</label>
+            </div>
             <button type="submit">Criar</button>
           </form>
         </section>
@@ -175,8 +180,12 @@ export class LobbyScene extends BaseScene {
         ol.appendChild(li);
         return;
       }
-      for (const e of list) {
+      list.forEach((e, i) => {
         const li = document.createElement('li');
+        const pos = document.createElement('span');
+        pos.className = 'pos';
+        pos.textContent = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+        li.appendChild(pos);
         const name = document.createElement('span');
         name.className = 'rname';
         name.textContent = e.name; // nome de outro jogador: textContent
@@ -185,7 +194,7 @@ export class LobbyScene extends BaseScene {
         val.textContent = fmt(e.value);
         li.append(name, val);
         ol.appendChild(li);
-      }
+      });
     };
     fill('.rank-kills', this.ranking?.topKills, (v) => String(v));
     fill('.rank-hours', this.ranking?.topHours, (v) => `${v}h`);
@@ -245,9 +254,13 @@ export class LobbyScene extends BaseScene {
     if (s && this.status) s.textContent = this.status;
   }
 
-  update(): void {}
+  update(dt: number): void {
+    this.diorama?.update(dt);
+  }
 
   exit(): void {
+    this.diorama?.dispose();
+    this.diorama = null;
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
     if (this.rankingTimer) clearInterval(this.rankingTimer);
