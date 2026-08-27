@@ -53,7 +53,7 @@ export class WaveHUD {
         this.tower = { hp, maxHp };
         this.render();
       }),
-      bus.on('net:gameOver', ({ restartIn }) => this.showBanner('VOCÊ PERDEU!', `A torre foi destruída. Tudo recomeça do zero em ${restartIn}s…`, restartIn * 1000)),
+      bus.on('net:gameOver', ({ restartIn }) => this.showBanner('VOCÊ PERDEU!', `A torre de comunicação foi destruída. Tudo recomeça do zero em ${restartIn}s…`, restartIn * 1000)),
       bus.on('wave:failed', ({ wave, boss }) =>
         this.showBanner('TEMPO ESGOTADO', boss ? 'O chefão venceu. A bateria foi perdida — compre outra e recomece.' : `A wave ${wave} não foi limpa a tempo. A bateria foi perdida — compre outra e recomece.`, 6000),
       ),
@@ -92,7 +92,7 @@ export class WaveHUD {
     let line: string;
     switch (s.phase) {
       case 'idle':
-        line = 'Compre uma <b>Bateria</b> no vendedor e leve até a <b>torre</b> (ponto azul no minimapa) — ela é pesada!';
+        line = 'Compre uma <b>Bateria</b> no vendedor e leve até a <b>torre de comunicação</b> (ponto azul no minimapa) — ela é pesada!';
         break;
       case 'countdown':
         line = s.wave === 0 ? `Primeira wave em <b>${s.nextIn ?? 0}s</b>` : s.wave < s.total ? `Wave ${s.wave} limpa! Próxima em <b>${s.nextIn ?? 0}s</b>` : `Wave ${s.wave} limpa! O chefão chega em <b>${s.nextIn ?? 0}s</b>`;
@@ -123,7 +123,7 @@ export class WaveHUD {
             ? 'Fase concluída'
             : 'Sem bateria';
     const tr = this.tower.maxHp > 0 ? this.tower.hp / this.tower.maxHp : 1;
-    const towerBar = `<div class="tower-line ${tr <= 0.3 ? 'urgent' : ''}">Torre <b>${Math.round(this.tower.hp)}</b>/${this.tower.maxHp}<div class="bar tower"><div style="width:${(tr * 100).toFixed(1)}%"></div></div></div>`;
+    const towerBar = `<div class="tower-line ${tr <= 0.3 ? 'urgent' : ''}">Antena <b>${Math.round(this.tower.hp)}</b>/${this.tower.maxHp}<div class="bar tower"><div style="width:${(tr * 100).toFixed(1)}%"></div></div></div>`;
     this.el.innerHTML = this.collapsed
       ? `<span class="mission">Missão</span><span class="short">${short}</span>${toggle}`
       : `<span class="mission">Missão</span>${toggle}${line}${bossBar}${towerBar}`;

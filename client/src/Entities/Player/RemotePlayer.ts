@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 import { characterForId, HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
+import { CharacterFx } from '@/Entities/CharacterFx';
 import type { NetAnim, PlayerPose, PlayerSnapshot } from '@shared/protocol';
 
 /** Velocidade da interpolação de posição/rotação (maior = segue mais perto, menos suave). */
@@ -13,6 +14,7 @@ const LERP_SPEED = 12;
 export class RemotePlayer {
   readonly entity: pc.Entity;
   readonly anim: AnimatedModel;
+  readonly fx: CharacterFx;
   private modelKey: ModelKey;
   /** s restantes mostrando a arma inferida da última animação (o snapshot remoto não traz o item equipado) */
   private weaponTimer = 0;
@@ -36,6 +38,7 @@ export class RemotePlayer {
     showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);
     this.anim = new AnimatedModel(this.entity, this.model, this.modelKey);
+    this.fx = new CharacterFx(this.model);
     this.entity.setPosition(snapshot.x, 0, snapshot.z);
     this.entity.setEulerAngles(0, snapshot.yaw, 0);
     this.target.set(snapshot.x, 0, snapshot.z);
@@ -57,6 +60,7 @@ export class RemotePlayer {
   playShoot(): void {
     if (!this.dead) this.anim.play('Gun_Shoot', 0.05, true);
     this.showWeapon('Pistol');
+    this.fx.shoot();
   }
 
   playMelee(): void {
@@ -113,6 +117,7 @@ export class RemotePlayer {
   }
 
   dispose(): void {
+    this.fx.dispose();
     this.anim.dispose();
     this.entity.destroy();
   }

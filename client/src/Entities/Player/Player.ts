@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 import { HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterAnimName, type CharacterWeaponNode } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
+import { CharacterFx } from '@/Entities/CharacterFx';
 import { yawToward, facingDir } from '@/Core/Spatial';
 import type { ItemId } from '@/Items/Item';
 import type { PlayerStats } from './PlayerStats';
@@ -35,6 +36,7 @@ export class Player {
   readonly entity: pc.Entity;
   private model: pc.Entity;
   readonly anim: AnimatedModel;
+  readonly fx: CharacterFx;
 
   velocity = new pc.Vec3();
   crouching = false;
@@ -63,6 +65,7 @@ export class Player {
     showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);
     this.anim = new AnimatedModel(this.entity, this.model, 'char_shaun');
+    this.fx = new CharacterFx(this.model);
   }
 
   /** Chame só depois de `entity` já estar na árvore da cena. */
@@ -112,6 +115,7 @@ export class Player {
   playShoot(): void {
     this.shootPoseTimer = 0.25;
     this.anim.play('Gun_Shoot', 0.05, true);
+    this.fx.shoot();
   }
 
   /** Troca Idle/Walk/Run conforme a velocidade atual. Chamado pelo MovementSystem a cada frame. */
@@ -130,6 +134,7 @@ export class Player {
   }
 
   dispose(): void {
+    this.fx.dispose();
     this.anim.dispose();
   }
 }

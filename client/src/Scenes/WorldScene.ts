@@ -1,4 +1,5 @@
 import { BaseScene } from './BaseScene';
+import { GAME } from '@shared/gameconfig';
 import { GameLoop } from '@/Core/GameLoop';
 import { IsoCamera } from '@/World/Camera';
 import { GameMap } from '@/World/Map';
@@ -149,6 +150,9 @@ export class WorldScene extends BaseScene {
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('equip:changed', ({ itemId }) => this.player.setEquipped(itemId)),
+      bus.on('net:ammo', ({ reloading }) => {
+        if (reloading !== this.player.fx.reloading) this.player.fx.setReloading(reloading, GAME.weapon.glock.RELOAD);
+      }),
       bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
       bus.on('net:towerHp', ({ hp, maxHp }) => this.world.tower.setHpRatio(hp / maxHp)),
       bus.on('net:features', ({ features }) => this.ui?.map.setEnabled(features.minimap)),

@@ -86,9 +86,9 @@ export class BuildSystem implements System {
     this.net.send({ type: 'place_wall', x: s.x, z: s.z, yaw: s.yaw });
   }
 
-  update(): void {
+  update(dt: number): void {
     this.world.updateWalls();
-    this.world.tower.update();
+    this.world.tower.update(dt);
     if (!this.ghost) return;
     const show = this.hasWall() && !this.player.stats.dead;
     this.ghost.enabled = show;

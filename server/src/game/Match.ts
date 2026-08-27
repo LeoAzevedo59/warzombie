@@ -396,10 +396,10 @@ export class Match {
   activateBattery(playerId: string): void {
     const p = this.alive(playerId);
     if (dist(p.snapshot, this.towerPos) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) {
-      throw new MatchError('too_far', 'Chegue mais perto da torre.');
+      throw new MatchError('too_far', 'Chegue mais perto da torre de comunicação.');
     }
     if (this.waves.active) throw new MatchError('already_active', 'As waves já estão em andamento.');
-    if (!hasItem(p.hotbar, 'battery')) throw new MatchError('no_battery', 'Compre uma Bateria da Torre no vendedor.');
+    if (!hasItem(p.hotbar, 'battery')) throw new MatchError('no_battery', 'Compre uma Bateria no vendedor.');
     const i = p.hotbar.findIndex((s) => s?.itemId === 'battery');
     p.hotbar[i] = null;
     this.sendHotbar(p);
@@ -425,9 +425,9 @@ export class Match {
   upgradeTower(playerId: string): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    if (this.gameOver) throw new MatchError('invalid_message', 'A torre foi destruída.');
+    if (this.gameOver) throw new MatchError('invalid_message', 'A torre de comunicação foi destruída.');
     const price = towerUpgradePrice(this.towerLevel);
-    if (price === null) throw new MatchError('invalid_message', 'A torre já está no máximo.');
+    if (price === null) throw new MatchError('invalid_message', 'A antena já está no máximo.');
     if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
     this.towerLevel++;
     this.towerHp = Math.min(this.towerMaxHp, this.towerHp + GAME.towerUpgrade.HP_STEP);
@@ -439,9 +439,9 @@ export class Match {
   repairTower(playerId: string): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    if (this.gameOver) throw new MatchError('invalid_message', 'A torre foi destruída.');
+    if (this.gameOver) throw new MatchError('invalid_message', 'A torre de comunicação foi destruída.');
     const missing = this.towerMaxHp - this.towerHp;
-    if (missing <= 0) throw new MatchError('invalid_message', 'A torre já está com vida cheia.');
+    if (missing <= 0) throw new MatchError('invalid_message', 'A antena já está com vida cheia.');
     const price = towerRepairPrice(missing);
     if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
     this.towerHp = this.towerMaxHp;
