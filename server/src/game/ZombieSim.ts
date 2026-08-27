@@ -60,6 +60,8 @@ export interface Target {
   /** raio do alvo (jogador = GAME.player.RADIUS; estruturas maiores) */
   radius?: number;
   kind?: 'player' | 'tower' | 'wall';
+  /** isca: carrega a bateria — todo zumbi do mapa vai atrás dele, de qualquer distância */
+  lure?: boolean;
 }
 
 export interface Obstacle {
@@ -341,6 +343,16 @@ export class ZombieSim {
     let bd = Infinity;
     let bs = Infinity;
     const infected = z.kind === 'infected';
+    // quem carrega a bateria é o alvo de todos (menos do infectado, que tem o próprio alvo)
+    if (!infected) {
+      let lure: { t: Target; d: number } | null = null;
+      for (const t of living) {
+        if (!t.lure) continue;
+        const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
+        if (!lure || d < lure.d) lure = { t, d };
+      }
+      if (lure) return lure;
+    }
     const tower = z.hunter ? living.find((t) => t.kind === 'tower') : undefined;
     const isPlayer = (t: Target) => !t.kind || t.kind === 'player';
     const guarding = (t: Target) => !!tower && isPlayer(t) && dist(t.position, tower.position) <= GAME.zombie.GUARD_RADIUS;
@@ -382,8 +394,8 @@ export class ZombieSim {
     const cfg = GAME.zombie;
     const near = this.nearest(z, living);
     const boss = z.kind === 'boss';
-    // caçadores (waves) e infectados sabem onde estão os jogadores a qualquer distância
-    const relentless = z.hunter || z.kind === 'infected';
+    // caçadores (waves), infectados e quem fareja a bateria sabem onde está o alvo a qualquer distância
+    const relentless = z.hunter || z.kind === 'infected' || !!near?.t.lure;
 
     switch (z.state) {
       case 'wander':

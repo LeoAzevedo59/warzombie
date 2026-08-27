@@ -35,6 +35,8 @@ export interface MatchPlayer {
   boarded: boolean;
   /** sem vidas: só volta com a Medalha de Ressurreição de um aliado */
   eliminated: boolean;
+  /** está com a bateria na hotbar (fica na mão; todos os zumbis vão atrás) */
+  carrying: boolean;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -58,7 +60,8 @@ export class MatchError extends Error {
       | 'blocked'
       | 'no_wall'
       | 'phase_complete'
-      | 'not_eliminated',
+      | 'not_eliminated'
+      | 'carrying_battery',
     message: string,
   ) {
     super(message);
@@ -320,6 +323,7 @@ export class Match {
       infectedZombieId: null,
       boarded: false,
       eliminated: false,
+      carrying: false,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -393,7 +397,23 @@ export class Match {
     return this.now() < p.shieldUntil;
   }
 
+  /** Quem está carregando a bateria (para quem entra depois). */
+  carrierIds(): string[] {
+    return [...this.players.values()].filter((p) => p.carrying).map((p) => p.snapshot.id);
+  }
+
+  /**
+   * Toda mudança de hotbar passa aqui. A bateria, quando está na hotbar, vai para a mão (slot
+   * equipado forçado) e avisa a sala que este jogador virou a isca dos zumbis.
+   */
   private sendHotbar(p: MatchPlayer): void {
+    const slot = p.hotbar.findIndex((s) => s?.itemId === 'battery');
+    if (slot >= 0) p.equipped = slot;
+    const carrying = slot >= 0;
+    if (carrying !== p.carrying) {
+      p.carrying = carrying;
+      this.io.broadcast({ type: 'battery_carrier', playerId: p.snapshot.id, carrying });
+    }
     this.io.send(p.snapshot.id, { type: 'hotbar', slots: p.hotbar, equipped: p.equipped });
   }
 
@@ -531,6 +551,7 @@ export class Match {
   selectSlot(playerId: string, index: number): void {
     const p = this.get(playerId);
     if (index < 0 || index >= p.hotbar.length) throw new MatchError('invalid_message', 'Slot inválido.');
+    if (p.carrying && index !== p.equipped) throw new MatchError('carrying_battery', 'Largue a bateria (Q) antes de pegar outro item.');
     p.equipped = index;
     this.sendHotbar(p);
   }
@@ -948,7 +969,7 @@ export class Match {
 
     if (this.gameOver) return;
     if (this.waves.active || this.zombies.zombies.size > 0) {
-      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead || p.boarded, radius: GAME.player.RADIUS, kind: 'player' as const }));
+      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead || p.boarded, radius: GAME.player.RADIUS, kind: 'player' as const, lure: p.carrying }));
       targets.push({ id: 'tower', position: this.towerPos, dead: this.towerHp <= 0, radius: GAME.hub.TOWER_RADIUS, kind: 'tower' });
       for (const s of this.structures.values()) targets.push({ id: `wall:${s.id}`, position: s, dead: false, radius: GAME.walls.WIDTH / 2, kind: 'wall' });
       this.zombies.tick(dt, targets);

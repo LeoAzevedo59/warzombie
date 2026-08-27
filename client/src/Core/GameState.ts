@@ -61,6 +61,13 @@ export class GameState {
   eliminated = new Set<string>();
   /** preço atual da Medalha de Ressurreição na sala */
   revivePrice: number = GAME.lives.REVIVE_BASE_PRICE;
+  /** quem está com a bateria na mão (isca dos zumbis) */
+  carriers = new Set<string>();
+
+  /** Eu estou com a bateria? (nenhum outro item pode ir para a mão: Q larga) */
+  get carryingBattery(): boolean {
+    return this.inventory.some((s) => s?.itemId === 'battery');
+  }
 
   get livesLeft(): number {
     return Math.max(0, GAME.lives.MAX_DEATHS - this.deaths);

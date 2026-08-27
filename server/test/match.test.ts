@@ -628,3 +628,29 @@ test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição reviv
   assert.equal(b.eliminated, true);
   assert.ok(sent.some((s) => s.msg.type === 'game_over' && (s.msg as { reason: string }).reason === 'all_dead'));
 });
+
+test('bateria: vai para a mão (slot travado), avisa a sala e vira isca de todos os zumbis; largar (Q) libera', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A', 30, 30));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  a.hotbar[0] = { itemId: 'stick', count: 1 };
+  m.selectSlot('A', 0);
+  m.dev('A', { action: 'give', itemId: 'battery' });
+  assert.equal(a.hotbar[1]?.itemId, 'battery');
+  assert.equal(a.equipped, 1, 'a bateria vai para a mão');
+  assert.equal(a.carrying, true);
+  const carrier = [...sent].reverse().find((s) => s.msg.type === 'battery_carrier')!.msg as { playerId: string; carrying: boolean };
+  assert.deepEqual(carrier, { type: 'battery_carrier', playerId: 'A', carrying: true });
+  assert.throws(() => m.selectSlot('A', 0), (e: MatchError) => e.code === 'carrying_battery');
+  // zumbi ambiental longe (fora do DETECT_RADIUS) vai atrás de quem carrega a bateria
+  const z = m.zombies.spawn('zombie', -30, -30, 1, 1, false);
+  run(1000);
+  assert.equal(z.state, 'chase');
+  assert.equal(z.targetId, 'A');
+  // largou: volta ao normal
+  m.dropItem('A');
+  assert.equal(a.carrying, false);
+  assert.ok(sent.some((s) => s.msg.type === 'battery_carrier' && (s.msg as { carrying: boolean }).carrying === false));
+  m.selectSlot('A', 0);
+  assert.equal(a.equipped, 0);
+});

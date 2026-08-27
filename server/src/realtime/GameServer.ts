@@ -452,6 +452,7 @@ export class GameServer {
       deaths: mp.matchDeaths,
       eliminated: match.eliminatedIds(),
       revivePrice: match.revivePrice(),
+      carriers: match.carrierIds(),
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

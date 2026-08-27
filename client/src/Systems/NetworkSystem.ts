@@ -191,6 +191,17 @@ export class NetworkSystem implements System {
       case 'game_over':
         this.bus.emit('net:gameOver', { restartIn: msg.restartIn, reason: msg.reason });
         break;
+      case 'battery_carrier':
+        if (msg.carrying) this.state.carriers.add(msg.playerId);
+        else this.state.carriers.delete(msg.playerId);
+        if (msg.playerId === this.state.playerId) {
+          if (msg.carrying) this.bus.emit('ui:toast', { text: 'Bateria na mão: TODOS os zumbis do mapa sentem você. Corra para a antena! (Q larga)' });
+        } else {
+          this.remotes.get(msg.playerId)?.setCarrying(msg.carrying);
+          if (msg.carrying) this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} pegou a bateria — os zumbis vão atrás dele` });
+        }
+        this.bus.emit('net:batteryCarrier', { playerId: msg.playerId, carrying: msg.carrying });
+        break;
       case 'revive_price':
         this.state.revivePrice = msg.price;
         this.bus.emit('net:revivePrice', { price: msg.price });
@@ -302,6 +313,7 @@ export class NetworkSystem implements System {
     const r = new RemotePlayer(snapshot.id, snapshot);
     this.root.addChild(r.entity);
     r.initAnimation();
+    if (this.state.carriers.has(snapshot.id)) r.setCarrying(true);
     this.remotes.set(snapshot.id, r);
   }
 

@@ -377,6 +377,8 @@ export interface GameStartMessage {
   eliminated: string[];
   /** preço atual da Medalha de Ressurreição na sala */
   revivePrice: number;
+  /** quem está carregando uma bateria (fica na mão; zumbis do mapa inteiro vão atrás) */
+  carriers: string[];
 }
 
 /** Helicóptero de resgate: posição, se já pousou e quem já embarcou. */
@@ -489,6 +491,12 @@ export interface PlayerRevivedMessage {
 export interface RevivePriceMessage {
   type: 'revive_price';
   price: number;
+}
+/** Jogador pegou (true) ou largou/usou (false) a bateria: ela fica na mão e atrai todos os zumbis. */
+export interface BatteryCarrierMessage {
+  type: 'battery_carrier';
+  playerId: string;
+  carrying: boolean;
 }
 export interface PlayerRespawnedMessage {
   type: 'player_respawned';
@@ -770,6 +778,7 @@ export interface ErrorMessage {
     | 'no_wall'
     | 'phase_complete'
     | 'not_eliminated'
+    | 'carrying_battery'
     | 'dev_disabled';
   message: string;
 }
@@ -801,6 +810,7 @@ export type ServerMessage =
   | PlayerRespawnedMessage
   | PlayerRevivedMessage
   | RevivePriceMessage
+  | BatteryCarrierMessage
   | WaveStateMessage
   | WaveStartedMessage
   | BossSpawnedMessage

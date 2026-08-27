@@ -37,6 +37,8 @@ export interface GameEvents {
   /** ficou sem vidas: fica no chão até um aliado comprar a Medalha de Ressurreição */
   'player:eliminated': { killerName: string | null };
   'net:revivePrice': { price: number };
+  /** alguém pegou/largou a bateria (fica na mão e atrai todos os zumbis) */
+  'net:batteryCarrier': { playerId: string; carrying: boolean };
   /** lista de eliminados mudou (loja re-renderiza a medalha) */
   'net:eliminatedChanged': void;
   /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */

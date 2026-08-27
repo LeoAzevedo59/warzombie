@@ -31,4 +31,5 @@ export function applyGameStart(state: GameState, msg: GameStartMessage): void {
   state.deaths = msg.deaths;
   state.eliminated = new Set(msg.eliminated);
   state.revivePrice = msg.revivePrice;
+  state.carriers = new Set(msg.carriers);
 }
