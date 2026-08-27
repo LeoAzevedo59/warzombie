@@ -17,6 +17,8 @@ export function applyGameStart(state: GameState, msg: GameStartMessage): void {
   state.magSize = msg.magSize;
   state.ammo = msg.ammo;
   state.upgradePrices = { ...msg.upgradePrices };
+  state.batteryPrice = msg.batteryPrice;
+  state.spectateZombieId = null;
   state.tower = { ...msg.tower };
   state.towerHp = msg.towerHp;
   state.towerMaxHp = msg.towerMaxHp;

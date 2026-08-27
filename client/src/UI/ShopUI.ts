@@ -32,6 +32,7 @@ export class ShopUI {
       bus.on('net:upgrades', () => this.renderIfOpen()),
       bus.on('net:upgradePrices', () => this.renderIfOpen()),
       bus.on('net:features', () => this.renderIfOpen()),
+      bus.on('net:batteryPrice', () => this.renderIfOpen()),
     );
   }
 

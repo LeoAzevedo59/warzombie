@@ -4,7 +4,6 @@ import type { NetworkClient } from '@/Net/NetworkClient';
 import { iconHtml, itemIconHtml } from './ItemIcon';
 import { towerRepairPrice, towerUpgradePrice } from '@shared/upgrades';
 import { GAME } from '@shared/gameconfig';
-import { ITEMS } from '@shared/items';
 
 /** Painel da torre de comunicação: colocar a bateria, reforçar e reparar (dinheiro da sala). Regras no server. */
 export class TowerUI {
@@ -29,6 +28,7 @@ export class TowerUI {
       bus.on('net:money', () => this.renderIfOpen()),
       bus.on('net:towerHp', () => this.renderIfOpen()),
       bus.on('wave:state', () => this.renderIfOpen()),
+      bus.on('net:batteryPrice', () => this.renderIfOpen()),
     );
   }
 
@@ -52,17 +52,24 @@ export class TowerUI {
   private render(): void {
     const money = this.state.money;
     const hasBattery = this.state.inventory.some((s) => s?.itemId === 'battery');
-    const idle = this.state.wave.phase === 'idle';
+    const w = this.state.wave;
+    const idle = w.phase === 'idle';
+    const complete = w.phase === 'complete';
     const upPrice = towerUpgradePrice(this.state.towerLevel);
     const missing = this.state.towerMaxHp - this.state.towerHp;
     const repPrice = towerRepairPrice(missing);
-    const batteryRow = idle
-      ? `<div class="recipe feature"><span class="recipe-label">${itemIconHtml('battery', 22, 'shop-icon')}<b>Colocar bateria</b> <span class="lvl">${hasBattery ? 'inicia as waves' : `compre no vendedor ($${ITEMS.battery.buy})`}</span></span><button class="battery" ${hasBattery ? '' : 'disabled'}>${hasBattery ? 'ATIVAR' : 'SEM BATERIA'}</button></div>`
-      : '';
+    // uma bateria por wave: só aceita parada e com waves faltando
+    const batteryRow =
+      idle && w.wave < w.total
+        ? `<div class="recipe feature"><span class="recipe-label">${itemIconHtml('battery', 22, 'shop-icon')}<b>Colocar bateria ${w.wave + 1}/${w.total}</b> <span class="lvl">${hasBattery ? `inicia a wave ${w.wave + 1}` : `compre no vendedor ($${this.state.batteryPrice})`}</span></span><button class="battery" ${hasBattery ? '' : 'disabled'}>${hasBattery ? 'ATIVAR' : 'SEM BATERIA'}</button></div>`
+        : '';
+    const status = complete ? 'Antena completa: fase concluída!' : idle ? (w.wave === 0 ? 'Sem bateria' : `Wave ${w.wave} concluída · aguardando a bateria ${w.wave + 1}`) : w.phase === 'boss' ? `Chefão da wave ${w.wave} em andamento` : `Wave ${w.wave} em andamento`;
+    const cells = Array.from({ length: w.total }, (_, i) => `<i class="${i < w.wave ? 'on' : ''}" title="Bateria ${i + 1}">${itemIconHtml('battery', 18, 'cell-icon')}</i>`).join('');
     this.panel.innerHTML = `
       <button class="close" title="Fechar (Esc)">✕</button>
       <h2>Torre de Comunicação <span class="money-line">· Dinheiro: <b>$${money}</b></span></h2>
       <div class="tower-hp"><div class="bar"><div style="width:${Math.max(0, (100 * this.state.towerHp) / this.state.towerMaxHp).toFixed(1)}%;background:#4db8ff"></div></div><span>Vida <b>${Math.round(this.state.towerHp)}</b>/${this.state.towerMaxHp} · Lv ${this.state.towerLevel}</span></div>
+      <div class="battery-slots"><span>Baterias <b>${w.wave}</b>/${w.total}</span><span class="cells">${cells}</span><span class="status">${status}</span></div>
       <div class="recipes">
         ${batteryRow}
         <div class="recipe feature"><span class="recipe-label">${iconHtml('tower', '#ffd34d', 22, 'shop-icon')}<b>Reforçar antena</b> <span class="lvl">+${GAME.towerUpgrade.HP_STEP} de vida máxima</span></span>${upPrice === null ? '<button disabled>MAX</button>' : `<button class="tower-upgrade" ${money >= upPrice ? '' : 'disabled'}>$${upPrice}</button>`}</div>

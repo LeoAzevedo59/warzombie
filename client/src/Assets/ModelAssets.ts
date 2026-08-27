@@ -195,6 +195,17 @@ export const HUMAN_STATES: AnimStateDef[] = [
   { name: 'Death', loop: false },
 ];
 
+/** Infectado (jogador que virou zumbi): rig humano com os estados de zumbi mapeados em Stab/Slash. */
+export const INFECTED_STATES: AnimStateDef[] = [
+  { name: 'Idle' },
+  { name: 'Walk' },
+  { name: 'Run' },
+  { name: 'Punch_Left', track: 'Stab', loop: false },
+  { name: 'Kick_Right', track: 'Slash', loop: false },
+  { name: 'HitRecieve', track: 'HitReact', loop: false },
+  { name: 'Death', loop: false },
+];
+
 /** Zumbi magro (ribcage) só tem Idle/Walk/Run/Crawl/Jump/HitReact/Death: o "ataque" (cuspe) usa o pulo. */
 export const RIBCAGE_STATES: AnimStateDef[] = [
   { name: 'Idle' },

@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 19;
 
 export type RoomFeature = 'minimap';
 export type RoomFeatures = Record<RoomFeature, boolean>;
@@ -308,6 +308,8 @@ export interface GameStartMessage {
   upgradePrices: UpgradePrices;
   magSize: number;
   ammo: number;
+  /** preço atual da bateria na sala (sobe a cada compra) */
+  batteryPrice: number;
   /** onde a torre nasceu nesta sala */
   tower: { x: number; z: number };
   towerHp: number;
@@ -432,7 +434,8 @@ export interface PlayerLeftMessage {
   id: string;
 }
 
-export type ZombieKind = 'zombie' | 'spitter' | 'boss';
+/** `infected`: jogador morto por outro jogador, virou zumbi por um tempo (usa o modelo do próprio personagem). */
+export type ZombieKind = 'zombie' | 'spitter' | 'boss' | 'infected';
 export type ZombieAnim = 'Idle' | 'Walk' | 'Run' | 'Punch_Left' | 'Kick_Right' | 'Death';
 
 /** Zumbi como o client o renderiza (a simulação é do servidor). */
@@ -445,15 +448,23 @@ export interface ZombieSnapshot {
   anim: ZombieAnim;
   hp: number;
   maxHp: number;
+  /** infectado: id do jogador que virou este zumbi */
+  owner?: string;
 }
 
 export type WavePhase = 'idle' | 'countdown' | 'wave' | 'boss' | 'complete';
 
+/**
+ * Fases: idle (esperando a próxima bateria) -> countdown (horda a caminho) -> wave (horda) ->
+ * countdown com bossNext (chefão a caminho) -> boss -> idle (wave concluída) ... -> complete (5ª).
+ */
 export interface WaveState {
   phase: WavePhase;
-  /** wave atual (1..TOTAL), 0 antes de começar */
+  /** wave atual (1..TOTAL) = baterias na antena; 0 antes da primeira */
   wave: number;
   total: number;
+  /** countdown é para o chefão da wave atual (horda já limpa) */
+  bossNext: boolean;
   /** zumbis vivos agora */
   alive: number;
   /** s até a próxima wave (ou até a primeira), null se não há próxima agendada */
@@ -509,6 +520,35 @@ export interface BossSpawnedMessage {
   type: 'boss_spawned';
   id: number;
   hp: number;
+  wave: number;
+}
+/** Horda limpa: o chefão da wave chega em `inSeconds`. */
+export interface BossIncomingMessage {
+  type: 'boss_incoming';
+  wave: number;
+  inSeconds: number;
+}
+/** Chefão da wave morto (não é a última): a antena espera a próxima bateria. */
+export interface WaveClearedMessage {
+  type: 'wave_cleared';
+  wave: number;
+  total: number;
+}
+/** Preço atual da bateria na sala (sobe a cada compra). */
+export interface BatteryPriceMessage {
+  type: 'battery_price';
+  price: number;
+}
+/**
+ * Jogador morto por outro jogador virou zumbi por `seconds`: o client esconde o corpo e passa a
+ * assistir o zumbi `zombieId`. `targetId` = quem ele caça (null = qualquer jogador vivo).
+ */
+export interface PlayerInfectedMessage {
+  type: 'player_infected';
+  playerId: string;
+  zombieId: number;
+  targetId: string | null;
+  seconds: number;
 }
 /** Aviso da pancada em área do boss: o client desenha o círculo no chão até `windup` s. */
 export interface BossSlamMessage {
@@ -531,7 +571,7 @@ export interface PhaseCompleteMessage {
   /** duração total da partida em segundos */
   duration: number;
 }
-/** Tempo esgotado: a horda some, a bateria é perdida e as waves voltam ao zero. */
+/** Tempo esgotado: a horda some e a bateria desta wave é perdida (a antena volta a esperar outra). */
 export interface WaveFailedMessage {
   type: 'wave_failed';
   wave: number;
@@ -613,6 +653,7 @@ export interface ErrorMessage {
     | 'too_heavy'
     | 'blocked'
     | 'no_wall'
+    | 'phase_complete'
     | 'dev_disabled';
   message: string;
 }
@@ -645,6 +686,10 @@ export type ServerMessage =
   | WaveStateMessage
   | WaveStartedMessage
   | BossSpawnedMessage
+  | BossIncomingMessage
+  | WaveClearedMessage
+  | BatteryPriceMessage
+  | PlayerInfectedMessage
   | BossSlamMessage
   | ZombieDiedMessage
   | PhaseCompleteMessage

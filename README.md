@@ -5,11 +5,12 @@ Jogo de sobrevivência isométrico, **multiplayer e cooperativo** (até 10 por s
 Você entra com um nome, cria ou escolhe uma sala no lobby (pública ou privada com código) e cai num mapa com um
 **vendedor** e uma **torre** no centro. Colete gravetos e pedras, venda, compre machado e picareta para derrubar
 árvores e rochas e junte dinheiro — que é **compartilhado por toda a sala**. Com uma **Glock** na mão (e upgrades de
-dano, munição, recoil, vigor e mira laser), compre a **Bateria da Torre** e ative-a: vêm **5 waves de zumbis**
-(alguns cospem à distância e deixam você lento), cada uma com tempo limite, e no fim um **chefão** com investida,
-pancada em área, rajada de cuspes e reforços. Quanto mais jogadores, mais forte a horda. Fogo amigo está ligado:
-cuidado onde aponta. Morreu? Volta em 5 s com escudo. Perdeu o tempo de uma wave? A bateria se foi — farme outra e
-recomece. Derrube o chefão para concluir a fase 1.
+dano, munição, recoil, vigor e mira laser), compre a **Bateria da Antena** e coloque na torre: cada bateria dispara **uma wave** de zumbis
+(alguns cospem à distância e deixam você lento) com tempo limite e, no fim dela, um **chefão** com investida,
+pancada em área, rajada de cuspes e reforços. Quanto mais jogadores, mais forte a horda. Fogo amigo está ligado — e
+quem morre para outro jogador **vira zumbi por 30 s** caçando o assassino. Morreu para zumbi? Volta em 5 s com escudo.
+Perdeu o tempo de uma wave? A bateria daquela wave se foi — farme outra (cada vez mais cara) e tente de novo.
+Derrube os 5 chefões para concluir a fase 1.
 
 Tecnicamente é um **monolito**: servidor Node/Express + WebSocket autoritativo (toda a simulação roda nele),
 Postgres via Prisma e o client Vite servido pelo mesmo processo — um `docker compose up` sobe tudo.
@@ -107,23 +108,26 @@ Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room
 ## Protocolo WebSocket (`/ws`) — ver `shared/protocol.ts`
 
 Client → server: `join {name}`, `room_list`, `room_create {name, visibility}`, `room_join {roomId, code?}`, `room_leave`, `room_set_visibility`, `room_start`, `move {x,z,yaw,anim,crouching}` (20 Hz, só quando muda), `pickup`, `hit_node`, `select_slot`, `sell`, `buy {itemId}`, `fire {dx,dz}`, `reload`, `activate_battery`, `ping`.
-Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[], removedObjects[], money, hotbar, equipped}`, `room_left`, `player_joined`, `player_left`, `state {players[], zombies[]}` (por sala, a `WS_TICK_RATE` Hz), `hotbar`, `money`, `item_gained`, `object_removed`, `node_hit`, `shot`, `ammo`, `hp`, `player_died`, `player_respawned`, `knockback`, `wave_state`, `wave_started`, `boss_spawned`, `boss_slam`, `zombie_died`, `phase_complete`, `error {code}`, `pong`.
+Server → client: `welcome {you, tickRate}`, `lobby_state {rooms[]}`, `room_state {room}` (código só para o dono), `game_start {seed, players[], removedObjects[], money, hotbar, equipped}`, `room_left`, `player_joined`, `player_left`, `state {players[], zombies[]}` (por sala, a `WS_TICK_RATE` Hz), `hotbar`, `money`, `item_gained`, `object_removed`, `node_hit`, `shot`, `ammo`, `hp`, `player_died`, `player_respawned`, `knockback`, `wave_state`, `wave_started`, `boss_incoming`, `boss_spawned`, `boss_slam`, `wave_cleared`, `wave_failed`, `zombie_died`, `phase_complete`, `battery_price`, `player_infected`, `error {code}`, `pong`.
 
 Regras:
 - Identidade = nome (2–16 chars, único sem diferenciar maiúsculas). Se o nome está online, o join é recusado (`name_taken`).
 - Client é autoritativo só sobre a própria **pose** (posição/rotação/animação); tudo o mais (hotbar, HP, dinheiro, tiros, objetos do mundo) é decidido no server.
 - Abates são restaurados ao entrar de novo com o mesmo nome.
 
-## Waves e boss (M3)
+## Waves e chefões (M3)
 
-- Compre a **Bateria da Torre** ($150) e coloque na torre (E): primeira wave em 5 s, depois **5 waves** ([8, 12, 16, 22, 30] zumbis). Cada wave tem **90 s para ser limpa** (chefão: 180 s); limpou → próxima em 8 s; **estourou o tempo → a horda some, a bateria é perdida e tudo recomeça da wave 1** com outra bateria.
-- **Upgrades** no vendedor (dano +20%/nível, munição +4/nível, recoil −2°/nível, vigor de corrida +25%/nível; 5 níveis): o nível é por jogador, mas o **preço é da sala** — cada compra de um tipo multiplica o próximo preço por 1.35 para todos. A Glock vem com **5 balas** (pente 10; recarregue com R).
-- Quantidade, vida e dano escalam ×1.5 por jogador online (`GAME.waves` / `GAME.zombie` em `shared/gameconfig.ts`).
-- Zumbis correm a 5.2 (andar do jogador = 4, correr = 7.5): **é preciso correr para fugir**. ~35% da horda são **cuspidores** (roxos): lançam um projétil à distância que dá dano e **lentidão de 50% por 2,5 s**.
-- Wave 5 limpa → **chefão** (30× a vida, corre a 6.8, **rajada de 3 cuspes** à distância com lentidão, **investida** com knockback, **pancada em área** com aviso no chão e **invoca 3 zumbis** a cada 20 s). Chefão morto → `phase_complete`, sala vira `FINISHED`.
+- Compre a **Bateria da Antena** ($150; **o preço sobe ×1.35 a cada compra** na sala) e coloque na torre (E): **cada bateria dispara UMA wave** — a antena precisa das **5 baterias, uma por wave**. Horda em 5 s ([8, 12, 16, 22, 30] zumbis, **90 s** para limpar) → horda limpa → **chefão da wave** em 5 s (**180 s**) → chefão morto → a antena para e **espera a próxima bateria** (nada vem sozinho). A 5ª wave tem o chefão insano; matou → `phase_complete`, sala vira `FINISHED`.
+- **Estourou o tempo** (horda ou chefão) → a horda some e a **bateria daquela wave é perdida**: a antena volta a n‑1 baterias e é preciso outra bateria para tentar a mesma wave.
+- Dificuldade: quantidade/vida/dano ×1.5 por jogador online; vida ×1.2 e dano ×1.12 por wave; chefão por wave (`GAME.boss.TIER`): vida 8/12/18/26/42× a de um zumbi, dano 0.6→1.3× e 2→6 zumbis invocados por vez. Tudo em `shared/gameconfig.ts`.
+- Chefão: corre a 6.8, **rajada de 3 cuspes** à distância com lentidão, **investida** com knockback, **pancada em área** com aviso no chão e **invoca zumbis** a cada 20 s.
 - Toda a IA roda no servidor (`server/src/game/ZombieSim.ts`, `WaveDirector.ts`); o client só renderiza os `zombies` do `state`
-  (`client/src/Systems/ZombieSystem.ts`). Abates contam para quem deu o tiro final.
-- `hit_node` tem cadência mínima no server (não dá para derrubar uma árvore mandando 3 hits de uma vez).
+  (interpolação + animação por estado). Painel ⚙ (`DEV_CHEATS=1`) pula etapas: "Próxima wave" inicia a horda / pula para o chefão / mata o chefão.
+
+## Fogo amigo → modo zumbi
+
+- Matar outro jogador (tiro/faca) transforma a vítima num **zumbi infectado por 30 s** onde ela caiu: modelo do próprio personagem (verde), **3× a vida, 1.5× o dano e velocidade 6.5** (entre andar e correr). O jogador **não controla**: só assiste (câmera segue o zumbi).
+- O zumbi **caça quem o matou** a qualquer distância; se ele mata o assassino, **o assassino também vira zumbi** (caçando quem sobrou) — até todos caírem. Zumbi abatido → o dono renasce em 5 s; passados 30 s → volta ao normal na hora, com escudo. Regras em `Match.damagePlayer`/`infect` e `ZombieSim.spawnInfected`.
 
 ## Balanceamento atual
 

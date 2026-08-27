@@ -27,6 +27,13 @@ export interface Zombie {
   dmgMult: number;
   /** horda de wave: sempre sabe onde há jogador vivo (não depende do raio de detecção nem desiste) */
   hunter: boolean;
+  /** chefão: wave (1..TOTAL) que define vida/dano/invocações (GAME.boss.TIER) */
+  tier: number;
+  /** infectado: jogador que virou este zumbi e quem ele caça (null = qualquer jogador vivo) */
+  ownerId: string | null;
+  focusId: string | null;
+  /** infectado: s até voltar ao normal (some sem morrer) */
+  ttl: number | null;
   hitApplied: boolean;
   wanderTarget: XZ;
   wanderWait: number;
@@ -128,16 +135,23 @@ export class ZombieSim {
   }
 
   snapshots(): ZombieSnapshot[] {
-    return [...this.zombies.values()].map((z) => ({ id: z.id, kind: z.kind, x: z.x, z: z.z, yaw: z.yaw, anim: animFor(z), hp: z.hp, maxHp: z.maxHp }));
+    return [...this.zombies.values()].map((z) => {
+      const s: ZombieSnapshot = { id: z.id, kind: z.kind, x: z.x, z: z.z, yaw: z.yaw, anim: animFor(z), hp: z.hp, maxHp: z.maxHp };
+      if (z.ownerId) s.owner = z.ownerId;
+      return s;
+    });
   }
 
   projectileSnapshots(): ProjectileSnapshot[] {
     return [...this.projectiles.values()].map((p) => ({ id: p.id, x: p.x, z: p.z, boss: p.boss }));
   }
 
-  spawn(kind: ZombieKind, x: number, z: number, hpMult = 1, dmgMult = 1, hunter = false): Zombie {
+  /** `tier` (chefão): wave 1..TOTAL, escolhe a linha de GAME.boss.TIER. */
+  spawn(kind: ZombieKind, x: number, z: number, hpMult = 1, dmgMult = 1, hunter = false, tier = 1): Zombie {
     const cfg = GAME.zombie;
     const boss = kind === 'boss';
+    const infected = kind === 'infected';
+    const t = bossTier(tier);
     const zb: Zombie = {
       id: this.nextId++,
       kind,
@@ -145,8 +159,8 @@ export class ZombieSim {
       z,
       yaw: 0,
       hp: 0,
-      maxHp: Math.round(cfg.MAX_HP * hpMult * (boss ? GAME.boss.HP_MULT : 1)),
-      damage: Math.round((boss ? GAME.boss.DAMAGE : cfg.DAMAGE) * dmgMult),
+      maxHp: Math.round(cfg.MAX_HP * hpMult * (boss ? t.HP_MULT : infected ? GAME.infected.HP_MULT : 1)),
+      damage: Math.round((boss ? GAME.boss.DAMAGE * t.DMG_MULT : infected ? cfg.DAMAGE * GAME.infected.DAMAGE_MULT : cfg.DAMAGE) * dmgMult),
       radius: boss ? GAME.boss.RADIUS : cfg.RADIUS,
       state: 'wander',
       stateTime: 0,
@@ -158,6 +172,10 @@ export class ZombieSim {
       hpMult,
       dmgMult,
       hunter,
+      tier,
+      ownerId: null,
+      focusId: null,
+      ttl: null,
       hitApplied: false,
       wanderTarget: { x, z },
       wanderWait: 0,
@@ -172,6 +190,19 @@ export class ZombieSim {
     };
     zb.hp = zb.maxHp;
     this.zombies.set(zb.id, zb);
+    return zb;
+  }
+
+  /**
+   * Jogador `ownerId` virou zumbi onde morreu, caçando `focusId` (quem o matou) por GAME.infected.DURATION s.
+   * Não é caçador de wave (não conta para limpar a horda) mas, como eles, acha jogadores a qualquer distância.
+   */
+  spawnInfected(ownerId: string, focusId: string | null, x: number, z: number): Zombie {
+    const zb = this.spawn('infected', x, z, 1, 1, false);
+    zb.ownerId = ownerId;
+    zb.focusId = focusId;
+    zb.ttl = GAME.infected.DURATION;
+    zb.state = 'chase';
     return zb;
   }
 
@@ -204,6 +235,17 @@ export class ZombieSim {
     this.projectiles.clear();
   }
 
+  /** Remove só a horda da wave (caçadores, chefão incluso); ambientais e infectados ficam. */
+  clearHunters(): void {
+    for (const [id, z] of this.zombies) if (z.hunter) this.zombies.delete(id);
+    this.projectiles.clear();
+  }
+
+  /** Remove um zumbi sem animação de morte (infectado que expirou / dono saiu). */
+  remove(id: number): void {
+    this.zombies.delete(id);
+  }
+
   // ---------- loop ----------
 
   tick(dt: number, targets: Target[]): void {
@@ -218,6 +260,13 @@ export class ZombieSim {
       if (z.state === 'dead') {
         if (z.stateTime >= GAME.zombie.DEATH_DURATION + GAME.zombie.CORPSE_TIME) this.zombies.delete(z.id);
         continue;
+      }
+      if (z.ttl !== null) {
+        z.ttl -= dt;
+        if (z.ttl <= 0) {
+          this.zombies.delete(z.id); // infectado voltou ao normal (o Match respawna o dono)
+          continue;
+        }
       }
       this.think(z, living, dt);
       this.integrate(z, dt);
@@ -266,9 +315,9 @@ export class ZombieSim {
     });
   }
 
-  /** Chefão invoca zumbis ao redor de si (mesma escala da wave). */
+  /** Chefão invoca zumbis ao redor de si (mesma escala da wave; quantidade pela wave do chefão). */
   private summon(z: Zombie): void {
-    const n = GAME.boss.SUMMON.COUNT;
+    const n = bossTier(z.tier).SUMMON;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + this.rand();
       const kind: ZombieKind = this.rand() < GAME.zombie.SPITTER_RATIO ? 'spitter' : 'zombie';
@@ -277,14 +326,22 @@ export class ZombieSim {
     }
   }
 
-  /** Alvo mais próximo. Caçadores consideram a torre (com preferência); paredes só quando travados. */
+  /**
+   * Alvo mais próximo. Caçadores consideram a torre (com preferência); paredes só quando travados.
+   * Infectado: só jogadores, e quem o matou (focusId) tem prioridade absoluta enquanto estiver vivo.
+   */
   private nearest(z: Zombie, living: Target[]): { t: Target; d: number } | null {
     let best: Target | null = null;
     let bd = Infinity;
     let bs = Infinity;
+    const infected = z.kind === 'infected';
     for (const t of living) {
       if (t.kind === 'wall') continue;
       if (t.kind === 'tower' && !z.hunter) continue;
+      if (infected) {
+        if ((t.kind && t.kind !== 'player') || t.id === z.ownerId) continue;
+        if (t.id === z.focusId) return { t, d: Math.max(0, dist(z, t.position) - (t.radius ?? 0)) };
+      }
       const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
       const score = t.kind === 'tower' ? d * GAME.zombie.TOWER_BIAS : d;
       if (score < bs) {
@@ -314,11 +371,13 @@ export class ZombieSim {
     const cfg = GAME.zombie;
     const near = this.nearest(z, living);
     const boss = z.kind === 'boss';
+    // caçadores (waves) e infectados sabem onde estão os jogadores a qualquer distância
+    const relentless = z.hunter || z.kind === 'infected';
 
     switch (z.state) {
       case 'wander':
-        // caçadores (waves) atacam qualquer jogador vivo, inclusive quem acabou de renascer longe deles
-        if (near && (z.hunter || near.d < cfg.DETECT_RADIUS)) {
+        // atacam qualquer jogador vivo, inclusive quem acabou de renascer longe deles
+        if (near && (relentless || near.d < cfg.DETECT_RADIUS)) {
           z.targetId = near.t.id;
           this.setState(z, 'chase');
           break;
@@ -327,7 +386,7 @@ export class ZombieSim {
         break;
 
       case 'chase': {
-        if (!near || (!z.hunter && near.d > cfg.LOSE_RADIUS && z.stateTime > 6)) {
+        if (!near || (!relentless && near.d > cfg.LOSE_RADIUS && z.stateTime > 6)) {
           this.setState(z, 'wander');
           z.wanderWait = 1;
           z.vx = z.vz = 0;
@@ -389,7 +448,7 @@ export class ZombieSim {
           const dx = near.t.position.x - z.x;
           const dz = near.t.position.z - z.z;
           const l = Math.hypot(dx, dz) || 1;
-          const speed = boss ? GAME.boss.CHASE_SPEED : cfg.CHASE_SPEED;
+          const speed = boss ? GAME.boss.CHASE_SPEED : z.kind === 'infected' ? GAME.infected.SPEED : cfg.CHASE_SPEED;
           z.vx = (dx / l) * speed;
           z.vz = (dz / l) * speed;
         }
@@ -446,7 +505,7 @@ export class ZombieSim {
           for (const t of living) {
             if (t.kind && t.kind !== 'player') continue;
             if (dist(z, t.position) <= s.RADIUS) {
-              this.io.damagePlayer(t.id, s.DAMAGE, z.id);
+              this.io.damagePlayer(t.id, Math.round(s.DAMAGE * bossTier(z.tier).DMG_MULT), z.id);
               const dx = t.position.x - z.x;
               const dz = t.position.z - z.z;
               const l = Math.hypot(dx, dz) || 1;
@@ -467,7 +526,7 @@ export class ZombieSim {
           if (z.chargeHits.has(t.id)) continue;
           if (dist(z, t.position) <= z.radius + GAME.player.RADIUS + 0.3) {
             z.chargeHits.add(t.id);
-            this.io.damagePlayer(t.id, c.DAMAGE, z.id);
+            this.io.damagePlayer(t.id, Math.round(c.DAMAGE * bossTier(z.tier).DMG_MULT), z.id);
             this.io.knockback(t.id, z.chargeDir.x, z.chargeDir.z, c.KNOCKBACK);
           }
         }
@@ -612,6 +671,12 @@ export class ZombieSim {
       }
     }
   }
+}
+
+/** Linha da tabela do chefão para a wave (fora da faixa: usa a última = insana). */
+export function bossTier(wave: number): (typeof GAME.boss.TIER)[number] {
+  const t = GAME.boss.TIER;
+  return t[Math.min(t.length, Math.max(1, wave)) - 1];
 }
 
 function animFor(z: Zombie): ZombieAnim {

@@ -1,4 +1,5 @@
 import { GAME } from './gameconfig.js';
+import { ITEMS } from './items.js';
 import type { UpgradeKind, UpgradePrices, WeaponUpgrades } from './protocol.js';
 
 export const UPGRADE_KINDS: UpgradeKind[] = ['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight'];
@@ -37,6 +38,11 @@ export function magSize(u: WeaponUpgrades): number {
 
 export function staminaMultiplier(u: WeaponUpgrades): number {
   return 1 + GAME.upgrades.stamina.STEP * u.stamina;
+}
+
+/** Preço da bateria na sala dado quantas já foram compradas (sobe a cada compra). */
+export function batteryPrice(purchases: number): number {
+  return Math.round((ITEMS.battery.buy ?? 0) * Math.pow(GAME.battery.GROWTH, purchases));
 }
 
 /** Preço do próximo reforço da torre (null no máximo). */

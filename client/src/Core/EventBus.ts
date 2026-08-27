@@ -31,7 +31,11 @@ export interface GameEvents {
 
   'player:statsChanged': { hp: number; stamina: number; maxHp: number; maxStamina: number };
   'player:damaged': { amount: number; special: boolean };
+  /** curou (consumível): quanto recuperou */
+  'player:healed': { amount: number };
   'player:died': { killerName: string | null; respawnIn: number };
+  /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */
+  'player:infected': { targetName: string | null; seconds: number; zombieId: number };
   'player:respawned': void;
 
   'remote:shot': { playerId: string };
@@ -65,6 +69,7 @@ export interface GameEvents {
   'net:shield': { playerId: string; seconds: number };
   'net:upgrades': { upgrades: WeaponUpgrades };
   'net:upgradePrices': { prices: UpgradePrices };
+  'net:batteryPrice': { price: number };
   'wave:failed': { wave: number; boss: boolean };
   'net:towerHp': { hp: number; maxHp: number };
   'net:features': { features: RoomFeatures };
@@ -78,7 +83,10 @@ export interface GameEvents {
   'net:knockback': { dx: number; dz: number; force: number };
   'wave:state': { wave: WaveState };
   'wave:started': { wave: number; count: number; players: number };
-  'boss:spawned': { id: number; hp: number };
+  'boss:spawned': { id: number; hp: number; wave: number };
+  'boss:incoming': { wave: number; inSeconds: number };
+  /** chefão da wave morto (ainda faltam waves): a antena espera a próxima bateria */
+  'wave:cleared': { wave: number; total: number };
   'boss:slam': { x: number; z: number; radius: number; windup: number };
   'zombie:died': { id: number; kind: ZombieKind; killerId: string | null };
   'phase:complete': { summary: PlayerSummary[]; duration: number };

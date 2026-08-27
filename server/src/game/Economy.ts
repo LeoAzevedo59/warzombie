@@ -63,12 +63,13 @@ export function sellAll(hotbar: Hotbar): { total: number; sold: ItemStack[] } {
 
 export type BuyResult = { ok: true; price: number } | { ok: false; code: 'not_enough_money' | 'hotbar_full' | 'invalid_message' };
 
-/** Compra um item se houver dinheiro e slot. Muta `hotbar`. */
-export function buy(hotbar: Hotbar, money: number, itemId: ItemId): BuyResult {
+/** Compra um item se houver dinheiro e slot. Muta `hotbar`. `price` sobrepõe o preço de tabela (bateria sobe por compra). */
+export function buy(hotbar: Hotbar, money: number, itemId: ItemId, price?: number): BuyResult {
   const def = ITEMS[itemId];
   if (!def?.buy) return { ok: false, code: 'invalid_message' };
-  if (money < def.buy) return { ok: false, code: 'not_enough_money' };
+  const cost = price ?? def.buy;
+  if (money < cost) return { ok: false, code: 'not_enough_money' };
   if (!canFit(hotbar, [{ itemId, count: 1 }])) return { ok: false, code: 'hotbar_full' };
   addItem(hotbar, itemId, 1);
-  return { ok: true, price: def.buy };
+  return { ok: true, price: cost };
 }

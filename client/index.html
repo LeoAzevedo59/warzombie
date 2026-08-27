@@ -190,10 +190,25 @@
       .tower-panel .tower-hp b { color: #4db8ff; }
       .tower-panel .recipes { display: flex; flex-direction: column; gap: 8px; }
       .tower-panel button.battery { background: #3a8f4a; }
+      .tower-panel .battery-slots { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; font-size: 13px; color: #8b98a5; }
+      .tower-panel .battery-slots b { color: #ffd34d; }
+      .tower-panel .battery-slots .cells { display: inline-flex; gap: 4px; }
+      .tower-panel .battery-slots .cells i { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: 1px solid #2d3742; border-radius: 4px; background: #151b22; opacity: .35; }
+      .tower-panel .battery-slots .cells i.on { opacity: 1; border-color: #ffd34d; background: #2a2a12; box-shadow: 0 0 6px rgba(255,211,77,.5); }
+      .tower-panel .battery-slots .status { flex-basis: 100%; font-size: 12px; color: #6b7681; }
+      .hud-wave .battery-line { margin-top: 6px; font-size: 12px; color: #8b98a5; display: flex; align-items: center; gap: 6px; }
+      .hud-wave .battery-line .cells { display: inline-flex; gap: 3px; }
+      .hud-wave .battery-line .cells i { width: 10px; height: 14px; border: 1px solid #3a4550; border-radius: 2px; background: #151b22; }
+      .hud-wave .battery-line .cells i.on { background: #ffd34d; border-color: #ffd34d; box-shadow: 0 0 5px rgba(255,211,77,.6); }
       .shop-panel .sell-row button { background: #d6a23d; }
       .shop-panel .lvl { color: #ffd34d; font-size: 12px; }
       .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
       .death-screen .timer { color: #ffd34d; font-size: 20px; }
+      /* virou zumbi: faixa no topo, o resto da tela livre para assistir o zumbi */
+      .death-screen.infected { inset: 0 0 auto 0; padding: 18px 24px 16px; background: linear-gradient(rgba(5,12,6,.92), rgba(5,12,6,.75)); border-bottom: 2px solid #7ed957; }
+      .death-screen.infected h1 { font-size: 30px; color: #7ed957; margin-bottom: 6px; }
+      .death-screen.infected p { margin-bottom: 8px; max-width: 720px; text-align: center; }
+      .death-screen.infected .timer { font-size: 16px; }
       .hud-wave { position: absolute; left: 16px; top: 16px; width: 260px; background: rgba(12,16,20,.85); border: 1px solid #2d3742; border-left: 3px solid #ffd34d; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #c9d1d9; line-height: 1.5; }
       .hud-wave { position: absolute; }
       .hud-wave .mission-toggle { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; border: 1px solid #2d3742; border-radius: 4px; background: #151b22; color: #e6edf3; cursor: pointer; font-size: 14px; line-height: 1; }

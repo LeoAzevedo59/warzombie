@@ -47,6 +47,7 @@ export class WorldScene extends BaseScene {
   private camera!: IsoCamera;
   private player!: Player;
   private world!: World;
+  private zombies!: ZombieSystem;
   private input!: InputSystem;
   private ui: {
     healthBar: HealthBar;
@@ -99,6 +100,7 @@ export class WorldScene extends BaseScene {
     const equipment = new EquipmentSystem(bus, state, net);
     const network = new NetworkSystem(net, bus, state, this.player, this.root);
     const zombies = new ZombieSystem(bus, this.root);
+    this.zombies = zombies;
     // handle de debug/teste no console (o servidor é autoritativo, então expor isso não dá vantagem)
     (window as unknown as { __wz: unknown }).__wz = { app, player: this.player, state, world: this.world, bus, network, net, zombies, loop: this.loop };
 
@@ -168,7 +170,10 @@ export class WorldScene extends BaseScene {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);
       }),
-      bus.on('player:respawned', () => updateInputEnabled()),
+      bus.on('player:respawned', () => {
+        updateInputEnabled();
+        this.camera.follow(this.player.entity); // voltou a ser humano: câmera de volta
+      }),
       // saiu/foi tirado da sala: volta ao lobby
       bus.on('ui:leaveRoom', () => net.send({ type: 'room_leave' })),
       bus.on('net:roomLeft', () => bus.emit('scene:change', { scene: 'lobby' })),
@@ -187,7 +192,13 @@ export class WorldScene extends BaseScene {
   update(dt: number): void {
     if (!this.world) return; // enter() falhou: não inunda o console a cada frame
     this.loop.tick(dt);
-    this.world.update(this.player.position);
+    // virou zumbi (fogo amigo): espectador do próprio zumbi assim que ele aparece no snapshot
+    const spectate = this.game.state.spectateZombieId;
+    if (spectate !== null) {
+      const z = this.zombies.get(spectate);
+      if (z && this.camera.target !== z.entity) this.camera.follow(z.entity, false);
+    }
+    this.world.update(this.camera.target?.getPosition() ?? this.player.position);
     this.camera.update(dt);
     this.world.updateObjects(dt);
     this.ui?.map.update();

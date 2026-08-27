@@ -73,7 +73,28 @@ export class NetworkSystem implements System {
         this.bus.emit('wave:started', { wave: msg.wave, count: msg.count, players: msg.players });
         break;
       case 'boss_spawned':
-        this.bus.emit('boss:spawned', { id: msg.id, hp: msg.hp });
+        this.bus.emit('boss:spawned', { id: msg.id, hp: msg.hp, wave: msg.wave });
+        break;
+      case 'boss_incoming':
+        this.bus.emit('boss:incoming', { wave: msg.wave, inSeconds: msg.inSeconds });
+        break;
+      case 'wave_cleared':
+        this.bus.emit('wave:cleared', { wave: msg.wave, total: msg.total });
+        break;
+      case 'battery_price':
+        this.state.batteryPrice = msg.price;
+        this.bus.emit('net:batteryPrice', { price: msg.price });
+        break;
+      case 'player_infected':
+        if (msg.playerId === this.state.playerId) {
+          // vira espectador do próprio zumbi: o corpo some, a câmera segue o zumbi (WorldScene)
+          this.state.spectateZombieId = msg.zombieId;
+          this.player.entity.enabled = false;
+          this.bus.emit('player:infected', { targetName: msg.targetId ? this.nameOf(msg.targetId) : null, seconds: msg.seconds, zombieId: msg.zombieId });
+        } else {
+          this.remotes.get(msg.playerId)?.hide();
+          this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} virou zumbi!${msg.targetId === this.state.playerId ? ' Ele quer VOCÊ.' : ''}` });
+        }
         break;
       case 'boss_slam':
         this.bus.emit('boss:slam', { x: msg.x, z: msg.z, radius: msg.radius, windup: msg.windup });
@@ -205,6 +226,8 @@ export class NetworkSystem implements System {
         break;
       case 'player_respawned':
         if (msg.playerId === this.state.playerId) {
+          this.state.spectateZombieId = null;
+          this.player.entity.enabled = true;
           this.player.setPosition(msg.x, 0, msg.z);
           this.player.stats.setHp(msg.hp);
           this.player.anim.play('Idle', 0.1, true);

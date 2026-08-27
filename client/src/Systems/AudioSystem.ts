@@ -82,6 +82,9 @@ export class AudioSystem implements System {
         audio.play('wave_bell', { volume: 1, pitchVar: 0 });
         audio.play('boss_roar');
       }),
+      bus.on('boss:incoming', () => audio.play('boss_roar', { volume: 0.5 })),
+      bus.on('wave:cleared', () => audio.play('wave_clear')),
+      bus.on('player:infected', () => audio.play('zombie_growl', { volume: 1.1, pitchVar: 0 })),
       bus.on('boss:slam', ({ x, z }) => audio.play('boss_roar', { x, z, volume: 0.7 })),
       bus.on('phase:complete', () => audio.play('wave_clear')),
       bus.on('wave:failed', () => audio.play('ui_error')),

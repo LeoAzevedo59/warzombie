@@ -73,8 +73,18 @@ export class RemotePlayer {
     this.anim.play('Death', 0.1, true);
   }
 
+  /** Virou zumbi: o corpo some (o zumbi `infected` com `owner` = este jogador o representa). */
+  hide(): void {
+    this.entity.enabled = false;
+  }
+
+  get visible(): boolean {
+    return this.entity.enabled;
+  }
+
   respawn(x: number, z: number): void {
     this.dead = false;
+    this.entity.enabled = true;
     this.hp = 100;
     this.entity.setPosition(x, 0, z);
     this.target.set(x, 0, z);

@@ -74,6 +74,7 @@ export class CombatHUD {
         window.setTimeout(() => this.render(), seconds * 1000 + 50);
       }),
       bus.on('player:died', ({ killerName, respawnIn }) => this.showDeath(killerName, respawnIn)),
+      bus.on('player:infected', ({ targetName, seconds }) => this.showInfected(targetName, seconds)),
       bus.on('player:respawned', () => this.hideDeath()),
     );
     this.render();
@@ -87,23 +88,40 @@ export class CombatHUD {
   }
 
   private showDeath(killerName: string | null, respawnIn: number): void {
+    this.death.classList.remove('infected');
+    this.death.querySelector('h1')!.textContent = 'VOCÊ MORREU';
     this.death.querySelector('.cause')!.textContent = killerName ? `${killerName} te matou.` : 'Os zumbis te pegaram.';
+    this.startCountdown(respawnIn, (left) => `Renascendo em ${left}s...`);
+    this.death.classList.add('visible');
+  }
+
+  /** Fogo amigo: virou zumbi — só assiste; o aviso fica discreto no topo para não cobrir o zumbi. */
+  private showInfected(targetName: string | null, seconds: number): void {
+    this.death.classList.add('infected');
+    this.death.querySelector('h1')!.textContent = 'VOCÊ VIROU ZUMBI';
+    this.death.querySelector('.cause')!.textContent = targetName
+      ? `Seu zumbi caça ${targetName} — mais forte, mais rápido e sem controle: você só assiste. Se ele matar ${targetName}, ${targetName} também vira zumbi.`
+      : 'Seu zumbi caça qualquer sobrevivente — mais forte, mais rápido e sem controle: você só assiste.';
+    this.startCountdown(seconds, (left) => `Volta ao normal em ${left}s (ou quando o zumbi cair)`);
+    this.death.classList.add('visible');
+  }
+
+  private startCountdown(seconds: number, text: (left: number) => string): void {
     const timer = this.death.querySelector<HTMLElement>('.timer')!;
-    let left = respawnIn;
+    let left = seconds;
     const tick = () => {
-      timer.textContent = `Renascendo em ${left}s...`;
+      timer.textContent = text(left);
       if (left-- <= 0 && this.countdown) clearInterval(this.countdown);
     };
     if (this.countdown) clearInterval(this.countdown);
     tick();
     this.countdown = window.setInterval(tick, 1000);
-    this.death.classList.add('visible');
   }
 
   private hideDeath(): void {
     if (this.countdown) clearInterval(this.countdown);
     this.countdown = null;
-    this.death.classList.remove('visible');
+    this.death.classList.remove('visible', 'infected');
   }
 
   private render(): void {

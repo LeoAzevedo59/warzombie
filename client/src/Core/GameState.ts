@@ -3,7 +3,7 @@ import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
 import type { DroppedItem, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
 import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
-import { totalWeight } from '@shared/items';
+import { ITEMS, totalWeight } from '@shared/items';
 
 /** Espelho local do estado de jogo. O servidor é a fonte da verdade para hotbar, HP, dinheiro e munição. */
 export class GameState {
@@ -43,6 +43,10 @@ export class GameState {
   upgrades: WeaponUpgrades = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
   /** preços atuais da sala (sobem a cada compra de qualquer jogador) */
   upgradePrices: UpgradePrices = { damage: 40, ammo: 30, recoil: 40, stamina: 35, laser: 60, weight: 35 };
+  /** preço atual da bateria na sala (sobe a cada compra) */
+  batteryPrice: number = ITEMS.battery.buy ?? 150;
+  /** virou zumbi (fogo amigo): id do zumbi que a câmera segue; null = controla o personagem */
+  spectateZombieId: number | null = null;
 
   get carriedWeight(): number {
     return totalWeight(this.inventory);
@@ -77,7 +81,7 @@ export class GameState {
   features: RoomFeatures = { minimap: false };
 
   /** Estado das waves da sala (vem do servidor). */
-  wave: WaveState = { phase: 'idle', wave: 0, total: 5, alive: 0, nextIn: null, timeLeft: null };
+  wave: WaveState = { phase: 'idle', wave: 0, total: 5, bossNext: false, alive: 0, nextIn: null, timeLeft: null };
 
   toJSON() {
     return {

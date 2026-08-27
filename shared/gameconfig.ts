@@ -80,8 +80,24 @@ export const GAME = {
     /** s até o corpo sumir no client após Death */
     CORPSE_TIME: 2.5,
   },
+  /**
+   * Fogo amigo: quem morre para outro jogador vira zumbi ("infectado") por DURATION s, sem controle
+   * (só assiste), caçando quem o matou; matou o assassino -> ele também vira. Mais forte que um zumbi
+   * comum: vida × HP_MULT, dano × DAMAGE_MULT e SPEED (entre o andar 4 e o correr 7.5 do jogador).
+   */
+  infected: { DURATION: 30, HP_MULT: 3, DAMAGE_MULT: 1.5, SPEED: 6.5 },
   boss: {
-    HP_MULT: 30,
+    /**
+     * Um chefão por wave (1..5). Por wave: vida (× vida do zumbi), dano (× DAMAGE) e zumbis
+     * invocados por vez — a 5ª é a insana. Fora isso tudo ainda escala por jogador.
+     */
+    TIER: [
+      { HP_MULT: 8, DMG_MULT: 0.6, SUMMON: 2 },
+      { HP_MULT: 12, DMG_MULT: 0.75, SUMMON: 3 },
+      { HP_MULT: 18, DMG_MULT: 0.9, SUMMON: 3 },
+      { HP_MULT: 26, DMG_MULT: 1.0, SUMMON: 4 },
+      { HP_MULT: 42, DMG_MULT: 1.3, SUMMON: 6 },
+    ],
     DAMAGE: 35,
     RADIUS: 0.8,
     SCALE: 2.2,
@@ -93,22 +109,31 @@ export const GAME = {
     CHARGE: { SPEED: 14, DURATION: 1.0, DAMAGE: 35, COOLDOWN: 5, MIN_DIST: 6, KNOCKBACK: 11 },
     /** rajada de cuspes à distância (leque), cada um com dano e lentidão */
     VOLLEY: { COUNT: 3, SPREAD_DEG: 14, COOLDOWN: 5, DURATION: 0.8, FIRE_AT: 0.5, RANGE: 18, SPEED: 14, DAMAGE: 22, SLOW_FACTOR: 0.45, SLOW_TIME: 3, TTL: 2.2 },
-    /** invoca zumbis ao redor de si */
-    SUMMON: { COUNT: 3, COOLDOWN: 20, FIRST_DELAY: 8 },
+    /** invoca zumbis ao redor de si (quantidade em TIER[wave].SUMMON) */
+    SUMMON: { COOLDOWN: 20, FIRST_DELAY: 8 },
   },
+  /**
+   * Waves: cada bateria colocada na antena dispara UMA wave (horda + chefão). A antena precisa das
+   * 5 baterias, uma por wave; a próxima só começa com outra bateria. Bateria: preço da sala
+   * sobe a cada compra (BASE × GROWTH^compras).
+   */
+  battery: { GROWTH: 1.35 },
   waves: {
     TOTAL: 5,
-    /** zumbis por wave com 1 jogador; escala ×DIFFICULTY_PER_PLAYER^(n-1) */
+    /** zumbis da horda por wave com 1 jogador; escala ×DIFFICULTY_PER_PLAYER^(n-1) */
     BASE_COUNT: [8, 12, 16, 22, 30],
     /** multiplicador de quantidade, vida e dano por jogador adicional */
     DIFFICULTY_PER_PLAYER: 1.5,
-    /** s para limpar cada wave; estourou -> horda some e a bateria é perdida (recomeça do zero) */
+    /** vida e dano dos zumbis da horda crescem por wave: × GROWTH^(wave-1) */
+    HP_GROWTH: 1.2,
+    DMG_GROWTH: 1.12,
+    /** s para limpar a horda; estourou -> horda some e a bateria daquela wave é perdida */
     TIME_LIMIT: 90,
-    /** s para matar o chefão */
+    /** s para matar o chefão da wave */
     BOSS_TIME_LIMIT: 180,
-    /** s de respiro entre uma wave limpa e a próxima */
-    BREAK: 8,
-    /** primeira wave começa isso depois de ativar a bateria */
+    /** horda limpa -> chefão chega depois disso */
+    BOSS_DELAY: 5,
+    /** a horda começa isso depois de colocar a bateria */
     FIRST_DELAY: 5,
     /** raio (em unidades) ao redor do centro onde os zumbis nascem */
     SPAWN_RADIUS_MIN: 24,

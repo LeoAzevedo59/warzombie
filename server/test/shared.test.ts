@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateWorld, generateChunk, WORLD } from '../../shared/worldgen.js';
 import { rayHitNearest } from '../../shared/math.js';
+import { GAME } from '../../shared/gameconfig.js';
+import { batteryPrice } from '../../shared/upgrades.js';
 
 test('worldgen é determinístico e respeita o hub livre', () => {
   const a = generateWorld(1337);
@@ -27,4 +29,10 @@ test('rayHitNearest acha o alvo mais próximo na linha do tiro', () => {
   assert.equal(r.target?.id, 'perto');
   assert.equal(r.t, 3);
   assert.equal(rayHitNearest({ x: 0, z: 0 }, 0, 1, targets, 14, 0.6).target, null);
+});
+
+test('preço da bateria sobe a cada compra da sala', () => {
+  assert.equal(batteryPrice(0), 150);
+  assert.equal(batteryPrice(1), Math.round(150 * GAME.battery.GROWTH));
+  assert.ok(batteryPrice(4) > batteryPrice(3));
 });

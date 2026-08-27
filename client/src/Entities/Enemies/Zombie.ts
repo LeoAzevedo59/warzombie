@@ -1,23 +1,25 @@
 import * as pc from 'playcanvas';
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
-import { instantiateModel, MODELS, RIBCAGE_STATES, tintModel, ZOMBIE_STATES, type CharacterAnimName, type ModelKey } from '@/Assets/ModelAssets';
+import { characterForId, INFECTED_STATES, instantiateModel, MODELS, RIBCAGE_STATES, showCharacterWeapon, tintModel, ZOMBIE_STATES, type CharacterAnimName, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { makeBox } from '@/Assets/Primitives';
 import type { ZombieAnim, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
-/** Modelo por tipo de zumbi (Quaternius Zombie Apocalypse Kit). */
+/** Modelo por tipo de zumbi (Quaternius Zombie Apocalypse Kit); infectado usa o personagem do jogador dono. */
 const ZOMBIE_MODEL: Record<ZombieKind, ModelKey> = {
   zombie: 'zombie_basic',
   spitter: 'zombie_ribcage',
   boss: 'zombie_chubby',
+  infected: 'char_shaun',
 };
 
-/** Tons multiplicados sobre o atlas (o zumbi comum fica com a cor original). */
+/** Tons multiplicados sobre o atlas (o zumbi comum fica com a cor original; infectado esverdeado). */
 const BASE_TINT: Record<ZombieKind, pc.Color> = {
   zombie: new pc.Color(1, 1, 1),
   spitter: new pc.Color(0.85, 0.7, 1.1),
   boss: new pc.Color(1.1, 0.75, 0.7),
+  infected: new pc.Color(0.5, 1.15, 0.55),
 };
 const HURT_TINT = new pc.Color(1.8, 0.45, 0.45);
 const HURT_FLASH_TIME = 0.12;
@@ -44,6 +46,8 @@ export class Zombie {
 
   hp: number;
   maxHp: number;
+  /** infectado: jogador que virou este zumbi */
+  readonly owner: string | null;
   dead = false;
   /** s desde que morreu (para remover o corpo) */
   deadTime = 0;
@@ -55,13 +59,15 @@ export class Zombie {
     this.kind = snap.kind;
     this.hp = snap.hp;
     this.maxHp = snap.maxHp;
+    this.owner = snap.owner ?? null;
     this.entity = new pc.Entity(`${snap.kind}#${id}`);
     this.entity.setPosition(snap.x, 0, snap.z);
     this.entity.setEulerAngles(0, snap.yaw, 0);
     this.target.set(snap.x, 0, snap.z);
     this.targetYaw = this.currentYaw = snap.yaw;
-    const key = ZOMBIE_MODEL[snap.kind];
+    const key = snap.kind === 'infected' && this.owner ? characterForId(this.owner) : ZOMBIE_MODEL[snap.kind];
     this.model = instantiateModel(key);
+    if (snap.kind === 'infected') showCharacterWeapon(this.model, null); // rig humano: sem armas na mão
     const scale = MODELS[key].scale * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);
     this.model.setLocalScale(scale, scale, scale);
     this.entity.addChild(this.model);
@@ -76,7 +82,7 @@ export class Zombie {
     const w = snap.kind === 'boss' ? 1.8 : 0.9;
     bar.setLocalPosition(0, h, 0);
     const bg = makeBox({ color: '#111', scale: [w, 0.09, 0.09], emissive: 0.6 });
-    this.hpFill = makeBox({ color: snap.kind === 'boss' ? '#ff5a4d' : '#7ed957', scale: [w - 0.04, 0.06, 0.1], emissive: 1 });
+    this.hpFill = makeBox({ color: snap.kind === 'boss' ? '#ff5a4d' : snap.kind === 'infected' ? '#c8ff4d' : '#7ed957', scale: [w - 0.04, 0.06, 0.1], emissive: 1 });
     bar.addChild(bg);
     bar.addChild(this.hpFill);
     this.entity.addChild(bar);
@@ -84,7 +90,7 @@ export class Zombie {
 
   /** Chame só depois de `entity` estar na cena. */
   initAnimation(): void {
-    this.anim.init(this.kind === 'spitter' ? RIBCAGE_STATES : ZOMBIE_STATES, 'Idle');
+    this.anim.init(this.kind === 'spitter' ? RIBCAGE_STATES : this.kind === 'infected' ? INFECTED_STATES : ZOMBIE_STATES, 'Idle');
   }
 
   get position(): pc.Vec3 {

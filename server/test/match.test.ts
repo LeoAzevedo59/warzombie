@@ -23,7 +23,14 @@ function setup() {
     () => 0.5, // recoil determinístico: desvio zero
   );
   const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
-  return { m, sent, money, snap, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
+  /** avança o relógio em passos de 100 ms chamando tick() (a simulação limita dt a 0,1 s) */
+  const run = (ms: number) => {
+    for (let t = 0; t < ms; t += 100) {
+      now += 100;
+      m.tick();
+    }
+  };
+  return { m, sent, money, snap, run, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
 }
 
 test('pickup exige proximidade e remove o objeto para todos', () => {
@@ -85,7 +92,7 @@ test('escudo de spawn bloqueia dano e lentidão por 5s', () => {
   assert.equal(b.snapshot.hp, 75);
 });
 
-test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
+test('tiro acerta outro jogador e mata em 4; zumbi que morre para um zumbi comum respawna em 5s', () => {
   const { m, snap, advance, last, sent } = setup();
   const a = m.addPlayer(snap('A', 0, 0));
   const b = m.addPlayer(snap('B', 5, 0));
@@ -102,13 +109,19 @@ test('tiro acerta outro jogador, mata em 4 e respawna depois de 5s', () => {
   assert.equal(b.snapshot.deaths, 1);
   assert.equal((last('player_died')!.msg as { killerId: string }).killerId, 'A');
   assert.equal(a.mag, GAME.weapon.glock.MAG - 4);
+  // morte por zumbi comum: respawn normal em 5 s
+  const z = m.zombies.spawn('zombie', 1, 0);
+  m.damagePlayer(a, 999, undefined, z.id);
+  assert.ok(a.dead);
+  assert.equal(a.infectedZombieId, null);
+  assert.equal((last('player_died')!.msg as { respawnIn: number }).respawnIn, GAME.player.RESPAWN_SECONDS);
   m.tick();
-  assert.ok(b.dead);
+  assert.ok(a.dead);
   advance(5000);
   m.tick();
-  assert.ok(!b.dead);
-  assert.equal(b.snapshot.hp, 100);
-  assert.ok(sent.some((s) => s.msg.type === 'player_respawned'));
+  assert.ok(!a.dead);
+  assert.equal(a.snapshot.hp, 100);
+  assert.ok(sent.some((s) => s.msg.type === 'player_respawned' && (s.msg as { playerId: string }).playerId === 'A'));
   // cooldown: dois tiros no mesmo instante = um só
   const shots = sent.filter((s) => s.msg.type === 'shot').length;
   m.fire('A', 1, 0);

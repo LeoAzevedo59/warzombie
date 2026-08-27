@@ -4,7 +4,7 @@ import { CONFIG } from '@/config';
 /** Câmera isométrica ortográfica que segue um alvo com lerp. */
 export class IsoCamera {
   readonly entity: pc.Entity;
-  private target: pc.Entity | null = null;
+  target: pc.Entity | null = null;
   private offset = new pc.Vec3();
   private goal = new pc.Vec3();
 

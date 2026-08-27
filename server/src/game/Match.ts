@@ -2,7 +2,7 @@ import { GAME } from '../../../shared/gameconfig.js';
 import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
+import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -18,6 +18,8 @@ export interface MatchPlayer {
   mag: number;
   reloadUntil: number;
   nextFireAt: number;
+  /** próximo uso de consumível permitido (ms) */
+  nextUseAt: number;
   /** último hit em árvore/rocha (ms) — limita a cadência ao HIT_INTERVAL */
   lastHitAt: number;
   /** (dev) multiplicador de dano da arma */
@@ -25,6 +27,8 @@ export interface MatchPlayer {
   /** invulnerável (sem dano/lentidão) até este instante (ms) */
   shieldUntil: number;
   upgrades: WeaponUpgrades;
+  /** virou zumbi (morto por outro jogador): id do zumbi que o representa; respawna quando ele some */
+  infectedZombieId: number | null;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -46,7 +50,8 @@ export class MatchError extends Error {
       | 'already_active'
       | 'too_heavy'
       | 'blocked'
-      | 'no_wall',
+      | 'no_wall'
+      | 'phase_complete',
     message: string,
   ) {
     super(message);
@@ -96,6 +101,12 @@ export class Match {
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
   readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
+  /** baterias compradas na sala: cada compra encarece a próxima */
+  batteryPurchases = 0;
+
+  batteryPrice(): number {
+    return batteryPrice(this.batteryPurchases);
+  }
   /** torre desta sala (ponto aleatório, longe do centro e livre de obstáculos) */
   readonly towerPos: { x: number; z: number };
   readonly zombies: ZombieSim;
@@ -143,14 +154,19 @@ export class Match {
           this.io.broadcast({ type: 'wave_started', wave, count, players });
           this.io.onWaveChanged(wave);
         },
-        bossSpawned: (id, hp) => this.io.broadcast({ type: 'boss_spawned', id, hp }),
+        bossIncoming: (wave, inSeconds) => this.io.broadcast({ type: 'boss_incoming', wave, inSeconds }),
+        bossSpawned: (id, hp, wave) => this.io.broadcast({ type: 'boss_spawned', id, hp, wave }),
+        waveCleared: (wave) => {
+          this.io.broadcast({ type: 'wave_cleared', wave, total: GAME.waves.TOTAL });
+          this.io.onWaveChanged(wave);
+        },
         phaseComplete: () => {
           this.io.broadcast({ type: 'phase_complete', summary: this.summary(), duration: Math.round((this.now() - this.startedAt) / 1000) });
           this.io.onPhaseComplete();
         },
         waveFailed: (wave, boss) => {
           this.io.broadcast({ type: 'wave_failed', wave, boss });
-          this.io.onWaveChanged(0);
+          this.io.onWaveChanged(this.waves.wave);
         },
         playerCount: () => this.players.size,
       },
@@ -225,10 +241,12 @@ export class Match {
       mag: GAME.weapon.glock.START_MAG,
       reloadUntil: 0,
       nextFireAt: 0,
+      nextUseAt: 0,
       lastHitAt: -Infinity,
       damageMult: 1,
       shieldUntil: 0,
       upgrades: emptyUpgrades(),
+      infectedZombieId: null,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -240,6 +258,8 @@ export class Match {
   }
 
   removePlayer(playerId: string): void {
+    const p = this.players.get(playerId);
+    if (p?.infectedZombieId !== null && p?.infectedZombieId !== undefined) this.zombies.remove(p.infectedZombieId);
     this.players.delete(playerId);
   }
 
@@ -426,12 +446,17 @@ export class Match {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
     if (!fitsWeight(p.hotbar, [{ itemId, count: 1 }], maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais para carregar isso.');
-    const r = buy(p.hotbar, this.money, itemId);
+    const r = buy(p.hotbar, this.money, itemId, itemId === 'battery' ? this.batteryPrice() : undefined);
     if (!r.ok) {
       const msg = r.code === 'not_enough_money' ? 'Dinheiro insuficiente.' : r.code === 'hotbar_full' ? 'Hotbar cheia.' : 'Item não está à venda.';
       throw new MatchError(r.code, msg);
     }
     this.setMoney(this.money - r.price, -r.price);
+    if (itemId === 'battery') {
+      // cada bateria comprada encarece a próxima para a sala toda
+      this.batteryPurchases++;
+      this.io.broadcast({ type: 'battery_price', price: this.batteryPrice() });
+    }
     if (itemId === 'glock') {
       p.mag = GAME.weapon.glock.START_MAG;
       p.reloadUntil = 0;
@@ -630,7 +655,25 @@ export class Match {
       killer.snapshot.kills++;
       killer.matchZombieKills++;
     }
+    // infectado abatido: o dono volta a ser humano pelo respawn normal
+    const owner = z.ownerId ? this.players.get(z.ownerId) : undefined;
+    if (owner && owner.infectedZombieId === z.id) {
+      owner.infectedZombieId = null;
+      owner.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
+    }
     this.io.broadcast({ type: 'zombie_died', id: z.id, kind: z.kind, killerId });
+  }
+
+  /**
+   * Fogo amigo: quem morre para outro jogador vira zumbi por GAME.infected.DURATION s onde caiu,
+   * caçando quem o matou (`focusId`; null = qualquer jogador vivo). Só respawna quando o zumbi
+   * morre (RESPAWN_SECONDS depois) ou some (na hora).
+   */
+  private infect(target: MatchPlayer, focusId: string | null): void {
+    const z = this.zombies.spawnInfected(target.snapshot.id, focusId, target.snapshot.x, target.snapshot.z);
+    target.infectedZombieId = z.id;
+    target.respawnAt = Infinity;
+    this.io.broadcast({ type: 'player_infected', playerId: target.snapshot.id, zombieId: z.id, targetId: focusId, seconds: GAME.infected.DURATION });
   }
 
   /** Faca: acerta o alvo mais próximo dentro do arco à frente (zumbi ou jogador). */
@@ -671,22 +714,34 @@ export class Match {
     this.sendAmmo(p);
   }
 
-  damagePlayer(target: MatchPlayer, amount: number, by?: string, _byZombie?: number): void {
+  /** `by` = jogador que causou (tiro/faca); `byZombie` = id do zumbi (um infectado conta como o jogador dono). */
+  damagePlayer(target: MatchPlayer, amount: number, by?: string, byZombie?: number): void {
     if (target.dead || this.isShielded(target)) return;
+    const zb = byZombie !== undefined ? this.zombies.zombies.get(byZombie) : undefined;
+    const infectedBy = zb?.kind === 'infected' ? zb : undefined;
+    const killerId = by ?? infectedBy?.ownerId ?? undefined;
     target.snapshot.hp = Math.max(0, target.snapshot.hp - amount);
-    this.io.broadcast({ type: 'hp', playerId: target.snapshot.id, hp: target.snapshot.hp, by });
+    this.io.broadcast({ type: 'hp', playerId: target.snapshot.id, hp: target.snapshot.hp, by: killerId });
     if (target.snapshot.hp <= 0) {
       target.dead = true;
       target.snapshot.deaths++;
       target.matchDeaths++;
-      const killer = by ? this.players.get(by) : undefined;
+      const killer = killerId ? this.players.get(killerId) : undefined;
       if (killer && killer !== target) {
         killer.snapshot.pvpKills++;
         killer.matchHumanKills++;
       }
       target.snapshot.anim = 'Death';
       target.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
-      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId: by, respawnIn: GAME.player.RESPAWN_SECONDS });
+      // fogo amigo (tiro/faca de outro jogador, ou o zumbi de um infectado): vira zumbi
+      const pvp = (by !== undefined && by !== target.snapshot.id) || infectedBy !== undefined;
+      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: pvp ? GAME.infected.DURATION : GAME.player.RESPAWN_SECONDS });
+      if (pvp) {
+        // caça quem o matou; se foi um infectado, caça o alvo dele (ou qualquer um vivo)
+        const focus = by !== undefined ? by : infectedBy!.focusId;
+        const focusAlive = focus !== null && focus !== target.snapshot.id && this.players.get(focus)?.dead === false;
+        this.infect(target, focusAlive ? focus : null);
+      }
     }
   }
 
@@ -730,6 +785,11 @@ export class Match {
         p.reloadUntil = 0;
         p.mag = magSize(p.upgrades);
         this.sendAmmo(p);
+      }
+      // infectado cujo zumbi sumiu sem morrer (expirou / horda limpa): volta ao normal agora
+      if (p.dead && p.infectedZombieId !== null && !this.zombies.zombies.has(p.infectedZombieId)) {
+        p.infectedZombieId = null;
+        p.respawnAt = now;
       }
       if (p.dead && now >= p.respawnAt) {
         p.dead = false;

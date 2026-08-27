@@ -350,7 +350,7 @@ export class GameServer {
       },
       onPhaseComplete: () => {
         room.status = 'FINISHED';
-        log.info(`sala "${room.name}" concluiu a fase 1`);
+        log.info(`sala "${room.name}" concluiu a fase 1 (5 chefões)`);
         room.broadcastState();
         this.broadcastLobby();
         if (!this.rooms.has(room.id)) return;
@@ -394,6 +394,7 @@ export class GameServer {
       upgradePrices: match.upgradePrices(),
       magSize: match.magSizeOf(mp),
       ammo: mp.mag,
+      batteryPrice: match.batteryPrice(),
       tower: match.towerPos,
       towerHp: match.towerHp,
       towerMaxHp: match.towerMaxHp,

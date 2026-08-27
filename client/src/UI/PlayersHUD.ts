@@ -96,6 +96,7 @@ export class PlayersHUD {
     const cam = this.camera();
     const seen = new Set<RemotePlayer>();
     for (const r of this.remotes()) {
+      if (!r.visible) continue; // virou zumbi: sem rótulo no corpo escondido
       seen.add(r);
       let el = this.labelByPlayer.get(r);
       if (!el) {
