@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 import { groundMaterial } from '@/Assets/GroundTextures';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
+import { markStatic } from './Batching';
 import { mulberry32, WORLD } from '@shared/worldgen';
 
 /**
@@ -201,6 +202,7 @@ export function buildOutskirts(app: pc.Application, seed: number): pc.Entity {
     e.setLocalPosition(p.x + p.dx * d, WATER_Y - 0.12, p.z + p.dz * d);
     e.setLocalEulerAngles(0, rand() * 360, 0);
     root.addChild(e);
+    markStatic(app, e, false);
   }
   // vegetação/pedras do bioma do outro lado (mais densa perto da margem, some na névoa)
   for (let i = 0; i < 260; i++) {
@@ -215,6 +217,7 @@ export function buildOutskirts(app: pc.Application, seed: number): pc.Entity {
     e.setLocalPosition(p.x + p.dx * d, 0, p.z + p.dz * d);
     e.setLocalEulerAngles(0, rand() * 360, 0);
     root.addChild(e);
+    markStatic(app, e, false); // cenário além do rio: só visual, sem sombra
   }
   return root;
 }
