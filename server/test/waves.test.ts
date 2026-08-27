@@ -267,7 +267,7 @@ test('zumbi de wave volta a atacar quando o jogador renasce longe', () => {
   assert.ok(Math.hypot(z.x, z.z) < d0 - 5, 'deveria estar vindo até o jogador');
 });
 
-test('caçador prefere a torre quando está mais perto e a danifica ×3', () => {
+test('caçador prefere a torre quando está mais perto e a danifica com STRUCTURE_DAMAGE_MULT', () => {
   const { sim, hits } = setup(1);
   const z = sim.spawn('zombie', 0, 0, 1, 1, true);
   const tower = { id: 'tower', position: { x: 3, z: 0 }, dead: false, radius: 0.9, kind: 'tower' as const };
