@@ -23,7 +23,7 @@ export interface StructureSnapshot {
  * Suba também quando o worldgen mudar (ids/posições dos objetos): client antigo com server novo
  * discorda de tudo ("Objeto não existe mais") e a checagem no join é o que força o reload.
  */
-export const PROTOCOL_VERSION = 24;
+export const PROTOCOL_VERSION = 25; // 25: NetAnim ganhou os estados com arma/agachado (Idle_Gun, Walk_Gun, Run_Gun, Duck, Slash)
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -79,8 +79,13 @@ export interface RoomDetail extends RoomSummary {
   wave: number;
 }
 
-/** Nome de animação que os outros clientes reproduzem no modelo remoto. */
-export type NetAnim = 'Idle' | 'Walk' | 'Run' | 'Gun_Shoot' | 'Punch_Left' | 'Death';
+/**
+ * Nomes de animação que os outros clientes reproduzem no modelo remoto (todos existem em HUMAN_STATES
+ * do client). Antes só Idle/Walk/Run passavam: com a pistola na mão o estado local é Walk_Gun/Run_Gun,
+ * que virava 'Idle' na rede — os outros viam o jogador deslizando parado.
+ */
+export const NET_ANIMS = ['Idle', 'Walk', 'Run', 'Idle_Gun', 'Walk_Gun', 'Run_Gun', 'Duck', 'Gun_Shoot', 'Punch_Left', 'Slash', 'Death'] as const;
+export type NetAnim = (typeof NET_ANIMS)[number];
 
 /** Estado dinâmico de um jogador, atualizado a cada tick. */
 export interface PlayerPose {

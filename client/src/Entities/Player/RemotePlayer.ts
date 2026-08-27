@@ -101,6 +101,13 @@ export class RemotePlayer {
     if (pose.anim !== this.targetAnim) {
       this.targetAnim = pose.anim;
       this.anim.play(pose.anim, 0.1, pose.anim === 'Gun_Shoot');
+      // a pose já diz o que está na mão: pistola enquanto durar o estado _Gun, machado no golpe
+      const gun = pose.anim.endsWith('_Gun') || pose.anim === 'Gun_Shoot';
+      if (gun) {
+        this.showWeapon('Pistol');
+        this.weaponTimer = Infinity;
+      } else if (pose.anim === 'Slash') this.showWeapon('Axe');
+      else if (this.weaponTimer === Infinity) this.weaponTimer = 0.3;
     }
     this.crouching = pose.crouching;
     if (this.crouching && pose.anim === 'Idle') this.anim.play('Duck', 0.1);
@@ -122,6 +129,11 @@ export class RemotePlayer {
     if (this.carrying) return;
     showCharacterWeapon(this.model, node);
     this.weaponTimer = 6;
+  }
+
+  /** Estado que a pose remota está tocando (para testes/diagnóstico). */
+  get currentAnim(): NetAnim {
+    return this.targetAnim;
   }
 
   update(dt: number): void {

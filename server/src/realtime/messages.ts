@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { HOTBAR_SLOTS, ITEMS, type ItemId } from '../../../shared/items.js';
-import { CHARACTERS, NAME_MAX, NAME_MIN, NAME_REGEX, ROOM_NAME_MAX, ROOM_NAME_MIN, type ClientMessage } from '../../../shared/protocol.js';
+import { NET_ANIMS, CHARACTERS, NAME_MAX, NAME_MIN, NAME_REGEX, ROOM_NAME_MAX, ROOM_NAME_MIN, type ClientMessage } from '../../../shared/protocol.js';
 
 /** Validação em runtime do que chega pelo socket — nunca confiar no client. */
 const finite = z.number().finite();
@@ -17,7 +17,7 @@ const moveSchema = z.object({
   x: finite,
   z: finite,
   yaw: finite,
-  anim: z.enum(['Idle', 'Walk', 'Run', 'Gun_Shoot', 'Punch_Left', 'Death']),
+  anim: z.enum(NET_ANIMS),
   crouching: z.boolean(),
 });
 
