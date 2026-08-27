@@ -2,7 +2,7 @@ import { GAME } from '../../../shared/gameconfig.js';
 import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, isWallKind, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
+import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -33,6 +33,8 @@ export interface MatchPlayer {
   infectedZombieId: number | null;
   /** embarcou no helicóptero de resgate: fora do mundo, invulnerável */
   boarded: boolean;
+  /** sem vidas: só volta com a Medalha de Ressurreição de um aliado */
+  eliminated: boolean;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -55,7 +57,8 @@ export class MatchError extends Error {
       | 'too_heavy'
       | 'blocked'
       | 'no_wall'
-      | 'phase_complete',
+      | 'phase_complete'
+      | 'not_eliminated',
     message: string,
   ) {
     super(message);
@@ -71,8 +74,8 @@ export interface MatchIO {
   onWaveChanged(wave: number): void;
   /** 5º chefão morto: fase concluída (ids de quem estava na partida ganham troféu) */
   onPhaseComplete(playerIds: string[]): void;
-  /** torre destruída: a sala deve recomeçar a partida do zero */
-  onGameOver(): void;
+  /** derrota (torre destruída / todos eliminados): a sala deve recomeçar a partida do zero */
+  onGameOver(reason: 'tower_destroyed' | 'all_dead'): void;
 }
 
 /**
@@ -111,6 +114,17 @@ export class Match {
   readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
   /** baterias compradas na sala: cada compra encarece a próxima */
   batteryPurchases = 0;
+  /** Medalhas de Ressurreição compradas na sala: cada compra encarece a próxima */
+  revivePurchases = 0;
+
+  revivePrice(): number {
+    return revivePrice(this.revivePurchases);
+  }
+
+  /** Jogadores sem vidas esperando uma medalha. */
+  eliminatedIds(): string[] {
+    return [...this.players.values()].filter((p) => p.eliminated).map((p) => p.snapshot.id);
+  }
 
   batteryPrice(): number {
     return batteryPrice(this.batteryPurchases);
@@ -305,6 +319,7 @@ export class Match {
       upgrades: emptyUpgrades(),
       infectedZombieId: null,
       boarded: false,
+      eliminated: false,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -319,6 +334,39 @@ export class Match {
     const p = this.players.get(playerId);
     if (p?.infectedZombieId !== null && p?.infectedZombieId !== undefined) this.zombies.remove(p.infectedZombieId);
     this.players.delete(playerId);
+    // saiu o último que ainda podia comprar a medalha: quem ficou está todo eliminado
+    if (this.players.size > 0) this.checkAllEliminated();
+  }
+
+  /** Todos os jogadores da partida sem vidas: derrota, a partida recomeça. */
+  private checkAllEliminated(): void {
+    if (this.gameOver || this.players.size === 0) return;
+    for (const p of this.players.values()) if (!p.eliminated) return;
+    this.gameOver = true;
+    this.zombies.clear();
+    this.io.broadcast({ type: 'game_over', reason: 'all_dead', restartIn: 6 });
+    this.io.onGameOver('all_dead');
+  }
+
+  /**
+   * Medalha de Ressurreição: um aliado vivo, no vendedor, paga (preço da sala, sobe a cada compra)
+   * e escolhe um jogador eliminado, que volta na hora ao centro com as vidas zeradas de novo.
+   */
+  buyRevive(playerId: string, targetId: string): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    const target = this.players.get(targetId);
+    if (!target) throw new MatchError('invalid_message', 'Esse jogador não está na partida.');
+    if (!target.eliminated) throw new MatchError('not_eliminated', 'Esse jogador não precisa de medalha.');
+    const price = this.revivePrice();
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    this.revivePurchases++;
+    this.setMoney(this.money - price, -price);
+    target.eliminated = false;
+    target.matchDeaths = 0;
+    target.respawnAt = this.now(); // o tick renasce agora
+    this.io.broadcast({ type: 'player_revived', playerId: targetId, byId: playerId });
+    this.io.broadcast({ type: 'revive_price', price: this.revivePrice() });
   }
 
   private get(playerId: string): MatchPlayer {
@@ -614,7 +662,7 @@ export class Match {
       this.gameOver = true;
       this.zombies.clear();
       this.io.broadcast({ type: 'game_over', reason: 'tower_destroyed', restartIn: 6 });
-      this.io.onGameOver();
+      this.io.onGameOver('tower_destroyed');
     }
   }
 
@@ -869,9 +917,18 @@ export class Match {
       }
       target.snapshot.anim = 'Death';
       target.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
+      const livesLeft = Math.max(0, GAME.lives.MAX_DEATHS - target.matchDeaths);
+      // sem vidas: eliminado (não renasce nem vira zumbi); todos eliminados = derrota
+      if (livesLeft <= 0) {
+        target.eliminated = true;
+        target.respawnAt = Infinity;
+        this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: 0, eliminated: true, livesLeft: 0 });
+        this.checkAllEliminated();
+        return;
+      }
       // fogo amigo (tiro/faca de outro jogador, ou o zumbi de um infectado): vira zumbi
       const pvp = (by !== undefined && by !== target.snapshot.id) || infectedBy !== undefined;
-      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: pvp ? GAME.infected.DURATION : GAME.player.RESPAWN_SECONDS });
+      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: pvp ? GAME.infected.DURATION : GAME.player.RESPAWN_SECONDS, eliminated: false, livesLeft });
       if (pvp) {
         // caça quem o matou; se foi um infectado, caça o alvo dele (ou qualquer um vivo)
         const focus = by !== undefined ? by : infectedBy!.focusId;
@@ -928,7 +985,7 @@ export class Match {
         p.infectedZombieId = null;
         p.respawnAt = now;
       }
-      if (p.dead && now >= p.respawnAt) {
+      if (p.dead && !p.eliminated && now >= p.respawnAt) {
         p.dead = false;
         p.snapshot.hp = GAME.player.MAX_HP;
         p.snapshot.x = 0;

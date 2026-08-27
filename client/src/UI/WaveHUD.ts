@@ -57,7 +57,6 @@ export class WaveHUD {
         this.tower = { hp, maxHp };
         this.render();
       }),
-      bus.on('net:gameOver', ({ restartIn }) => this.showBanner('VOCÊ PERDEU!', `A torre de comunicação foi destruída. Tudo recomeça do zero em ${restartIn}s…`, restartIn * 1000)),
       bus.on('wave:failed', ({ wave, boss }) =>
         this.showBanner('TEMPO ESGOTADO', boss ? `O chefão da wave ${wave} venceu. A bateria dessa wave foi perdida — compre outra e tente de novo.` : `A wave ${wave} não foi limpa a tempo. A bateria dessa wave foi perdida — compre outra e tente de novo.`, 6000),
       ),

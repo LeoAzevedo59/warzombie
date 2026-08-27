@@ -20,6 +20,8 @@ export class ShopUI {
     private bus: EventBus,
     private state: GameState,
     private net: NetworkClient,
+    /** nome de qualquer jogador da partida (medalha lista os eliminados) */
+    private nameOf: (id: string) => string = (id) => id,
   ) {
     this.panel = document.createElement('div');
     this.panel.className = 'inventory-panel shop-panel';
@@ -33,6 +35,8 @@ export class ShopUI {
       bus.on('net:upgradePrices', () => this.renderIfOpen()),
       bus.on('net:features', () => this.renderIfOpen()),
       bus.on('net:batteryPrice', () => this.renderIfOpen()),
+      bus.on('net:revivePrice', () => this.renderIfOpen()),
+      bus.on('net:eliminatedChanged', () => this.renderIfOpen()),
     );
   }
 
@@ -75,6 +79,7 @@ export class ShopUI {
           return `<div class="recipe"><span class="recipe-label">${itemIconHtml(d.id, 22, 'shop-icon')}<b>${d.name}</b>${note}</span><button class="buy" data-id="${d.id}" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`;
         })
         .join('')}
+        ${this.reviveRows(money)}
         <div class="recipe feature"><span class="recipe-label">${iconHtml('minimap', '#4db8ff', 22, 'shop-icon')}<b>Minimapa</b> <span class="lvl">para a sala toda</span></span>${this.state.features.minimap ? '<button disabled>ATIVO</button>' : `<button class="buy-feature" data-feature="minimap" ${money >= GAME.features.MINIMAP_PRICE ? '' : 'disabled'}>$${GAME.features.MINIMAP_PRICE}</button>`}</div>
       </div>`;
     const upgrades = `
@@ -110,6 +115,12 @@ export class ShopUI {
         this.bus.emit('shop:transaction', { kind: 'buy' });
       };
     });
+    this.panel.querySelectorAll<HTMLButtonElement>('.buy-revive').forEach((b) => {
+      b.onclick = () => {
+        this.net.send({ type: 'buy_revive', targetId: b.dataset.target! });
+        this.bus.emit('shop:transaction', { kind: 'buy' });
+      };
+    });
     this.panel.querySelectorAll<HTMLButtonElement>('.buy-feature').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'buy_feature', feature: 'minimap' });
     });
@@ -119,6 +130,17 @@ export class ShopUI {
         this.bus.emit('shop:transaction', { kind: 'upgrade' });
       };
     });
+  }
+
+  /** Medalha de Ressurreição: uma linha por aliado eliminado (preço da sala, sobe a cada compra). */
+  private reviveRows(money: number): string {
+    const price = this.state.revivePrice;
+    const label = `<span class="medal">🎖</span><b>Medalha de Ressurreição</b>`;
+    const targets = [...this.state.eliminated].filter((id) => id !== this.state.playerId);
+    if (targets.length === 0) return `<div class="recipe feature revive"><span class="recipe-label">${label} <span class="lvl">revive um aliado eliminado · ninguém precisa agora</span></span><button disabled>$${price}</button></div>`;
+    return targets
+      .map((id) => `<div class="recipe feature revive"><span class="recipe-label">${label} <span class="lvl">reviver <b>${this.nameOf(id)}</b></span></span><button class="buy-revive" data-target="${id}" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`)
+      .join('');
   }
 
   private upgradeRows(money: number): string {

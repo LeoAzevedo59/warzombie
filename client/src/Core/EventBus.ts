@@ -33,7 +33,12 @@ export interface GameEvents {
   'player:damaged': { amount: number; special: boolean };
   /** curou (consumível): quanto recuperou */
   'player:healed': { amount: number };
-  'player:died': { killerName: string | null; respawnIn: number };
+  'player:died': { killerName: string | null; respawnIn: number; livesLeft: number };
+  /** ficou sem vidas: fica no chão até um aliado comprar a Medalha de Ressurreição */
+  'player:eliminated': { killerName: string | null };
+  'net:revivePrice': { price: number };
+  /** lista de eliminados mudou (loja re-renderiza a medalha) */
+  'net:eliminatedChanged': void;
   /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */
   'player:infected': { targetName: string | null; seconds: number; zombieId: number };
   'player:respawned': void;
@@ -78,7 +83,7 @@ export interface GameEvents {
   'wave:failed': { wave: number; boss: boolean };
   'net:towerHp': { hp: number; maxHp: number };
   'net:features': { features: RoomFeatures };
-  'net:gameOver': { restartIn: number };
+  'net:gameOver': { restartIn: number; reason: 'tower_destroyed' | 'all_dead' };
   'net:structureAdded': { structure: StructureSnapshot };
   'net:structureHp': { id: number; hp: number };
   'net:structureHit': { id: number; hits: number; required: number };

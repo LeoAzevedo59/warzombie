@@ -560,3 +560,67 @@ test('(dev) pilha cheia, itens infinitos e upgrades de graça', () => {
   assert.equal(m.towerLevel, 1);
   assert.equal((last('tower_hp')!.msg as { level: number }).level, 1);
 });
+
+test('vidas: 3ª morte elimina; sozinho na sala = derrota (all_dead) e a partida reinicia', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A'));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  for (let i = 1; i <= 2; i++) {
+    m.damagePlayer(a, 1000);
+    const died = [...sent].reverse().find((s) => s.msg.type === 'player_died')!.msg as { eliminated: boolean; livesLeft: number; respawnIn: number };
+    assert.equal(died.eliminated, false);
+    assert.equal(died.livesLeft, GAME.lives.MAX_DEATHS - i);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+    assert.equal(a.dead, false, `deveria ter renascido após a morte ${i}`);
+  }
+  m.damagePlayer(a, 1000);
+  const died = [...sent].reverse().find((s) => s.msg.type === 'player_died')!.msg as { eliminated: boolean; livesLeft: number; respawnIn: number };
+  assert.equal(died.eliminated, true);
+  assert.equal(died.livesLeft, 0);
+  assert.equal(a.eliminated, true);
+  const over = sent.find((s) => s.msg.type === 'game_over')!.msg as { reason: string };
+  assert.equal(over.reason, 'all_dead');
+  assert.equal(m.gameOver, true);
+});
+
+test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição revive o eliminado e encarece', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A'));
+  const b = m.addPlayer(snap('B', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.eliminated, true);
+  assert.ok(!sent.some((s) => s.msg.type === 'game_over'), 'B ainda está vivo: sem derrota');
+  run(20000);
+  assert.equal(a.dead, true, 'eliminado não renasce sozinho');
+  // B compra a medalha (precisa de dinheiro e estar no vendedor)
+  assert.throws(() => m.buyRevive('B', 'A'), (e: MatchError) => e.code === 'not_enough_money');
+  m.money = 1000;
+  assert.throws(() => m.buyRevive('B', 'B'), (e: MatchError) => e.code === 'not_eliminated');
+  const price = m.revivePrice();
+  assert.equal(price, GAME.lives.REVIVE_BASE_PRICE);
+  m.buyRevive('B', 'A');
+  assert.equal(m.money, 1000 - price);
+  assert.equal(a.eliminated, false);
+  assert.ok(sent.some((s) => s.msg.type === 'player_revived'));
+  run(200);
+  assert.equal(a.dead, false, 'revivido volta na hora');
+  assert.equal(a.matchDeaths, 0);
+  assert.equal(m.revivePrice(), Math.round(GAME.lives.REVIVE_BASE_PRICE * GAME.lives.REVIVE_GROWTH));
+  const rp = [...sent].reverse().find((s) => s.msg.type === 'revive_price')!.msg as { price: number };
+  assert.equal(rp.price, m.revivePrice());
+  // B eliminado com A eliminado também -> derrota
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  b.shieldUntil = 0;
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(b, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.ok(sent.some((s) => s.msg.type === 'game_over' && (s.msg as { reason: string }).reason === 'all_dead'));
+});

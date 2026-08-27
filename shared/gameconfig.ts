@@ -33,6 +33,12 @@ export const GAME = {
    * pousar, ele decola (quem não embarcou fica para trás) e sobem os créditos.
    */
   evac: { OFFSET: 6.5, LAND_TIME: 6, BOARD_RADIUS: 2.2, TIMEOUT: 90, CLEARANCE: 3 },
+  /**
+   * Vidas: na MAX_DEATHS-ésima morte o jogador é eliminado (não renasce). Todos eliminados = derrota
+   * (a partida recomeça). Com mais gente na sala, um aliado vivo compra no vendedor a Medalha de
+   * Ressurreição e escolhe quem reviver (um por compra; preço BASE × GROWTH^compras).
+   */
+  lives: { MAX_DEATHS: 3, REVIVE_BASE_PRICE: 120, REVIVE_GROWTH: 1.5 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
   /** recursos renascem depois de coletados (s) */

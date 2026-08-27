@@ -82,3 +82,8 @@ export function spreadDegrees(u: WeaponUpgrades): number {
 export function accuracyPercent(u: WeaponUpgrades): number {
   return Math.round(100 - spreadDegrees(u) * 4);
 }
+
+/** Preço da próxima Medalha de Ressurreição na sala (sobe a cada compra). */
+export function revivePrice(purchases: number): number {
+  return Math.round(GAME.lives.REVIVE_BASE_PRICE * Math.pow(GAME.lives.REVIVE_GROWTH, purchases));
+}

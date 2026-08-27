@@ -163,6 +163,8 @@ export class GameServer {
           return this.match(conn).activateBattery(conn.player.id);
         case 'use_item':
           return this.match(conn).useItem(conn.player.id);
+        case 'buy_revive':
+          return this.match(conn).buyRevive(conn.player.id, msg.targetId);
         case 'upgrade':
           return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
         case 'tower_repair':
@@ -377,8 +379,8 @@ export class GameServer {
         if (!this.rooms.has(room.id)) return;
         RoomModel.update(room.id, { wave }).catch((err) => log.error(`falha ao salvar wave da sala ${room.name}`, err));
       },
-      onGameOver: () => {
-        log.info(`sala "${room.name}": torre destruída — reiniciando do zero em 6s`);
+      onGameOver: (reason) => {
+        log.info(`sala "${room.name}": ${reason === 'all_dead' ? 'todos eliminados' : 'torre destruída'} — reiniciando do zero em 6s`);
         setTimeout(() => this.restartMatch(room), 6000);
       },
       onPhaseComplete: (playerIds) => {
@@ -447,6 +449,9 @@ export class GameServer {
       drops: [...match.drops.values()],
       features: { ...match.features },
       evac: match.evacState(),
+      deaths: mp.matchDeaths,
+      eliminated: match.eliminatedIds(),
+      revivePrice: match.revivePrice(),
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }
