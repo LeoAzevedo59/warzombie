@@ -143,8 +143,13 @@ export const GAME = {
   battery: { GROWTH: 1.35 },
   waves: {
     TOTAL: 5,
-    /** zumbis da horda por wave com 1 jogador; escala ×DIFFICULTY_PER_PLAYER^(n-1) */
-    BASE_COUNT: [8, 12, 16, 22, 30],
+    /**
+     * Zumbis da horda por wave com 1 jogador; escala ×DIFFICULTY_PER_PLAYER^(n-1). A horda inteira
+     * nasce de uma vez, então a quantidade quase não cresce: a dificuldade vem da vida/dano por wave
+     * (HP_GROWTH/DMG_GROWTH) e dos chefões. Era [8, 12, 16, 22, 30]: da wave 3 em diante nem o
+     * equipamento máximo vencia (simulação de 27/08).
+     */
+    BASE_COUNT: [8, 10, 10, 10, 12],
     /** multiplicador de quantidade, vida e dano por jogador adicional */
     DIFFICULTY_PER_PLAYER: 1.5,
     /** vida e dano dos zumbis da horda crescem por wave: × GROWTH^(wave-1) */
