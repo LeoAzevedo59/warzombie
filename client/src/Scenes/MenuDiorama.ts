@@ -6,8 +6,10 @@ import { makeDirtPatch } from '@/World/Map';
 
 interface Walker {
   entity: pc.Entity;
+  /** velocidade em x (sinal = sentido) */
   speed: number;
-  startZ: number;
+  /** |x| onde o zumbi já saiu do enquadramento e volta pelo outro lado */
+  limit: number;
 }
 
 /**
@@ -77,7 +79,7 @@ export class MenuDiorama {
       this.root.addChild(e);
       return e;
     };
-    place('pickup', -4.6, 4.5, 120);
+    place('pickup', -6.6, 4.2, 100);
     place('water_tower', 5.5, 9, 0);
     place('barrel', 3.2, 2.2, 0);
     place('barrel', 3.9, 2.6, 40);
@@ -85,7 +87,7 @@ export class MenuDiorama {
     place('barrier', 3.4, -0.4, -25);
     place('blood_1', 1.2, 1.4, 70);
     place('blood_2', -2.2, 3.5, 0);
-    place('pallet', -3, -0.2, 10);
+    place('pallet', 3.2, -0.6, 10);
     place('tree_oak', -8, 8, 0);
     place('tree_pine', -3.5, 12, 30);
     place('tree_default', 9, 4, 0);
@@ -101,16 +103,16 @@ export class MenuDiorama {
     const hero = this.character('char_shaun', -2.6, -0.4, 200, 'Pistol', 'Idle_Gun');
     void hero;
 
-    // zumbis vindo do fundo em loop
+    // zumbis atravessando o fundo de um lado ao outro (entram/saem fora do enquadramento: sem "pulo" no reset)
     const specs: Array<[ModelKey, number, number, number]> = [
-      ['zombie_basic', -1.8, 7, 0.55],
-      ['zombie_basic', 2.6, 9.5, 0.5],
-      ['zombie_ribcage', 0.6, 11, 0.6],
-      ['zombie_basic', -3.6, 12.5, 0.45],
+      ['zombie_basic', -6, 7.5, 0.55],
+      ['zombie_basic', 5, 9.5, -0.5],
+      ['zombie_ribcage', -2, 11, 0.6],
+      ['zombie_basic', 9, 8.5, -0.45],
     ];
     for (const [key, x, z, speed] of specs) {
-      const e = this.character(key, x, z, 180, null, 'Walk');
-      this.walkers.push({ entity: e, speed, startZ: z + 4 });
+      const e = this.character(key, x, z, speed > 0 ? 90 : -90, null, 'Walk');
+      this.walkers.push({ entity: e, speed, limit: 9 + z * 0.9 });
     }
     const boss = this.character('zombie_chubby', 4.5, 13.5, 195, null, 'Idle', 2.0);
     void boss;
@@ -142,9 +144,10 @@ export class MenuDiorama {
     this.camera.lookAt(0.3, 1.3, 2.5);
     for (const w of this.walkers) {
       const p = w.entity.getPosition();
-      let z = p.z - w.speed * dt;
-      if (z < 2.2) z = w.startZ;
-      w.entity.setPosition(p.x, 0, z);
+      let x = p.x + w.speed * dt;
+      if (x > w.limit) x = -w.limit;
+      else if (x < -w.limit) x = w.limit;
+      w.entity.setPosition(x, 0, p.z);
     }
   }
 
