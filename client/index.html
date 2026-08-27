@@ -222,6 +222,15 @@
       .shop-panel .lvl { color: #ffd34d; font-size: 12px; }
       .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
       .death-screen .timer { color: #ffd34d; font-size: 20px; }
+      .death-screen.eliminated h1 { color: #8b98a5; }
+      .death-screen.eliminated .timer { color: #ffd34d; font-size: 16px; max-width: 560px; text-align: center; }
+      .shop-panel .recipe.revive .medal { font-size: 18px; margin-right: 6px; }
+      /* derrota: cobre tudo até o reinício */
+      .game-over { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,8,11,.92); z-index: 8; text-align: center; }
+      .game-over.visible { display: flex; }
+      .game-over h1 { font-size: 56px; letter-spacing: 6px; color: #d63d3d; margin-bottom: 14px; }
+      .game-over .why { color: #c9d1d9; font-size: 18px; margin-bottom: 10px; }
+      .game-over .restart { color: #8b98a5; font-size: 16px; }
       .trophy { color: #ffd34d; font-size: 12px; }
       #ui.cutscene .hud-wave, #ui.cutscene .hud-money, #ui.cutscene .hud-vitals, #ui.cutscene .hotbar, #ui.cutscene .hud-status, #ui.cutscene .name-labels, #ui.cutscene #minimap, #ui.cutscene .dev-toggle, #ui.cutscene .interaction-prompt { display: none !important; }
       /* créditos do resgate: sobem por cima da cutscene do helicóptero */

@@ -33,7 +33,14 @@ export interface GameEvents {
   'player:damaged': { amount: number; special: boolean };
   /** curou (consumível): quanto recuperou */
   'player:healed': { amount: number };
-  'player:died': { killerName: string | null; respawnIn: number };
+  'player:died': { killerName: string | null; respawnIn: number; livesLeft: number };
+  /** ficou sem vidas: fica no chão até um aliado comprar a Medalha de Ressurreição */
+  'player:eliminated': { killerName: string | null };
+  'net:revivePrice': { price: number };
+  /** alguém pegou/largou a bateria (fica na mão e atrai todos os zumbis) */
+  'net:batteryCarrier': { playerId: string; carrying: boolean };
+  /** lista de eliminados mudou (loja re-renderiza a medalha) */
+  'net:eliminatedChanged': void;
   /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */
   'player:infected': { targetName: string | null; seconds: number; zombieId: number };
   'player:respawned': void;
@@ -66,6 +73,8 @@ export interface GameEvents {
   'net:zombies': { zombies: ZombieSnapshot[] };
   'net:projectiles': { projectiles: ProjectileSnapshot[] };
   'player:slowed': { factor: number; seconds: number };
+  /** postura do jogador local mudou (parado/andando/correndo): muda a precisão do tiro */
+  'player:stance': { stance: 'idle' | 'walk' | 'run' };
   'net:shield': { playerId: string; seconds: number };
   'net:upgrades': { upgrades: WeaponUpgrades };
   'net:upgradePrices': { prices: UpgradePrices };
@@ -78,7 +87,7 @@ export interface GameEvents {
   'wave:failed': { wave: number; boss: boolean };
   'net:towerHp': { hp: number; maxHp: number };
   'net:features': { features: RoomFeatures };
-  'net:gameOver': { restartIn: number };
+  'net:gameOver': { restartIn: number; reason: 'tower_destroyed' | 'all_dead' };
   'net:structureAdded': { structure: StructureSnapshot };
   'net:structureHp': { id: number; hp: number };
   'net:structureHit': { id: number; hits: number; required: number };

@@ -1,5 +1,5 @@
 import * as pc from 'playcanvas';
-import { HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
+import { HUMAN_STATES, instantiateModel, showCharacterBattery, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { CharacterFx } from '@/Entities/CharacterFx';
 import type { NetAnim, PlayerPose, PlayerSnapshot } from '@shared/protocol';
@@ -106,7 +106,20 @@ export class RemotePlayer {
     if (this.crouching && pose.anim === 'Idle') this.anim.play('Duck', 0.1);
   }
 
+  private carrying = false;
+
+  /** Pegou/largou a bateria: ela fica na mão (e esconde a arma inferida). */
+  setCarrying(on: boolean): void {
+    this.carrying = on;
+    showCharacterBattery(this.model, on);
+    if (on) {
+      showCharacterWeapon(this.model, null);
+      this.weaponTimer = 0;
+    }
+  }
+
   private showWeapon(node: CharacterWeaponNode): void {
+    if (this.carrying) return;
     showCharacterWeapon(this.model, node);
     this.weaponTimer = 6;
   }

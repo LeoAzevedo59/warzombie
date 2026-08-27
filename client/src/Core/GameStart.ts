@@ -28,4 +28,8 @@ export function applyGameStart(state: GameState, msg: GameStartMessage): void {
   state.structures = msg.structures.map((s) => ({ ...s }));
   state.drops = msg.drops.map((d) => ({ ...d }));
   state.features = { ...msg.features };
+  state.deaths = msg.deaths;
+  state.eliminated = new Set(msg.eliminated);
+  state.revivePrice = msg.revivePrice;
+  state.carriers = new Set(msg.carriers);
 }

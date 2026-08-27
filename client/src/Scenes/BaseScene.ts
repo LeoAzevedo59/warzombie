@@ -35,7 +35,7 @@ export abstract class BaseScene {
     scene.ambientLight = new pc.Color(0.4, 0.44, 0.48);
     // névoa suave nas bordas do mapa (esconde o fim do mundo e dá profundidade)
     scene.fog.type = pc.FOG_LINEAR;
-    scene.fog.color = new pc.Color(0.62, 0.7, 0.66);
+    scene.fog.color = new pc.Color(0.62, 0.76, 0.88); // esmaece para o azul do céu
     scene.fog.start = 38;
     scene.fog.end = 95;
   }

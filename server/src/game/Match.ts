@@ -2,7 +2,7 @@ import { GAME } from '../../../shared/gameconfig.js';
 import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, isWallKind, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
+import { batteryPrice, canFireRunning, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegreesFor, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor, type Stance } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
@@ -33,6 +33,13 @@ export interface MatchPlayer {
   infectedZombieId: number | null;
   /** embarcou no helicóptero de resgate: fora do mundo, invulnerável */
   boarded: boolean;
+  /** sem vidas: só volta com a Medalha de Ressurreição de um aliado */
+  eliminated: boolean;
+  /** está com a bateria na hotbar (fica na mão; todos os zumbis vão atrás) */
+  carrying: boolean;
+  /** velocidade (m/s, suavizada) estimada pelas poses e instante da última pose — define a postura ao atirar */
+  speed: number;
+  lastPoseAt: number;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -55,7 +62,9 @@ export class MatchError extends Error {
       | 'too_heavy'
       | 'blocked'
       | 'no_wall'
-      | 'phase_complete',
+      | 'phase_complete'
+      | 'not_eliminated'
+      | 'carrying_battery',
     message: string,
   ) {
     super(message);
@@ -71,8 +80,8 @@ export interface MatchIO {
   onWaveChanged(wave: number): void;
   /** 5º chefão morto: fase concluída (ids de quem estava na partida ganham troféu) */
   onPhaseComplete(playerIds: string[]): void;
-  /** torre destruída: a sala deve recomeçar a partida do zero */
-  onGameOver(): void;
+  /** derrota (torre destruída / todos eliminados): a sala deve recomeçar a partida do zero */
+  onGameOver(reason: 'tower_destroyed' | 'all_dead'): void;
 }
 
 /**
@@ -111,6 +120,17 @@ export class Match {
   readonly upgradePurchases: Record<UpgradeKind, number> = { damage: 0, ammo: 0, recoil: 0, stamina: 0, laser: 0, weight: 0 };
   /** baterias compradas na sala: cada compra encarece a próxima */
   batteryPurchases = 0;
+  /** Medalhas de Ressurreição compradas na sala: cada compra encarece a próxima */
+  revivePurchases = 0;
+
+  revivePrice(): number {
+    return revivePrice(this.revivePurchases);
+  }
+
+  /** Jogadores sem vidas esperando uma medalha. */
+  eliminatedIds(): string[] {
+    return [...this.players.values()].filter((p) => p.eliminated).map((p) => p.snapshot.id);
+  }
 
   batteryPrice(): number {
     return batteryPrice(this.batteryPurchases);
@@ -305,6 +325,10 @@ export class Match {
       upgrades: emptyUpgrades(),
       infectedZombieId: null,
       boarded: false,
+      eliminated: false,
+      carrying: false,
+      speed: 0,
+      lastPoseAt: 0,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -319,6 +343,59 @@ export class Match {
     const p = this.players.get(playerId);
     if (p?.infectedZombieId !== null && p?.infectedZombieId !== undefined) this.zombies.remove(p.infectedZombieId);
     this.players.delete(playerId);
+    // saiu o último que ainda podia comprar a medalha: quem ficou está todo eliminado
+    if (this.players.size > 0) this.checkAllEliminated();
+  }
+
+  /** Todos os jogadores da partida sem vidas: derrota, a partida recomeça. */
+  private checkAllEliminated(): void {
+    if (this.gameOver || this.players.size === 0) return;
+    for (const p of this.players.values()) if (!p.eliminated) return;
+    this.gameOver = true;
+    this.zombies.clear();
+    this.io.broadcast({ type: 'game_over', reason: 'all_dead', restartIn: 6 });
+    this.io.onGameOver('all_dead');
+  }
+
+  /**
+   * Medalha de Ressurreição: um aliado vivo, no vendedor, paga (preço da sala, sobe a cada compra)
+   * e escolhe um jogador eliminado, que volta na hora ao centro com as vidas zeradas de novo.
+   */
+  buyRevive(playerId: string, targetId: string): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    const target = this.players.get(targetId);
+    if (!target) throw new MatchError('invalid_message', 'Esse jogador não está na partida.');
+    if (!target.eliminated) throw new MatchError('not_eliminated', 'Esse jogador não precisa de medalha.');
+    const price = this.revivePrice();
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    this.revivePurchases++;
+    this.setMoney(this.money - price, -price);
+    target.eliminated = false;
+    target.matchDeaths = 0;
+    target.respawnAt = this.now(); // o tick renasce agora
+    this.io.broadcast({ type: 'player_revived', playerId: targetId, byId: playerId });
+    this.io.broadcast({ type: 'revive_price', price: this.revivePrice() });
+  }
+
+  /** Pose nova do client (antes de aplicá-la ao snapshot): atualiza a velocidade estimada. */
+  notePose(playerId: string, x: number, z: number): void {
+    const p = this.players.get(playerId);
+    if (!p) return;
+    const now = this.now();
+    const dt = (now - p.lastPoseAt) / 1000;
+    if (p.lastPoseAt > 0 && dt > 0 && dt < 1) {
+      const v = Math.hypot(x - p.snapshot.x, z - p.snapshot.z) / dt;
+      p.speed = p.speed * 0.5 + v * 0.5;
+    }
+    p.lastPoseAt = now;
+  }
+
+  /** Postura atual: sem pose há IDLE_AFTER_MS = parado; senão pela velocidade estimada. */
+  stanceOf(p: MatchPlayer): Stance {
+    const a = GAME.accuracy;
+    if (this.now() - p.lastPoseAt > a.IDLE_AFTER_MS) return 'idle';
+    return p.speed >= a.RUN_MIN_SPEED ? 'run' : p.speed >= a.WALK_MIN_SPEED ? 'walk' : 'idle';
   }
 
   private get(playerId: string): MatchPlayer {
@@ -345,7 +422,23 @@ export class Match {
     return this.now() < p.shieldUntil;
   }
 
+  /** Quem está carregando a bateria (para quem entra depois). */
+  carrierIds(): string[] {
+    return [...this.players.values()].filter((p) => p.carrying).map((p) => p.snapshot.id);
+  }
+
+  /**
+   * Toda mudança de hotbar passa aqui. A bateria, quando está na hotbar, vai para a mão (slot
+   * equipado forçado) e avisa a sala que este jogador virou a isca dos zumbis.
+   */
   private sendHotbar(p: MatchPlayer): void {
+    const slot = p.hotbar.findIndex((s) => s?.itemId === 'battery');
+    if (slot >= 0) p.equipped = slot;
+    const carrying = slot >= 0;
+    if (carrying !== p.carrying) {
+      p.carrying = carrying;
+      this.io.broadcast({ type: 'battery_carrier', playerId: p.snapshot.id, carrying });
+    }
     this.io.send(p.snapshot.id, { type: 'hotbar', slots: p.hotbar, equipped: p.equipped });
   }
 
@@ -483,6 +576,7 @@ export class Match {
   selectSlot(playerId: string, index: number): void {
     const p = this.get(playerId);
     if (index < 0 || index >= p.hotbar.length) throw new MatchError('invalid_message', 'Slot inválido.');
+    if (p.carrying && index !== p.equipped) throw new MatchError('carrying_battery', 'Largue a bateria (Q) antes de pegar outro item.');
     p.equipped = index;
     this.sendHotbar(p);
   }
@@ -614,7 +708,7 @@ export class Match {
       this.gameOver = true;
       this.zombies.clear();
       this.io.broadcast({ type: 'game_over', reason: 'tower_destroyed', restartIn: 6 });
-      this.io.onGameOver();
+      this.io.onGameOver('tower_destroyed');
     }
   }
 
@@ -696,15 +790,18 @@ export class Match {
     if (this.equippedItem(p) !== 'glock') throw new MatchError('no_weapon', 'Equipe a Glock.');
     const now = this.now();
     if (now < p.nextFireAt || now < p.reloadUntil) return; // spam: ignora silenciosamente
+    // correndo só atira com o Recoil no máximo (o client já avisa; aqui é a garantia)
+    const stance = this.stanceOf(p);
+    if (stance === 'run' && !canFireRunning(p.upgrades)) return;
     if (p.mag <= 0) {
       this.sendAmmo(p);
       return;
     }
     p.mag--;
     p.nextFireAt = now + w.COOLDOWN * 1000;
-    // recoil: o tiro sai desviado da mira por até ±spread graus (menos com upgrade)
+    // recoil: o tiro sai desviado da mira por até ±spread graus (menos com upgrade; parado é mais preciso, andando menos)
     const aim = normalize2(dx, dz);
-    const spread = (spreadDegrees(p.upgrades) * Math.PI) / 180;
+    const spread = (spreadDegreesFor(p.upgrades, stance) * Math.PI) / 180;
     const angle = Math.atan2(aim.dx, aim.dz) + (this.rand() * 2 - 1) * spread;
     const dir = { dx: Math.sin(angle), dz: Math.cos(angle) };
     const from = p.snapshot;
@@ -869,9 +966,18 @@ export class Match {
       }
       target.snapshot.anim = 'Death';
       target.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
+      const livesLeft = Math.max(0, GAME.lives.MAX_DEATHS - target.matchDeaths);
+      // sem vidas: eliminado (não renasce nem vira zumbi); todos eliminados = derrota
+      if (livesLeft <= 0) {
+        target.eliminated = true;
+        target.respawnAt = Infinity;
+        this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: 0, eliminated: true, livesLeft: 0 });
+        this.checkAllEliminated();
+        return;
+      }
       // fogo amigo (tiro/faca de outro jogador, ou o zumbi de um infectado): vira zumbi
       const pvp = (by !== undefined && by !== target.snapshot.id) || infectedBy !== undefined;
-      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: pvp ? GAME.infected.DURATION : GAME.player.RESPAWN_SECONDS });
+      this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: pvp ? GAME.infected.DURATION : GAME.player.RESPAWN_SECONDS, eliminated: false, livesLeft });
       if (pvp) {
         // caça quem o matou; se foi um infectado, caça o alvo dele (ou qualquer um vivo)
         const focus = by !== undefined ? by : infectedBy!.focusId;
@@ -891,7 +997,7 @@ export class Match {
 
     if (this.gameOver) return;
     if (this.waves.active || this.zombies.zombies.size > 0) {
-      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead || p.boarded, radius: GAME.player.RADIUS, kind: 'player' as const }));
+      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead || p.boarded, radius: GAME.player.RADIUS, kind: 'player' as const, lure: p.carrying }));
       targets.push({ id: 'tower', position: this.towerPos, dead: this.towerHp <= 0, radius: GAME.hub.TOWER_RADIUS, kind: 'tower' });
       for (const s of this.structures.values()) targets.push({ id: `wall:${s.id}`, position: s, dead: false, radius: GAME.walls.WIDTH / 2, kind: 'wall' });
       this.zombies.tick(dt, targets);
@@ -928,7 +1034,7 @@ export class Match {
         p.infectedZombieId = null;
         p.respawnAt = now;
       }
-      if (p.dead && now >= p.respawnAt) {
+      if (p.dead && !p.eliminated && now >= p.respawnAt) {
         p.dead = false;
         p.snapshot.hp = GAME.player.MAX_HP;
         p.snapshot.x = 0;

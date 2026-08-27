@@ -1,4 +1,4 @@
-export type TileType = 'grass' | 'dirt';
+export type TileType = 'grass' | 'dirt' | 'sand' | 'darkgrass';
 
 export interface TileDef {
   type: TileType;
@@ -8,6 +8,9 @@ export interface TileDef {
 export const TILES: Record<TileType, TileDef> = {
   grass: { type: 'grass', color: '#5c9a45' },
   dirt: { type: 'dirt', color: '#8a6a45' },
+  /** biomas além do rio (só cenário): deserto seco e floresta escura */
+  sand: { type: 'sand', color: '#cdb877' },
+  darkgrass: { type: 'darkgrass', color: '#3f6d33' },
 };
 
 /** Define o tipo de tile de um chunk por ruído simples (variação visual entre chunks). */

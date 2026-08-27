@@ -560,3 +560,148 @@ test('(dev) pilha cheia, itens infinitos e upgrades de graça', () => {
   assert.equal(m.towerLevel, 1);
   assert.equal((last('tower_hp')!.msg as { level: number }).level, 1);
 });
+
+test('vidas: 3ª morte elimina; sozinho na sala = derrota (all_dead) e a partida reinicia', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A'));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  for (let i = 1; i <= 2; i++) {
+    m.damagePlayer(a, 1000);
+    const died = [...sent].reverse().find((s) => s.msg.type === 'player_died')!.msg as { eliminated: boolean; livesLeft: number; respawnIn: number };
+    assert.equal(died.eliminated, false);
+    assert.equal(died.livesLeft, GAME.lives.MAX_DEATHS - i);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+    assert.equal(a.dead, false, `deveria ter renascido após a morte ${i}`);
+  }
+  m.damagePlayer(a, 1000);
+  const died = [...sent].reverse().find((s) => s.msg.type === 'player_died')!.msg as { eliminated: boolean; livesLeft: number; respawnIn: number };
+  assert.equal(died.eliminated, true);
+  assert.equal(died.livesLeft, 0);
+  assert.equal(a.eliminated, true);
+  const over = sent.find((s) => s.msg.type === 'game_over')!.msg as { reason: string };
+  assert.equal(over.reason, 'all_dead');
+  assert.equal(m.gameOver, true);
+});
+
+test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição revive o eliminado e encarece', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A'));
+  const b = m.addPlayer(snap('B', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  b.shieldUntil = Infinity; // zumbis ambientais aparecem com o tempo: B não pode morrer aqui
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.eliminated, true);
+  assert.ok(!sent.some((s) => s.msg.type === 'game_over'), 'B ainda está vivo: sem derrota');
+  run(20000);
+  assert.equal(a.dead, true, 'eliminado não renasce sozinho');
+  // B compra a medalha (precisa de dinheiro e estar no vendedor)
+  assert.throws(() => m.buyRevive('B', 'A'), (e: MatchError) => e.code === 'not_enough_money');
+  m.money = 1000;
+  assert.throws(() => m.buyRevive('B', 'B'), (e: MatchError) => e.code === 'not_eliminated');
+  const price = m.revivePrice();
+  assert.equal(price, GAME.lives.REVIVE_BASE_PRICE);
+  m.buyRevive('B', 'A');
+  assert.equal(m.money, 1000 - price);
+  assert.equal(a.eliminated, false);
+  assert.ok(sent.some((s) => s.msg.type === 'player_revived'));
+  run(200);
+  assert.equal(a.dead, false, 'revivido volta na hora');
+  assert.equal(a.matchDeaths, 0);
+  assert.equal(m.revivePrice(), Math.round(GAME.lives.REVIVE_BASE_PRICE * GAME.lives.REVIVE_GROWTH));
+  const rp = [...sent].reverse().find((s) => s.msg.type === 'revive_price')!.msg as { price: number };
+  assert.equal(rp.price, m.revivePrice());
+  // B eliminado com A eliminado também -> derrota
+  for (let guard = 0; !a.eliminated && guard < 20; guard++) {
+    if (!a.dead) m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.eliminated, true);
+  b.shieldUntil = 0;
+  // zumbis ambientais podem matar B no meio: só conta o golpe quando ele está de pé
+  for (let guard = 0; !b.eliminated && guard < 20; guard++) {
+    if (!b.dead) m.damagePlayer(b, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(b.eliminated, true);
+  assert.ok(sent.some((s) => s.msg.type === 'game_over' && (s.msg as { reason: string }).reason === 'all_dead'));
+});
+
+test('bateria: vai para a mão (slot travado), avisa a sala e vira isca de todos os zumbis; largar (Q) libera', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A', 30, 30));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  a.hotbar[0] = { itemId: 'stick', count: 1 };
+  m.selectSlot('A', 0);
+  m.dev('A', { action: 'give', itemId: 'battery' });
+  assert.equal(a.hotbar[1]?.itemId, 'battery');
+  assert.equal(a.equipped, 1, 'a bateria vai para a mão');
+  assert.equal(a.carrying, true);
+  const carrier = [...sent].reverse().find((s) => s.msg.type === 'battery_carrier')!.msg as { playerId: string; carrying: boolean };
+  assert.deepEqual(carrier, { type: 'battery_carrier', playerId: 'A', carrying: true });
+  assert.throws(() => m.selectSlot('A', 0), (e: MatchError) => e.code === 'carrying_battery');
+  // zumbi ambiental longe (fora do DETECT_RADIUS) vai atrás de quem carrega a bateria
+  const z = m.zombies.spawn('zombie', -30, -30, 1, 1, false);
+  run(1000);
+  assert.equal(z.state, 'chase');
+  assert.equal(z.targetId, 'A');
+  // largou: volta ao normal
+  m.dropItem('A');
+  assert.equal(a.carrying, false);
+  assert.ok(sent.some((s) => s.msg.type === 'battery_carrier' && (s.msg as { carrying: boolean }).carrying === false));
+  m.selectSlot('A', 0);
+  assert.equal(a.equipped, 0);
+});
+
+test('precisão por postura: parado dispersa menos, andando mais; correndo só atira com o Recoil máximo', () => {
+  let now = 0;
+  const sent: ServerMessage[] = [];
+  const m = new Match(1337, 0, { send: (_to, msg) => sent.push(msg), broadcast: (msg) => sent.push(msg), onMoneyChanged: () => undefined, onWaveChanged: () => undefined, onPhaseComplete: () => undefined, onGameOver: () => undefined }, () => now, () => 1); // rand=1: desvio máximo (+spread)
+  const a = m.addPlayer({ id: 'A', name: 'A', character: 'matt', trophies: 0, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x: 0, z: 0, yaw: 0, anim: 'Idle', crouching: false });
+  a.hotbar[0] = { itemId: 'glock', count: 1 };
+  a.mag = 10;
+  const shotAngle = () => {
+    const s = [...sent].reverse().find((x) => x.type === 'shot') as { dx: number; dz: number };
+    return (Math.atan2(s.dx, s.dz) * 180) / Math.PI;
+  };
+  const base = GAME.upgrades.recoil.BASE_SPREAD;
+  // parado (sem pose recente)
+  now = 1000;
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - base * GAME.accuracy.IDLE_MULT) < 0.01, 'parado: spread × IDLE_MULT');
+  // andando: poses a 4 m/s
+  const walk = (speed: number) => {
+    for (let i = 0; i < 6; i++) {
+      now += 50;
+      const nx = a.snapshot.x + speed * 0.05;
+      m.notePose('A', nx, 0);
+      a.snapshot.x = nx;
+    }
+  };
+  now += 1000;
+  walk(4);
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - base * GAME.accuracy.WALK_MULT) < 0.01, 'andando: spread × WALK_MULT');
+  // correndo (7.5 m/s): sem Recoil máximo o tiro não sai
+  now += 1000;
+  walk(7.5);
+  const magBefore = a.mag;
+  const shotsBefore = sent.filter((x) => x.type === 'shot').length;
+  m.fire('A', 0, 1);
+  assert.equal(a.mag, magBefore, 'correndo sem Recoil máximo: não gasta bala');
+  assert.equal(sent.filter((x) => x.type === 'shot').length, shotsBefore);
+  // Recoil máximo libera atirar correndo (spread base 2° × RUN_MULT)
+  a.upgrades.recoil = GAME.upgrades.recoil.MAX_LEVEL;
+  now += 1000;
+  walk(7.5);
+  m.fire('A', 0, 1);
+  assert.equal(a.mag, magBefore - 1);
+  const maxed = base - GAME.upgrades.recoil.STEP * GAME.upgrades.recoil.MAX_LEVEL;
+  assert.ok(Math.abs(shotAngle() - maxed * GAME.accuracy.RUN_MULT) < 0.01, 'correndo com Recoil máximo: spread × RUN_MULT');
+  // parou (sem poses por IDLE_AFTER_MS): volta a ser "parado"
+  now += GAME.accuracy.IDLE_AFTER_MS + 1000;
+  m.fire('A', 0, 1);
+  assert.ok(Math.abs(shotAngle() - maxed * GAME.accuracy.IDLE_MULT) < 0.01);
+});

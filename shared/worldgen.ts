@@ -117,7 +117,9 @@ export function generateChunk(seed: number, cx: number, cz: number): WorldObject
   const out: WorldObjectSpec[] = [];
 
   const spawn = (i: number, kind: WorldObjectKind) => {
-    const id = hashChunk(seed, cx * 1000 + i, cz * 1000 + i);
+    // id único e determinístico por (chunk, índice): o hash de antes colidia entre chunks espelhados
+    // ((-2,-2) e (2,2) geravam o mesmo id) e alguns objetos ficavam impossíveis de pegar
+    const id = ((cx + 8) * 16 + (cz + 8)) * 256 + i;
     const x = originX + 1.5 + rand() * (size - 3);
     const z = originZ + 1.5 + rand() * (size - 3);
     const rotY = rand() * 360;

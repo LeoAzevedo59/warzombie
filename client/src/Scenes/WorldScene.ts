@@ -33,6 +33,7 @@ import { EconomyHUD } from '@/UI/EconomyHUD';
 import { MapUI } from '@/UI/MapUI';
 import { ToastUI } from '@/UI/ToastUI';
 import { PlayersHUD } from '@/UI/PlayersHUD';
+import { GameOverUI } from '@/UI/GameOverUI';
 
 /** Aviso de queda de conexão exibido por cima do menu (some sozinho). */
 function alertDisconnect(reason: string): void {
@@ -65,6 +66,7 @@ export class WorldScene extends BaseScene {
     dev: DevPanel | null;
     summary: SummaryUI;
     credits: CreditsUI;
+    gameOver: GameOverUI;
   } | null = null;
   private helicopter: Helicopter | null = null;
   private creditsTimer: number | null = null;
@@ -111,7 +113,7 @@ export class WorldScene extends BaseScene {
 
     this.loop
       .register(this.input)
-      .register(new MovementSystem(this.input, controller, this.player, state))
+      .register(new MovementSystem(this.input, controller, this.player, state, bus))
       .register(new CollisionSystem(this.player, this.world))
       .register(equipment)
       .register(new InteractionSystem(bus, this.player, this.world, equipment, net))
@@ -125,7 +127,7 @@ export class WorldScene extends BaseScene {
       .start();
 
     // --- UI ---
-    const shop = new ShopUI(uiRoot, bus, state, net);
+    const shop = new ShopUI(uiRoot, bus, state, net, (id) => network.nameOf(id));
     const tower = new TowerUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
@@ -151,6 +153,7 @@ export class WorldScene extends BaseScene {
       dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
       summary: new SummaryUI(uiRoot, bus, state.playerId),
       credits: new CreditsUI(uiRoot, bus, (id) => network.nameOf(id)),
+      gameOver: new GameOverUI(uiRoot, bus),
     };
     // entrou com o resgate já em andamento
     if (state.evac) this.spawnHelicopter(state.evac.x, state.evac.z, GAME.evac.LAND_TIME, state.evac.landed);
@@ -178,6 +181,15 @@ export class WorldScene extends BaseScene {
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);
+      }),
+      bus.on('player:eliminated', () => {
+        updateInputEnabled();
+        this.player.velocity.set(0, 0, 0);
+      }),
+      bus.on('net:gameOver', () => {
+        // derrota: trava o input e fecha painéis; o game_start do reinício recria a cena
+        this.input.enabled = false;
+        bus.emit('input:closePanel');
       }),
       bus.on('evac:helicopter', ({ x, z, landsIn }) => this.spawnHelicopter(x, z, landsIn, false)),
       bus.on('evac:boarded', ({ playerId }) => {

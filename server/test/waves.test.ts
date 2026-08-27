@@ -271,13 +271,29 @@ test('caçador prefere a torre quando está mais perto e a danifica ×3', () => 
   const { sim, hits } = setup(1);
   const z = sim.spawn('zombie', 0, 0, 1, 1, true);
   const tower = { id: 'tower', position: { x: 3, z: 0 }, dead: false, radius: 0.9, kind: 'tower' as const };
-  const player = { id: 'p', position: { x: 8, z: 0 }, dead: false, radius: 0.35, kind: 'player' as const };
+  const player = { id: 'p', position: { x: 20, z: 0 }, dead: false, radius: 0.35, kind: 'player' as const };
   for (let i = 0; i < 40; i++) sim.tick(0.05, [player, tower]);
   assert.equal(z.targetId, 'tower');
   for (let i = 0; i < 60; i++) sim.tick(0.05, [player, tower]);
   const hit = hits.find((h) => h.id === 'tower');
   assert.ok(hit, 'deveria ter batido na torre');
   assert.equal(hit!.amount, GAME.zombie.DAMAGE * GAME.zombie.STRUCTURE_DAMAGE_MULT);
+});
+
+test('jogador a até GUARD_RADIUS da torre é atacado antes dela (mesmo estando mais longe do zumbi)', () => {
+  const { sim, hits } = setup(1);
+  const z = sim.spawn('zombie', 0, 0, 1, 1, true);
+  const tower = { id: 'tower', position: { x: 3, z: 0 }, dead: false, radius: 0.9, kind: 'tower' as const };
+  const guard = { id: 'p', position: { x: 3 + GAME.zombie.GUARD_RADIUS - 1, z: 0 }, dead: false, radius: 0.35, kind: 'player' as const };
+  for (let i = 0; i < 40; i++) sim.tick(0.05, [guard, tower]);
+  assert.equal(z.targetId, 'p');
+  for (let i = 0; i < 80; i++) sim.tick(0.05, [guard, tower]);
+  assert.ok(hits.some((h) => h.id === 'p'), 'deveria ter batido no defensor');
+  assert.ok(!hits.some((h) => h.id === 'tower'), 'não deveria ter tocado na torre');
+  // defensor saiu do raio: volta para a torre
+  guard.position.x = 40;
+  for (let i = 0; i < 40; i++) sim.tick(0.05, [guard, tower]);
+  assert.equal(z.targetId, 'tower');
 });
 
 test('infectado: mais forte que zumbi comum, caça o assassino mesmo com outro jogador mais perto, e some após DURATION', () => {

@@ -1,5 +1,6 @@
 import type { EventBus } from '@/Core/EventBus';
 import type { ItemId } from '@/Items/Item';
+import { GAME } from '@shared/gameconfig';
 import type { WeaponUpgrades } from '@shared/protocol';
 
 /** Contador de zumbis/abates, munição, flash de dano e tela de morte com contagem de respawn. */
@@ -74,7 +75,9 @@ export class CombatHUD {
         this.render();
         window.setTimeout(() => this.render(), seconds * 1000 + 50);
       }),
-      bus.on('player:died', ({ killerName, respawnIn }) => this.showDeath(killerName, respawnIn)),
+      bus.on('player:died', ({ killerName, respawnIn, livesLeft }) => this.showDeath(killerName, respawnIn, livesLeft)),
+      bus.on('player:eliminated', ({ killerName }) => this.showEliminated(killerName)),
+      bus.on('net:gameOver', () => this.hideDeath()),
       bus.on('player:infected', ({ targetName, seconds }) => this.showInfected(targetName, seconds)),
       bus.on('player:respawned', () => this.hideDeath()),
     );
@@ -88,11 +91,24 @@ export class CombatHUD {
     this.flashTimer = window.setTimeout(() => this.flash.classList.remove('visible'), 90);
   }
 
-  private showDeath(killerName: string | null, respawnIn: number): void {
-    this.death.classList.remove('infected');
+  private showDeath(killerName: string | null, respawnIn: number, livesLeft: number): void {
+    this.death.classList.remove('infected', 'eliminated');
     this.death.querySelector('h1')!.textContent = 'VOCÊ MORREU';
-    this.death.querySelector('.cause')!.textContent = killerName ? `${killerName} te matou.` : 'Os zumbis te pegaram.';
+    const hearts = '♥'.repeat(livesLeft) + '♡'.repeat(Math.max(0, GAME.lives.MAX_DEATHS - livesLeft));
+    this.death.querySelector('.cause')!.textContent = `${killerName ? `${killerName} te matou.` : 'Os zumbis te pegaram.'} Vidas: ${hearts} (${livesLeft} restante${livesLeft === 1 ? '' : 's'})`;
     this.startCountdown(respawnIn, (left) => `Renascendo em ${left}s...`);
+    this.death.classList.add('visible');
+  }
+
+  /** Sem vidas: fica no chão; só um aliado com a Medalha de Ressurreição traz de volta. */
+  private showEliminated(killerName: string | null): void {
+    this.death.classList.remove('infected');
+    this.death.classList.add('eliminated');
+    this.death.querySelector('h1')!.textContent = 'VOCÊ FOI ELIMINADO';
+    this.death.querySelector('.cause')!.textContent = `${killerName ? `${killerName} te matou` : 'Os zumbis te pegaram'} pela ${GAME.lives.MAX_DEATHS}ª vez: suas vidas acabaram.`;
+    if (this.countdown) clearInterval(this.countdown);
+    this.countdown = null;
+    this.death.querySelector<HTMLElement>('.timer')!.textContent = 'Um aliado pode comprar uma Medalha de Ressurreição no vendedor para te reviver.';
     this.death.classList.add('visible');
   }
 
@@ -122,7 +138,7 @@ export class CombatHUD {
   private hideDeath(): void {
     if (this.countdown) clearInterval(this.countdown);
     this.countdown = null;
-    this.death.classList.remove('visible', 'infected');
+    this.death.classList.remove('visible', 'infected', 'eliminated');
   }
 
   private render(): void {

@@ -298,6 +298,41 @@ export function showCharacterWeapon(model: pc.Entity, weapon: CharacterWeaponNod
   }
 }
 
+/** Nó da mão onde o kit pendura as armas (pai de Pistol/Knife/Axe). */
+const HAND_NODE = 'Middle1.L';
+const BATTERY_NODE = 'wz_battery';
+
+/** Bateria da antena na mão (caixa amarela com bornes escuros), no mesmo osso das armas. */
+export function showCharacterBattery(model: pc.Entity, on: boolean): void {
+  let bat = model.findByName(BATTERY_NODE) as pc.Entity | null;
+  if (!bat) {
+    if (!on) return;
+    const hand = (model.findByName(HAND_NODE) as pc.Entity | null) ?? model;
+    bat = new pc.Entity(BATTERY_NODE);
+    bat.setLocalPosition(0.05, 0.06, -0.05);
+    bat.setLocalEulerAngles(90, 0, 0);
+    const body = new pc.Entity('body');
+    body.addComponent('render', { type: 'box' });
+    body.setLocalScale(0.5, 0.32, 0.28);
+    const m = new pc.StandardMaterial();
+    m.diffuse.set(1, 0.83, 0.3);
+    m.update();
+    body.render!.material = m;
+    bat.addChild(body);
+    const top = new pc.Entity('top');
+    top.addComponent('render', { type: 'box' });
+    top.setLocalScale(0.42, 0.06, 0.2);
+    top.setLocalPosition(0, 0.19, 0);
+    const md = new pc.StandardMaterial();
+    md.diffuse.set(0.12, 0.13, 0.15);
+    md.update();
+    top.render!.material = md;
+    bat.addChild(top);
+    hand.addChild(bat);
+  }
+  bat.enabled = on;
+}
+
 /** Personagem remoto: escolhe um dos modelos humanos de forma estável a partir do id. */
 export function characterForId(id: string): ModelKey {
   const pool: ModelKey[] = ['char_matt', 'char_sam', 'char_lis', 'char_shaun'];

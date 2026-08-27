@@ -33,10 +33,16 @@ export const GAME = {
    * pousar, ele decola (quem não embarcou fica para trás) e sobem os créditos.
    */
   evac: { OFFSET: 6.5, LAND_TIME: 6, BOARD_RADIUS: 2.2, TIMEOUT: 90, CLEARANCE: 3 },
+  /**
+   * Vidas: na MAX_DEATHS-ésima morte o jogador é eliminado (não renasce). Todos eliminados = derrota
+   * (a partida recomeça). Com mais gente na sala, um aliado vivo compra no vendedor a Medalha de
+   * Ressurreição e escolhe quem reviver (um por compra; preço BASE × GROWTH^compras).
+   */
+  lives: { MAX_DEATHS: 3, REVIVE_BASE_PRICE: 120, REVIVE_GROWTH: 1.5 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
-  /** recursos renascem depois de coletados (s) */
-  respawn: { SMALL: 60, NODE: 180 },
+  /** recursos renascem depois de coletados (s): gravetos/pedras 3 min, árvores/rochas 7 min */
+  respawn: { SMALL: 180, NODE: 420 },
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
   walls: { PLACE_DIST: 6, WIDTH: 2, THICK: 0.4, ROTATE_STEP_DEG: 15 },
   /** recursos da sala (comprados uma vez, valem para todos): preço */
@@ -63,6 +69,13 @@ export const GAME = {
     weight: { MAX_LEVEL: 5, STEP: 10, BASE: 35 },
     /** visão: amplia a câmera por nível */
   },
+  /**
+   * Precisão por postura: a dispersão do tiro é multiplicada por IDLE/WALK/RUN_MULT (parado atira
+   * melhor; andando pior). Correr e atirar só com o Recoil no último nível. O server classifica a
+   * postura pela velocidade vinda das poses (m/s): acima de RUN_MIN_SPEED = correndo, acima de
+   * WALK_MIN_SPEED = andando; sem pose nova há IDLE_AFTER_MS = parado.
+   */
+  accuracy: { IDLE_MULT: 0.75, WALK_MULT: 1.4, RUN_MULT: 2.0, WALK_MIN_SPEED: 0.8, RUN_MIN_SPEED: 5.0, IDLE_AFTER_MS: 250 },
   zombie: {
     MAX_HP: 60,
     DAMAGE: 16,
@@ -78,6 +91,8 @@ export const GAME = {
     STRUCTURE_DAMAGE_MULT: 3,
     /** preferência pela torre: distância até a torre é multiplicada por isso ao escolher alvo */
     TOWER_BIAS: 0.7,
+    /** jogador vivo a até isso da torre é defendido: a horda ataca ele antes da torre */
+    GUARD_RADIUS: 10,
     /** chute: mais dano (x2.75), knockback, cooldown longo */
     SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 2.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
     /** fração da horda que nasce como cuspidor (ataque à distância que dá lentidão) */

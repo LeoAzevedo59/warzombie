@@ -1,5 +1,5 @@
 import * as pc from 'playcanvas';
-import { HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterAnimName, type CharacterWeaponNode } from '@/Assets/ModelAssets';
+import { HUMAN_STATES, instantiateModel, showCharacterBattery, showCharacterWeapon, type CharacterAnimName, type CharacterWeaponNode } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { CharacterFx } from '@/Entities/CharacterFx';
 import { yawToward, facingDir } from '@/Core/Spatial';
@@ -82,6 +82,7 @@ export class Player {
   setEquipped(item: ItemId | null): void {
     this.equipped = item;
     showCharacterWeapon(this.model, weaponNodeFor(item));
+    showCharacterBattery(this.model, item === 'battery');
   }
 
   private get gunMode(): boolean {

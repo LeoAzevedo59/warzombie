@@ -10,6 +10,8 @@ const SIZE = 256;
 const PALETTES: Record<TileType, { base: string; blobs: string[]; specks: string[] }> = {
   grass: { base: '#5c9a45', blobs: ['#66a64c', '#548e3f', '#71b055', '#4f8a3c'], specks: ['#83c264', '#3f7532', '#a9d27a'] },
   dirt: { base: '#8a6a45', blobs: ['#93724b', '#7d5f3d', '#9c7a52', '#75593a'], specks: ['#b08f65', '#5f4730', '#6f8a3e'] },
+  sand: { base: '#cdb877', blobs: ['#d6c384', '#c2ac6b', '#dccb92', '#b9a262'], specks: ['#e6d7a4', '#a08a4e', '#9fa36a'] },
+  darkgrass: { base: '#3f6d33', blobs: ['#46772f', '#38612b', '#4d7f39', '#335a27'], specks: ['#5c9448', '#2a4a20', '#6aa050'] },
 };
 
 const cache = new Map<TileType, pc.StandardMaterial>();
@@ -30,7 +32,7 @@ function drawTile(type: TileType): HTMLCanvasElement {
   c.width = c.height = SIZE;
   const ctx = c.getContext('2d')!;
   const p = PALETTES[type];
-  const rand = rng(type === 'grass' ? 91 : 173);
+  const rand = rng({ grass: 91, dirt: 173, sand: 311, darkgrass: 457 }[type]);
   ctx.fillStyle = p.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
   // manchas grandes (desenhadas com wrap para a textura repetir sem emenda)

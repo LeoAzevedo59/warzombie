@@ -72,13 +72,36 @@ export function weightSpeedMult(carried: number, capacity: number): number {
   return 1 - GAME.weight.SLOW_AT_FULL * ratio;
 }
 
-/** Dispersão máxima (graus) do tiro em torno da mira. */
+/** Postura do atirador: parado atira melhor, andando pior, correndo só com o Recoil máximo. */
+export type Stance = 'idle' | 'walk' | 'run';
+
+/** Dispersão base (graus) do tiro em torno da mira, sem contar a postura. */
 export function spreadDegrees(u: WeaponUpgrades): number {
   const c = GAME.upgrades.recoil;
   return Math.max(0, c.BASE_SPREAD - c.STEP * u.recoil);
 }
 
-/** Precisão exibida (0-100): 100% quando a dispersão é zero. */
-export function accuracyPercent(u: WeaponUpgrades): number {
-  return Math.round(100 - spreadDegrees(u) * 4);
+export function stanceSpreadMult(stance: Stance): number {
+  const a = GAME.accuracy;
+  return stance === 'run' ? a.RUN_MULT : stance === 'walk' ? a.WALK_MULT : a.IDLE_MULT;
+}
+
+/** Dispersão efetiva (graus) do tiro na postura dada. */
+export function spreadDegreesFor(u: WeaponUpgrades, stance: Stance): number {
+  return spreadDegrees(u) * stanceSpreadMult(stance);
+}
+
+/** Atirar correndo exige o último nível do Recoil. */
+export function canFireRunning(u: WeaponUpgrades): boolean {
+  return isMaxed('recoil', u.recoil);
+}
+
+/** Precisão exibida (0-100) na postura dada: 100% quando a dispersão é zero. */
+export function accuracyPercent(u: WeaponUpgrades, stance: Stance = 'idle'): number {
+  return Math.max(0, Math.round(100 - spreadDegreesFor(u, stance) * 4));
+}
+
+/** Preço da próxima Medalha de Ressurreição na sala (sobe a cada compra). */
+export function revivePrice(purchases: number): number {
+  return Math.round(GAME.lives.REVIVE_BASE_PRICE * Math.pow(GAME.lives.REVIVE_GROWTH, purchases));
 }

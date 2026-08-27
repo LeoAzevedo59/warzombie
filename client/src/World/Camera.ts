@@ -16,7 +16,8 @@ export class IsoCamera {
       orthoHeight: c.ORTHO_HEIGHT,
       nearClip: 0.1,
       farClip: 200,
-      clearColor: new pc.Color(0.06, 0.08, 0.1),
+      // céu azul (o fundo além do mapa)
+      clearColor: new pc.Color(0.53, 0.76, 0.95),
     });
     this.entity.setEulerAngles(-c.PITCH, c.YAW, 0);
 

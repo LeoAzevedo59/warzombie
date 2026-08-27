@@ -60,6 +60,8 @@ export interface Target {
   /** raio do alvo (jogador = GAME.player.RADIUS; estruturas maiores) */
   radius?: number;
   kind?: 'player' | 'tower' | 'wall';
+  /** isca: carrega a bateria — todo zumbi do mapa vai atrás dele, de qualquer distância */
+  lure?: boolean;
 }
 
 export interface Obstacle {
@@ -333,6 +335,7 @@ export class ZombieSim {
 
   /**
    * Alvo mais próximo. Caçadores consideram a torre (com preferência); paredes só quando travados.
+   * Jogador vivo a até GUARD_RADIUS da torre "defende" a antena: a horda vai nele antes da torre.
    * Infectado: só jogadores, e quem o matou (focusId) tem prioridade absoluta enquanto estiver vivo.
    */
   private nearest(z: Zombie, living: Target[]): { t: Target; d: number } | null {
@@ -340,15 +343,30 @@ export class ZombieSim {
     let bd = Infinity;
     let bs = Infinity;
     const infected = z.kind === 'infected';
+    // quem carrega a bateria é o alvo de todos (menos do infectado, que tem o próprio alvo)
+    if (!infected) {
+      let lure: { t: Target; d: number } | null = null;
+      for (const t of living) {
+        if (!t.lure) continue;
+        const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
+        if (!lure || d < lure.d) lure = { t, d };
+      }
+      if (lure) return lure;
+    }
+    const tower = z.hunter ? living.find((t) => t.kind === 'tower') : undefined;
+    const isPlayer = (t: Target) => !t.kind || t.kind === 'player';
+    const guarding = (t: Target) => !!tower && isPlayer(t) && dist(t.position, tower.position) <= GAME.zombie.GUARD_RADIUS;
+    const guarded = !!tower && living.some(guarding);
     for (const t of living) {
       if (t.kind === 'wall') continue;
-      if (t.kind === 'tower' && !z.hunter) continue;
+      if (t.kind === 'tower' && (!z.hunter || guarded)) continue;
       if (infected) {
         if ((t.kind && t.kind !== 'player') || t.id === z.ownerId) continue;
         if (t.id === z.focusId) return { t, d: Math.max(0, dist(z, t.position) - (t.radius ?? 0)) };
       }
       const d = Math.max(0, dist(z, t.position) - (t.radius ?? 0));
-      const score = t.kind === 'tower' ? d * GAME.zombie.TOWER_BIAS : d;
+      // a torre (ou quem a defende) ganha a preferência da horda
+      const score = t.kind === 'tower' || (guarded && guarding(t)) ? d * GAME.zombie.TOWER_BIAS : d;
       if (score < bs) {
         bs = score;
         bd = d;
@@ -376,8 +394,8 @@ export class ZombieSim {
     const cfg = GAME.zombie;
     const near = this.nearest(z, living);
     const boss = z.kind === 'boss';
-    // caçadores (waves) e infectados sabem onde estão os jogadores a qualquer distância
-    const relentless = z.hunter || z.kind === 'infected';
+    // caçadores (waves), infectados e quem fareja a bateria sabem onde está o alvo a qualquer distância
+    const relentless = z.hunter || z.kind === 'infected' || !!near?.t.lure;
 
     switch (z.state) {
       case 'wander':

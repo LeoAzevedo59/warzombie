@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -277,6 +277,11 @@ export interface UseItemMessage {
 }
 
 /** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
+/** Compra a Medalha de Ressurreição e revive `targetId` (aliado eliminado) na hora. */
+export interface BuyReviveMessage {
+  type: 'buy_revive';
+  targetId: string;
+}
 export interface ActivateBatteryMessage {
   type: 'activate_battery';
 }
@@ -298,6 +303,7 @@ export type ClientMessage =
   | MeleeMessage
   | ActivateBatteryMessage
   | UseItemMessage
+  | BuyReviveMessage
   | UpgradeMessage
   | PlaceWallMessage
   | BuyFeatureMessage
@@ -365,6 +371,14 @@ export interface GameStartMessage {
   features: RoomFeatures;
   /** resgate em andamento (entrou depois do 5º chefão) */
   evac: EvacState | null;
+  /** mortes do destinatário nesta partida (vidas = GAME.lives.MAX_DEATHS - mortes) */
+  deaths: number;
+  /** jogadores eliminados (sem vidas) esperando uma Medalha de Ressurreição */
+  eliminated: string[];
+  /** preço atual da Medalha de Ressurreição na sala */
+  revivePrice: number;
+  /** quem está carregando uma bateria (fica na mão; zumbis do mapa inteiro vão atrás) */
+  carriers: string[];
 }
 
 /** Helicóptero de resgate: posição, se já pousou e quem já embarcou. */
@@ -461,8 +475,28 @@ export interface PlayerDiedMessage {
   type: 'player_died';
   playerId: string;
   killerId?: string;
-  /** segundos até renascer */
+  /** segundos até renascer (0 se eliminado) */
   respawnIn: number;
+  /** ficou sem vidas: não renasce até um aliado comprar a Medalha de Ressurreição */
+  eliminated: boolean;
+  /** vidas que restam a quem morreu */
+  livesLeft: number;
+}
+/** Alguém comprou a Medalha de Ressurreição: `playerId` volta ao jogo agora. */
+export interface PlayerRevivedMessage {
+  type: 'player_revived';
+  playerId: string;
+  byId: string;
+}
+export interface RevivePriceMessage {
+  type: 'revive_price';
+  price: number;
+}
+/** Jogador pegou (true) ou largou/usou (false) a bateria: ela fica na mão e atrai todos os zumbis. */
+export interface BatteryCarrierMessage {
+  type: 'battery_carrier';
+  playerId: string;
+  carrying: boolean;
 }
 export interface PlayerRespawnedMessage {
   type: 'player_respawned';
@@ -669,10 +703,10 @@ export interface TowerHpMessage {
   /** nível de reforço da torre (define o próximo preço) */
   level: number;
 }
-/** Torre destruída: a partida recomeça do zero em `restartIn` s. */
+/** Derrota (torre destruída ou todos eliminados): a partida recomeça do zero em `restartIn` s. */
 export interface GameOverMessage {
   type: 'game_over';
-  reason: 'tower_destroyed';
+  reason: 'tower_destroyed' | 'all_dead';
   restartIn: number;
 }
 export interface StructureAddedMessage {
@@ -743,6 +777,8 @@ export interface ErrorMessage {
     | 'blocked'
     | 'no_wall'
     | 'phase_complete'
+    | 'not_eliminated'
+    | 'carrying_battery'
     | 'dev_disabled';
   message: string;
 }
@@ -772,6 +808,9 @@ export type ServerMessage =
   | HpMessage
   | PlayerDiedMessage
   | PlayerRespawnedMessage
+  | PlayerRevivedMessage
+  | RevivePriceMessage
+  | BatteryCarrierMessage
   | WaveStateMessage
   | WaveStartedMessage
   | BossSpawnedMessage

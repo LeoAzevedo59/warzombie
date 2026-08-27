@@ -37,6 +37,10 @@ export class EquipmentSystem implements System {
 
   select(index: number): void {
     if (index < 0 || index >= CONFIG.inventory.HOTBAR_SLOTS || index === this.state.equippedSlot) return;
+    if (this.state.carryingBattery) {
+      this.bus.emit('ui:toast', { text: 'Largue a bateria (Q) antes de pegar outro item.' });
+      return;
+    }
     // previsão local + confirmação do servidor
     this.state.equippedSlot = index;
     this.emitChanged();

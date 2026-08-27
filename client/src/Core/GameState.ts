@@ -55,6 +55,23 @@ export class GameState {
   batteryPrice: number = ITEMS.battery.buy ?? 150;
   /** virou zumbi (fogo amigo): id do zumbi que a câmera segue; null = controla o personagem */
   spectateZombieId: number | null = null;
+  /** mortes nesta partida (vidas restantes = GAME.lives.MAX_DEATHS - deaths) */
+  deaths = 0;
+  /** jogadores sem vidas esperando uma Medalha de Ressurreição */
+  eliminated = new Set<string>();
+  /** preço atual da Medalha de Ressurreição na sala */
+  revivePrice: number = GAME.lives.REVIVE_BASE_PRICE;
+  /** quem está com a bateria na mão (isca dos zumbis) */
+  carriers = new Set<string>();
+
+  /** Eu estou com a bateria? (nenhum outro item pode ir para a mão: Q larga) */
+  get carryingBattery(): boolean {
+    return this.inventory.some((s) => s?.itemId === 'battery');
+  }
+
+  get livesLeft(): number {
+    return Math.max(0, GAME.lives.MAX_DEATHS - this.deaths);
+  }
 
   get carriedWeight(): number {
     return totalWeight(this.inventory);

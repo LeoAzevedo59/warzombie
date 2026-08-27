@@ -6,6 +6,7 @@ import { HubStructure } from './Hub';
 import { Wall } from './Wall';
 import { Drop } from './Drop';
 import { WorldObject } from './WorldObject';
+import { buildOutskirts } from './Outskirts';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import { generateChunk } from '@shared/worldgen';
 import type { DroppedItem, StructureSnapshot } from '@shared/protocol';
@@ -39,6 +40,8 @@ export class World {
     this.root.addChild(this.vendor.entity);
     this.root.addChild(this.tower.entity);
     this.buildHubDecor();
+    // rio contornando o mapa e biomas do outro lado (cenário)
+    this.root.addChild(buildOutskirts(app, seed));
   }
 
   /** Cenário fixo ao redor do hub (Zombie Apocalypse Kit): picape abandonada, barris, cones, sangue. */

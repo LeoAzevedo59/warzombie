@@ -189,7 +189,28 @@ export class NetworkSystem implements System {
         this.bus.emit('net:towerHp', { hp: msg.hp, maxHp: msg.maxHp });
         break;
       case 'game_over':
-        this.bus.emit('net:gameOver', { restartIn: msg.restartIn });
+        this.bus.emit('net:gameOver', { restartIn: msg.restartIn, reason: msg.reason });
+        break;
+      case 'battery_carrier':
+        if (msg.carrying) this.state.carriers.add(msg.playerId);
+        else this.state.carriers.delete(msg.playerId);
+        if (msg.playerId === this.state.playerId) {
+          if (msg.carrying) this.bus.emit('ui:toast', { text: 'Bateria na mão: TODOS os zumbis do mapa sentem você. Corra para a antena! (Q larga)' });
+        } else {
+          this.remotes.get(msg.playerId)?.setCarrying(msg.carrying);
+          if (msg.carrying) this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} pegou a bateria — os zumbis vão atrás dele` });
+        }
+        this.bus.emit('net:batteryCarrier', { playerId: msg.playerId, carrying: msg.carrying });
+        break;
+      case 'revive_price':
+        this.state.revivePrice = msg.price;
+        this.bus.emit('net:revivePrice', { price: msg.price });
+        break;
+      case 'player_revived':
+        this.state.eliminated.delete(msg.playerId);
+        if (msg.playerId === this.state.playerId) this.state.deaths = 0; // volta com as vidas cheias
+        this.bus.emit('net:eliminatedChanged');
+        this.bus.emit('ui:toast', { text: msg.playerId === this.state.playerId ? `${this.nameOf(msg.byId)} comprou uma Medalha de Ressurreição para você!` : `${this.nameOf(msg.byId)} reviveu ${this.nameOf(msg.playerId)} com uma Medalha de Ressurreição` });
         break;
       case 'game_start':
         // reinício após derrota (ou nova partida): recarrega o mundo
@@ -244,17 +265,27 @@ export class NetworkSystem implements System {
           if (r) r.hp = msg.hp;
         }
         break;
-      case 'player_died':
+      case 'player_died': {
+        const killerName = msg.killerId ? this.nameOf(msg.killerId) : null;
+        if (msg.eliminated) {
+          this.state.eliminated.add(msg.playerId);
+          this.bus.emit('net:eliminatedChanged');
+        }
         if (msg.playerId === this.state.playerId) {
+          this.state.deaths++;
           this.player.stats.setHp(0);
           this.player.anim.play('Death', 0.1, true);
-          this.bus.emit('player:died', { killerName: msg.killerId ? this.nameOf(msg.killerId) : null, respawnIn: msg.respawnIn });
+          if (msg.eliminated) this.bus.emit('player:eliminated', { killerName });
+          else this.bus.emit('player:died', { killerName, respawnIn: msg.respawnIn, livesLeft: msg.livesLeft });
         } else {
           this.remotes.get(msg.playerId)?.die();
-          this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} morreu${msg.killerId ? ` (${this.nameOf(msg.killerId)})` : ''}` });
+          const who = this.nameOf(msg.playerId);
+          this.bus.emit('ui:toast', { text: msg.eliminated ? `${who} foi ELIMINADO — compre uma Medalha de Ressurreição no vendedor para reviver` : `${who} morreu${killerName ? ` (${killerName})` : ''}` });
         }
         break;
+      }
       case 'player_respawned':
+        if (this.state.eliminated.delete(msg.playerId)) this.bus.emit('net:eliminatedChanged');
         if (msg.playerId === this.state.playerId) {
           this.state.spectateZombieId = null;
           this.player.entity.enabled = true;
@@ -282,6 +313,7 @@ export class NetworkSystem implements System {
     const r = new RemotePlayer(snapshot.id, snapshot);
     this.root.addChild(r.entity);
     r.initAnimation();
+    if (this.state.carriers.has(snapshot.id)) r.setCarrying(true);
     this.remotes.set(snapshot.id, r);
   }
 
