@@ -3,6 +3,7 @@ import { HUMAN_STATES, instantiateModel, RIBCAGE_STATES, showCharacterWeapon, ZO
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { groundMaterial } from '@/Assets/GroundTextures';
 import { makeDirtPatch } from '@/World/Map';
+import type { CharacterId } from '@shared/protocol';
 
 interface Walker {
   entity: pc.Entity;
@@ -21,6 +22,10 @@ export class MenuDiorama {
   private anims: AnimatedModel[] = [];
   private walkers: Walker[] = [];
   private camera: pc.Entity | null = null;
+  /** preview do personagem escolhido: câmera própria numa janela (rect) da tela + modelo isolado */
+  private previewCamera: pc.Entity | null = null;
+  private preview: { holder: pc.Entity; anim: AnimatedModel; character: CharacterId } | null = null;
+  private previewRect: DOMRect | null = null;
   private t = 0;
   private built = false;
   private disposed = false;
@@ -134,9 +139,53 @@ export class MenuDiorama {
     return holder;
   }
 
+  /**
+   * Mostra `character` (com a pistola, girando devagar) numa janela alinhada a `rect` (px da tela).
+   * `rect` null esconde a janela. Chame a cada frame com o retângulo do elemento DOM.
+   */
+  setPreview(character: CharacterId | null, rect: DOMRect | null): void {
+    this.previewRect = rect;
+    if (!this.built) return;
+    if (!character || !rect) {
+      if (this.previewCamera) this.previewCamera.enabled = false;
+      return;
+    }
+    if (!this.previewCamera) {
+      this.previewCamera = new pc.Entity('preview-camera');
+      this.previewCamera.addComponent('camera', { fov: 26, nearClip: 0.1, farClip: 30, priority: 1, clearColor: new pc.Color(0.05, 0.07, 0.1) });
+      this.root.addChild(this.previewCamera);
+    }
+    this.previewCamera.enabled = true;
+    if (this.preview?.character !== character) {
+      if (this.preview) {
+        this.preview.anim.dispose();
+        this.preview.holder.destroy();
+      }
+      // longe da cena principal (atrás da câmera do menu), em cima do mesmo chão
+      const holder = this.character(`char_${character}`, 24, -22, 0, 'Pistol', 'Idle_Gun');
+      const anim = this.anims.pop()!;
+      this.preview = { holder, anim, character };
+    }
+  }
+
   update(dt: number): void {
     if (!this.built || !this.camera) return;
     this.t += dt;
+    if (this.preview && this.previewCamera?.enabled && this.previewRect) {
+      const r = this.previewRect;
+      const W = this.app.graphicsDevice.width / this.app.graphicsDevice.maxPixelRatio;
+      const H = this.app.graphicsDevice.height / this.app.graphicsDevice.maxPixelRatio;
+      const cam = this.previewCamera.camera!;
+      const rect = new pc.Vec4(r.left / W, 1 - (r.top + r.height) / H, r.width / W, r.height / H);
+      cam.rect = rect;
+      cam.scissorRect = rect;
+      cam.aspectRatio = r.width / Math.max(1, r.height);
+      cam.aspectRatioMode = pc.ASPECT_MANUAL;
+      this.preview.holder.setLocalEulerAngles(0, 200 + Math.sin(this.t * 0.6) * 25, 0);
+      const p = this.preview.holder.getPosition();
+      this.previewCamera.setPosition(p.x + 0.8, 1.1, p.z - 4.9);
+      this.previewCamera.lookAt(p.x, 0.9, p.z);
+    }
     // câmera: arco lento ao redor do herói
     const a = -0.35 + Math.sin(this.t * 0.12) * 0.22;
     const r = 11.5;
@@ -153,6 +202,8 @@ export class MenuDiorama {
 
   dispose(): void {
     this.disposed = true;
+    this.preview?.anim.dispose();
+    this.preview = null;
     for (const a of this.anims) a.dispose();
     this.anims = [];
     this.walkers = [];

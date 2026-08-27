@@ -171,14 +171,17 @@ export class LobbyScene extends BaseScene {
           <h2>Jogadores</h2>
           <ul class="members">${members}</ul>
         </section>
-        <section class="panel">
-          <h2>Seu personagem</h2>
-          <div class="char-picker">${picker}</div>
-          <h2 class="actions-title">Ações</h2>
-          ${readyBtn}
-          ${startBtn}
-          <button class="leave">Sair da sala</button>
-        </section>
+        <div class="col">
+          <div class="char-preview" title="${CHARACTER_NAMES[character]}"><span class="char-name">${CHARACTER_NAMES[character]}</span></div>
+          <section class="panel">
+            <h2>Seu personagem</h2>
+            <div class="char-picker">${picker}</div>
+            <h2 class="actions-title">Ações</h2>
+            ${readyBtn}
+            ${startBtn}
+            <button class="leave">Sair da sala</button>
+          </section>
+        </div>
       </div>
       <div class="status" id="status"></div>`;
   }
@@ -283,6 +286,9 @@ export class LobbyScene extends BaseScene {
   }
 
   update(dt: number): void {
+    // janela 3D do personagem escolhido alinhada ao quadro do painel (só dentro da sala)
+    const box = this.el?.querySelector<HTMLElement>('.char-preview');
+    this.diorama?.setPreview(box ? this.game.state.character : null, box ? box.getBoundingClientRect() : null);
     this.diorama?.update(dt);
   }
 

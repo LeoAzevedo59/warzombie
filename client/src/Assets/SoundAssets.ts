@@ -67,6 +67,8 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
 const MUSIC_URLS: Record<MusicName, string> = { menu: '/music/menu.mp3', calm: '/music/calm.mp3', tension: '/music/tension.mp3' };
 const MUSIC_PAUSED_KEY = 'warzombie:musicPaused';
 const MUSIC_VOLUME = 0.45;
+/** volume relativo por faixa (a do menu é bem mais alta que as outras na origem) */
+const MUSIC_TRACK_VOLUME: Record<MusicName, number> = { menu: 0.4, calm: 1, tension: 1 };
 
 /** Distância (m) além da qual um som posicional não é ouvido. */
 const HEAR_RADIUS = 26;
@@ -223,7 +225,7 @@ export class AudioEngine {
     const gain = this.ctx.createGain();
     const now = this.ctx.currentTime;
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(1, now + fade);
+    gain.gain.linearRampToValueAtTime(MUSIC_TRACK_VOLUME[name], now + fade);
     src.connect(gain).connect(this.musicBus);
     src.start();
     this.musicSources.set(name, { src, gain });
