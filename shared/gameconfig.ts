@@ -93,8 +93,8 @@ export const GAME = {
     TOWER_BIAS: 0.7,
     /** jogador vivo a até isso da torre é defendido: a horda ataca ele antes da torre */
     GUARD_RADIUS: 10,
-    /** chute: mais dano (x2.75), knockback, cooldown longo */
-    SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 2.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
+    /** chute: mais dano (×1.75 = 28; era 2.75 = 44, quase metade da vida num golpe), knockback, cooldown longo */
+    SPECIAL: { RANGE: 2.0, DAMAGE_MULT: 1.75, COOLDOWN: 8, DURATION: 1.2, HIT_AT: 0.5, KNOCKBACK: 7 },
     /** fração da horda que nasce como cuspidor (ataque à distância que dá lentidão) */
     SPITTER_RATIO: 0.35,
     /** cuspe: alcance útil, cooldown, projétil (velocidade/raio/dano) e lentidão aplicada */
