@@ -405,6 +405,10 @@ export class Match {
 
   // ---------- economia ----------
 
+  private assertNearTower(p: MatchPlayer): void {
+    if (dist(p.snapshot, this.towerPos) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) throw new MatchError('too_far', 'Chegue mais perto da torre de comunicação.');
+  }
+
   private assertNearHub(p: MatchPlayer, spot: { x: number; z: number }): void {
     if (dist(p.snapshot, spot) > GAME.interaction.HUB_RADIUS) throw new MatchError('too_far', 'Chegue mais perto do vendedor.');
   }
@@ -468,7 +472,7 @@ export class Match {
   /** Reforça a torre: +HP máximo e cura o mesmo valor (dinheiro da sala; preço sobe por nível). */
   upgradeTower(playerId: string): void {
     const p = this.alive(playerId);
-    this.assertNearHub(p, GAME.hub.VENDOR);
+    this.assertNearTower(p);
     if (this.gameOver) throw new MatchError('invalid_message', 'A torre de comunicação foi destruída.');
     const price = towerUpgradePrice(this.towerLevel);
     if (price === null) throw new MatchError('invalid_message', 'A antena já está no máximo.');
@@ -482,7 +486,7 @@ export class Match {
   /** Repara a torre até o máximo (dinheiro da sala). */
   repairTower(playerId: string): void {
     const p = this.alive(playerId);
-    this.assertNearHub(p, GAME.hub.VENDOR);
+    this.assertNearTower(p);
     if (this.gameOver) throw new MatchError('invalid_message', 'A torre de comunicação foi destruída.');
     const missing = this.towerMaxHp - this.towerHp;
     if (missing <= 0) throw new MatchError('invalid_message', 'A antena já está com vida cheia.');

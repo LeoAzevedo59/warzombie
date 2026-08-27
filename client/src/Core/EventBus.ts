@@ -22,6 +22,7 @@ export interface GameEvents {
   'inventory:changed': { stacks: ReadonlyArray<ItemStack | null> };
 
   'shop:open': void;
+  'tower:open': void;
   'shop:transaction': { kind: 'buy' | 'sell' | 'upgrade' };
   /** pedido genérico de efeito sonoro (posicional se x/z vierem) */
   'audio:sfx': { name: SfxName; x?: number; z?: number; volume?: number };

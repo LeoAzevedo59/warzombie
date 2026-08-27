@@ -26,6 +26,7 @@ import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
 import { ShopUI } from '@/UI/ShopUI';
+import { TowerUI } from '@/UI/TowerUI';
 import { EconomyHUD } from '@/UI/EconomyHUD';
 import { MapUI } from '@/UI/MapUI';
 import { ToastUI } from '@/UI/ToastUI';
@@ -51,6 +52,7 @@ export class WorldScene extends BaseScene {
     healthBar: HealthBar;
     hotbar: HotbarUI;
     shop: ShopUI;
+    tower: TowerUI;
     economy: EconomyHUD;
     map: MapUI;
     toasts: ToastUI;
@@ -117,16 +119,19 @@ export class WorldScene extends BaseScene {
 
     // --- UI ---
     const shop = new ShopUI(uiRoot, bus, state, net);
+    const tower = new TowerUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
-      this.input.enabled = !shop.open && !this.ui?.players.open && !this.stats.dead;
+      this.input.enabled = !shop.open && !tower.open && !this.ui?.players.open && !this.stats.dead;
     };
     shop.onOpenChanged = updateInputEnabled;
+    tower.onOpenChanged = updateInputEnabled;
 
     this.ui = {
       healthBar: new HealthBar(uiRoot, bus, state),
       hotbar: new HotbarUI(uiRoot, bus),
       shop,
+      tower,
       economy: new EconomyHUD(uiRoot, bus, state.money),
       map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values(), () => zombies.alive()),
       toasts: new ToastUI(uiRoot, bus),
@@ -144,7 +149,7 @@ export class WorldScene extends BaseScene {
     this.unsubs.push(
       // Esc: fecha a loja/painel dev se abertos; senão abre/fecha o menu
       bus.on('input:escape', () => {
-        if (shop.open) bus.emit('input:closePanel');
+        if (shop.open || tower.open) bus.emit('input:closePanel');
         else this.ui?.players.toggle();
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),

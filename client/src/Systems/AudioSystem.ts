@@ -91,6 +91,7 @@ export class AudioSystem implements System {
       bus.on('net:structureAdded', ({ structure }) => audio.play('wall_place', { x: structure.x, z: structure.z })),
       bus.on('net:structureRemoved', ({ id }) => audio.play('wall_break', at(this.world.walls.get(id)?.position))),
       bus.on('shop:open', () => audio.play('shop_open')),
+      bus.on('tower:open', () => audio.play('ui_open')),
       bus.on('input:closePanel', () => audio.play('shop_close')),
       bus.on('shop:transaction', ({ kind }) => audio.play(kind === 'buy' ? 'coins' : 'coins', { variant: kind === 'buy' ? 0 : 1 })),
       bus.on('equip:changed', ({ itemId }) => {

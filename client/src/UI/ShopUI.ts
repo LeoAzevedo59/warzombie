@@ -3,7 +3,7 @@ import type { GameState } from '@/Core/GameState';
 import { ItemDatabase } from '@/Items/ItemDatabase';
 import { iconHtml, itemIconHtml } from './ItemIcon';
 import type { NetworkClient } from '@/Net/NetworkClient';
-import { accuracyPercent, damageMultiplier, isMaxed, magSize, maxWeight, staminaMultiplier, towerRepairPrice, towerUpgradePrice } from '@shared/upgrades';
+import { accuracyPercent, damageMultiplier, isMaxed, magSize, maxWeight, staminaMultiplier } from '@shared/upgrades';
 import type { UpgradeKind } from '@shared/protocol';
 import { GAME } from '@shared/gameconfig';
 
@@ -32,7 +32,6 @@ export class ShopUI {
       bus.on('net:upgrades', () => this.renderIfOpen()),
       bus.on('net:upgradePrices', () => this.renderIfOpen()),
       bus.on('net:features', () => this.renderIfOpen()),
-      bus.on('net:towerHp', () => this.renderIfOpen()),
     );
   }
 
@@ -73,8 +72,6 @@ export class ShopUI {
         )
         .join('')}
         <div class="recipe feature"><span class="recipe-label">${iconHtml('minimap', '#4db8ff', 22, 'shop-icon')}<b>Minimapa</b> <span class="lvl">para a sala toda</span></span>${this.state.features.minimap ? '<button disabled>ATIVO</button>' : `<button class="buy-feature" data-feature="minimap" ${money >= GAME.features.MINIMAP_PRICE ? '' : 'disabled'}>$${GAME.features.MINIMAP_PRICE}</button>`}</div>
-        <div class="recipe feature"><span class="recipe-label">${iconHtml('tower', '#ffd34d', 22, 'shop-icon')}<b>Reforçar antena</b> <span class="lvl">Lv ${this.state.towerLevel} · +${GAME.towerUpgrade.HP_STEP} de vida</span></span>${(() => { const pr = towerUpgradePrice(this.state.towerLevel); return pr === null ? '<button disabled>MAX</button>' : `<button class="tower-upgrade" ${money >= pr ? '' : 'disabled'}>$${pr}</button>`; })()}</div>
-        <div class="recipe feature"><span class="recipe-label">${iconHtml('tower', '#4db8ff', 22, 'shop-icon')}<b>Reparar antena</b> <span class="lvl">${Math.round(this.state.towerHp)}/${this.state.towerMaxHp}</span></span>${(() => { const missing = this.state.towerMaxHp - this.state.towerHp; const pr = towerRepairPrice(missing); return missing <= 0 ? '<button disabled>CHEIA</button>' : `<button class="tower-repair" ${money >= pr ? '' : 'disabled'}>$${pr}</button>`; })()}</div>
       </div>`;
     const upgrades = `
       <div class="recipes">${this.upgradeRows(money)}</div>`;
@@ -108,12 +105,6 @@ export class ShopUI {
         this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
         this.bus.emit('shop:transaction', { kind: 'buy' });
       };
-    });
-    this.panel.querySelectorAll<HTMLButtonElement>('.tower-repair').forEach((b) => {
-      b.onclick = () => this.net.send({ type: 'tower_repair' });
-    });
-    this.panel.querySelectorAll<HTMLButtonElement>('.tower-upgrade').forEach((b) => {
-      b.onclick = () => this.net.send({ type: 'tower_upgrade' });
     });
     this.panel.querySelectorAll<HTMLButtonElement>('.buy-feature').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'buy_feature', feature: 'minimap' });

@@ -225,7 +225,7 @@ test('faca acerta o zumbi à frente, não o de trás', () => {
 
 test('reforço da torre: +500 de máximo e cura, preço sobe', () => {
   const { m, snap } = setup();
-  m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  m.addPlayer(snap('A', m.towerPos.x + 1, m.towerPos.z)); // reforço/reparo acontecem na torre
   m.money = 1000;
   m.damageTower(600);
   m.upgradeTower('A');
@@ -238,7 +238,7 @@ test('reforço da torre: +500 de máximo e cura, preço sobe', () => {
 
 test('reparo da torre cobra pela vida faltante e enche', () => {
   const { m, snap } = setup();
-  m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  m.addPlayer(snap('A', m.towerPos.x + 1, m.towerPos.z));
   m.money = 500;
   assert.throws(() => m.repairTower('A'), (e: MatchError) => e.code === 'invalid_message');
   m.damageTower(400);
