@@ -58,6 +58,7 @@ export class CombatHUD {
         this.render();
       }),
       bus.on('player:damaged', ({ special }) => this.showFlash(special)),
+      bus.on('player:healed', ({ amount }) => this.bus.emit('ui:toast', { text: `+${amount} de vida` })),
       bus.on('net:shield', ({ playerId, seconds }) => {
         if (playerId !== myId) return;
         this.shieldUntil = Date.now() + seconds * 1000;

@@ -236,6 +236,11 @@ export interface PlaceWallMessage {
   yaw: number;
 }
 
+/** Usa o consumível equipado (bandagem/analgésico): cura e gasta 1 unidade. */
+export interface UseItemMessage {
+  type: 'use_item';
+}
+
 /** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
 export interface ActivateBatteryMessage {
   type: 'activate_battery';
@@ -256,6 +261,7 @@ export type ClientMessage =
   | ReloadMessage
   | MeleeMessage
   | ActivateBatteryMessage
+  | UseItemMessage
   | UpgradeMessage
   | PlaceWallMessage
   | BuyFeatureMessage

@@ -36,7 +36,7 @@ export class DevPanel {
   private render(): void {
     const rows: Array<[string, Array<[string, DevAction]>]> = [
       ['Dinheiro', [['+$100', { action: 'money', amount: 100 }], ['+$500', { action: 'money', amount: 500 }], ['+$5000', { action: 'money', amount: 5000 }]]],
-      ['Itens', [['Bateria', { action: 'give', itemId: 'battery' }], ['Glock', { action: 'give', itemId: 'glock' }], ['Machado', { action: 'give', itemId: 'axe' }], ['Picareta', { action: 'give', itemId: 'pickaxe' }]]],
+      ['Itens', [['Bateria', { action: 'give', itemId: 'battery' }], ['Glock', { action: 'give', itemId: 'glock' }], ['Machado', { action: 'give', itemId: 'axe' }], ['Picareta', { action: 'give', itemId: 'pickaxe' }], ['Bandagem', { action: 'give', itemId: 'bandage' }], ['Analgésico', { action: 'give', itemId: 'painkiller' }]]],
       ['Dano', [['×1', { action: 'damage_mult', value: 1 }], ['×5', { action: 'damage_mult', value: 5 }], ['×20', { action: 'damage_mult', value: 20 }], ['×100', { action: 'damage_mult', value: 100 }]]],
       ['Jogador', [['Vida cheia', { action: 'heal' }]]],
       ['Waves', [['Matar zumbis', { action: 'kill_zombies' }], ['Próxima wave', { action: 'next_wave' }], ['Chamar chefão', { action: 'spawn_boss' }]]],

@@ -50,6 +50,7 @@ const fireSchema = z.object({ type: z.literal('fire'), dx: finite, dz: finite })
 const reloadSchema = z.object({ type: z.literal('reload') });
 const meleeSchema = z.object({ type: z.literal('melee'), dx: finite, dz: finite });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
+const useItemSchema = z.object({ type: z.literal('use_item') });
 const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight']) });
 const towerUpgradeSchema = z.object({ type: z.literal('tower_upgrade') });
 const towerRepairSchema = z.object({ type: z.literal('tower_repair') });
@@ -81,6 +82,7 @@ const baseSchema = z.discriminatedUnion('type', [
   reloadSchema,
   meleeSchema,
   activateBatterySchema,
+  useItemSchema,
   upgradeSchema,
   placeWallSchema,
   buyFeatureSchema,

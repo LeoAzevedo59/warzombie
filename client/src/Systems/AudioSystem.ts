@@ -73,6 +73,7 @@ export class AudioSystem implements System {
         if (amount >= 5) audio.play('player_hurt', { volume: 0.7 });
       }),
       bus.on('player:died', () => audio.play('player_death')),
+      bus.on('player:healed', () => audio.play('ui_confirm', { volume: 0.8 })),
       bus.on('player:respawned', () => audio.play('ui_confirm')),
       bus.on('wave:started', () => {
         audio.play('wave_bell');

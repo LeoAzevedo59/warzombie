@@ -8,6 +8,7 @@ import { makeBox } from '@/Assets/Primitives';
 import type { InputSystem } from './InputSystem';
 import type { EquipmentSystem } from './EquipmentSystem';
 import type { NetworkClient } from '@/Net/NetworkClient';
+import { ITEMS } from '@shared/items';
 
 const MUZZLE_HEIGHT = 1.2;
 
@@ -64,6 +65,17 @@ export class CombatSystem implements System {
   private fire(): void {
     const eq = this.equipment.equippedItem();
     if (eq && eq.startsWith('wall_')) return; // modo construção: o clique coloca a parede
+    if (eq && ITEMS[eq].heal) {
+      // consumível: clique usa (o servidor cura e desconta)
+      if (this.player.stats.dead || this.cooldown > 0) return;
+      if (this.state.hp >= GAME.player.MAX_HP) {
+        this.bus.emit('ui:toast', { text: 'Sua vida já está cheia.' });
+        return;
+      }
+      this.cooldown = GAME.consumable.USE_COOLDOWN;
+      this.net.send({ type: 'use_item' });
+      return;
+    }
     if (this.equipment.equippedItem() === 'knife' && !this.player.stats.dead && this.cooldown <= 0) {
       this.cooldown = GAME.weapon.knife.COOLDOWN;
       const from = this.player.position;

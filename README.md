@@ -88,7 +88,7 @@ Tabelas: `rooms` (name, visibility, code, owner_id, status, money, wave) e `room
 - **Sem craft e sem inventário**: só a hotbar de 5 slots, que pertence ao servidor (`hotbar` é enviada a cada mudança).
 - **Mundo compartilhado**: `shared/worldgen.ts` gera os objetos deterministicamente a partir da seed; o server valida
   `pickup`/`hit_node` por distância e ferramenta equipada e faz broadcast de `object_removed`/`node_hit`.
-- **Centro do mapa**: vendedor (E abre a loja: vender todos os recursos da hotbar / comprar machado, picareta, Glock, bateria)
+- **Centro do mapa**: vendedor (E abre a loja: vender todos os recursos da hotbar / comprar machado, picareta, Glock, bandagem/analgésico — clique com o item equipado cura +35/+75 —, bateria)
   e a torre (bateria → waves, M3). Preços e valores em `shared/items.ts`; regras em `server/src/game/Economy.ts`.
 - **Dinheiro é da sala** (`rooms.money`), broadcast em `money` para todos.
 - **Glock** com pente de 10, recarga (R) de 1,5 s; `fire {dx,dz}` → o server faz o raycast (`shared/math.ts`) contra

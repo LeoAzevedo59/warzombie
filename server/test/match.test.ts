@@ -259,3 +259,155 @@ test('reparo da torre cobra pela vida faltante e enche', () => {
   assert.equal(m.towerHp, m.towerMaxHp);
   assert.equal(m.money, 500 - 40);
 });
+
+test('fogo amigo: morto por outro jogador vira zumbi por 30s caçando o assassino; expira -> volta ao normal', () => {
+  const { m, snap, advance, run, last, sent } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  const b = m.addPlayer(snap('B', 5, 0));
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
+  a.hotbar[0] = { itemId: 'knife', count: 1 };
+  a.damageMult = 100;
+  b.snapshot.x = 1;
+  m.melee('A', 1, 0);
+  assert.ok(b.dead);
+  assert.equal((last('player_died')!.msg as { respawnIn: number }).respawnIn, GAME.infected.DURATION);
+  const inf = last('player_infected')!.msg as { playerId: string; zombieId: number; targetId: string | null; seconds: number };
+  assert.equal(inf.playerId, 'B');
+  assert.equal(inf.targetId, 'A');
+  assert.equal(inf.seconds, GAME.infected.DURATION);
+  assert.equal(b.infectedZombieId, inf.zombieId);
+  const z = m.zombies.zombies.get(inf.zombieId)!;
+  assert.equal(z.kind, 'infected');
+  assert.equal(z.ownerId, 'B');
+  assert.equal(z.focusId, 'A');
+  assert.equal(z.x, 1); // nasce onde o jogador caiu
+  assert.equal(m.zombieSnapshots().find((s) => s.id === z.id)?.owner, 'B');
+  // 5 s depois ainda não renasceu (não é o respawn normal)
+  run(6000);
+  assert.ok(b.dead);
+  assert.ok(m.zombies.zombies.has(z.id));
+  // zumbi mira o assassino: A fugiu para longe e mesmo assim é o alvo
+  a.snapshot.x = 30;
+  m.tick();
+  assert.equal(z.targetId, 'A');
+  // 30 s: o zumbi some e B volta ao normal na hora, com escudo
+  const shields = sent.filter((s) => s.msg.type === 'shield').length;
+  while (m.zombies.zombies.has(z.id)) run(100);
+  assert.ok(!b.dead);
+  assert.equal(b.infectedZombieId, null);
+  const resp = last('player_respawned')!.msg as { playerId: string; hp: number };
+  assert.equal(resp.playerId, 'B');
+  assert.equal(resp.hp, 100);
+  assert.ok(sent.filter((s) => s.msg.type === 'shield').length > shields);
+});
+
+test('fogo amigo: zumbi infectado mata o assassino -> ele também vira zumbi (com crédito PvP para o dono)', () => {
+  const { m, snap, advance, last } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  const b = m.addPlayer(snap('B', 1, 0));
+  const c = m.addPlayer(snap('C', 40, 40));
+  advance(GAME.player.SPAWN_SHIELD * 1000 + 1);
+  a.hotbar[0] = { itemId: 'knife', count: 1 };
+  a.damageMult = 100;
+  m.melee('A', 1, 0);
+  assert.ok(b.dead);
+  const zb = m.zombies.zombies.get(b.infectedZombieId!)!;
+  // o zumbi de B mata A
+  m.damagePlayer(a, 999, undefined, zb.id);
+  assert.ok(a.dead);
+  assert.equal((last('player_died')!.msg as { killerId?: string }).killerId, 'B');
+  assert.equal(b.snapshot.pvpKills, 1);
+  assert.equal(b.matchHumanKills, 1);
+  const infA = last('player_infected')!.msg as { playerId: string; targetId: string | null };
+  assert.equal(infA.playerId, 'A');
+  assert.equal(infA.targetId, null); // o zumbi de B caçava A (morto): o de A caça qualquer vivo
+  const za = m.zombies.zombies.get(a.infectedZombieId!)!;
+  m.tick();
+  assert.equal(za.targetId, 'C');
+  assert.equal(zb.targetId, 'C');
+  // C abate o zumbi de A: A respawna pelo tempo normal
+  m.zombies.damage(za, 1e9, 'C');
+  assert.equal(a.infectedZombieId, null);
+  assert.equal(c.snapshot.kills, 1);
+  m.tick();
+  assert.ok(a.dead);
+  advance(GAME.player.RESPAWN_SECONDS * 1000);
+  m.tick();
+  assert.ok(!a.dead);
+  assert.ok(b.dead); // B continua zumbi
+  // B sai da sala: o zumbi dele some
+  m.removePlayer('B');
+  assert.equal(m.zombies.zombies.has(zb.id), false);
+});
+
+test('bateria: preço da sala sobe a cada compra; uma bateria por wave; fase concluída não aceita mais', () => {
+  const { m, snap, last } = setup();
+  const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  m.money = 10000;
+  const base = 150;
+  assert.equal(m.batteryPrice(), base);
+  m.buy('A', 'battery');
+  assert.equal(m.money, 10000 - base);
+  assert.equal(m.batteryPrice(), Math.round(base * GAME.battery.GROWTH));
+  assert.equal((last('battery_price')!.msg as { price: number }).price, m.batteryPrice());
+  a.hotbar[0] = null;
+  m.buy('A', 'battery');
+  assert.equal(m.money, 10000 - base - Math.round(base * GAME.battery.GROWTH));
+  assert.equal(m.batteryPrice(), Math.round(base * GAME.battery.GROWTH ** 2));
+  // coloca na torre: wave 1; a segunda bateria só depois do chefão da wave 1
+  a.snapshot.x = m.towerPos.x + 1;
+  a.snapshot.z = m.towerPos.z;
+  m.activateBattery('A');
+  assert.equal(m.waves.wave, 1);
+  assert.equal(a.hotbar.some((s) => s?.itemId === 'battery'), false);
+  a.hotbar[0] = { itemId: 'battery', count: 1 };
+  assert.throws(() => m.activateBattery('A'), (e: MatchError) => e.code === 'already_active');
+  m.waves.devNextWave(); // horda
+  m.waves.devNextWave(); // chefão
+  m.waves.devNextWave(); // mata o chefão
+  m.tick();
+  assert.equal(m.waves.state().phase, 'idle');
+  assert.equal(last('wave_cleared')!.msg.type, 'wave_cleared');
+  m.activateBattery('A');
+  assert.equal(m.waves.wave, 2);
+  for (let w = 2; w <= GAME.waves.TOTAL; w++) {
+    m.waves.devNextWave();
+    m.waves.devNextWave();
+    m.waves.devNextWave();
+    m.tick();
+    if (w < GAME.waves.TOTAL) {
+      a.hotbar[0] = { itemId: 'battery', count: 1 };
+      m.activateBattery('A');
+    }
+  }
+  assert.equal(m.waves.state().phase, 'complete');
+  assert.ok(last('phase_complete'));
+  a.hotbar[0] = { itemId: 'battery', count: 1 };
+  assert.throws(() => m.activateBattery('A'), (e: MatchError) => e.code === 'phase_complete');
+});
+
+test('consumíveis: bandagem/analgésico curam até o máximo, gastam 1 unidade, respeitam cooldown e vida cheia', () => {
+  const { m, snap, advance, last } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  a.hotbar[0] = { itemId: 'bandage', count: 2 };
+  a.hotbar[1] = { itemId: 'painkiller', count: 1 };
+  assert.throws(() => m.useItem('A'), (e: MatchError) => e.code === 'invalid_message'); // vida cheia
+  a.snapshot.hp = 20;
+  m.useItem('A');
+  assert.equal(a.snapshot.hp, 55);
+  assert.equal(a.hotbar[0]?.count, 1);
+  assert.equal((last('hp')!.msg as { hp: number }).hp, 55);
+  m.useItem('A'); // cooldown: ignorado
+  assert.equal(a.snapshot.hp, 55);
+  advance(GAME.consumable.USE_COOLDOWN * 1000 + 1);
+  m.useItem('A');
+  assert.equal(a.snapshot.hp, 90);
+  assert.equal(a.hotbar[0], null); // acabou a pilha
+  advance(2000);
+  a.equipped = 1;
+  m.useItem('A');
+  assert.equal(a.snapshot.hp, 100); // analgésico não passa do máximo
+  assert.equal(a.hotbar[1], null);
+  a.equipped = 2;
+  assert.throws(() => m.useItem('A'), (e: MatchError) => e.code === 'invalid_message'); // nada equipado
+});

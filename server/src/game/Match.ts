@@ -1,5 +1,5 @@
 import { GAME } from '../../../shared/gameconfig.js';
-import { WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
+import { ITEMS, WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
@@ -465,13 +465,31 @@ export class Match {
     this.sendHotbar(p);
   }
 
-  /** Coloca a bateria na torre: consome o item e dispara as waves. */
+  /** Usa o consumível equipado (bandagem/analgésico): cura `heal` (até o máximo) e gasta 1 unidade. */
+  useItem(playerId: string): void {
+    const p = this.alive(playerId);
+    const stack = p.hotbar[p.equipped];
+    const def = stack ? ITEMS[stack.itemId] : null;
+    if (!stack || !def?.heal) throw new MatchError('invalid_message', 'Equipe uma bandagem ou analgésico.');
+    const now = this.now();
+    if (now < p.nextUseAt) return; // spam: ignora
+    if (p.snapshot.hp >= GAME.player.MAX_HP) throw new MatchError('invalid_message', 'Sua vida já está cheia.');
+    p.nextUseAt = now + GAME.consumable.USE_COOLDOWN * 1000;
+    p.snapshot.hp = Math.min(GAME.player.MAX_HP, p.snapshot.hp + def.heal);
+    stack.count--;
+    if (stack.count <= 0) p.hotbar[p.equipped] = null;
+    this.io.broadcast({ type: 'hp', playerId, hp: p.snapshot.hp });
+    this.sendHotbar(p);
+  }
+
+  /** Coloca uma bateria na torre: consome o item e dispara a próxima wave (uma bateria por wave). */
   activateBattery(playerId: string): void {
     const p = this.alive(playerId);
     if (dist(p.snapshot, this.towerPos) > GAME.interaction.HUB_RADIUS + GAME.hub.TOWER_RADIUS) {
       throw new MatchError('too_far', 'Chegue mais perto da torre de comunicação.');
     }
-    if (this.waves.active) throw new MatchError('already_active', 'As waves já estão em andamento.');
+    if (this.waves.phase === 'complete') throw new MatchError('phase_complete', 'A antena já tem todas as baterias: fase concluída.');
+    if (this.waves.active) throw new MatchError('already_active', 'A wave já está em andamento.');
     if (!hasItem(p.hotbar, 'battery')) throw new MatchError('no_battery', 'Compre uma Bateria no vendedor.');
     const i = p.hotbar.findIndex((s) => s?.itemId === 'battery');
     p.hotbar[i] = null;

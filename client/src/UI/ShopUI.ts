@@ -68,9 +68,12 @@ export class ShopUI {
         <button class="sell" ${total > 0 ? '' : 'disabled'}>+$${total}</button>
       </div>
       <div class="recipes">${ItemDatabase.shop()
-        .map(
-          (d) => `<div class="recipe"><span class="recipe-label">${itemIconHtml(d.id, 22, 'shop-icon')}<b>${d.name}</b></span><button class="buy" data-id="${d.id}" ${money >= (d.buy ?? 0) ? '' : 'disabled'}>$${d.buy}</button></div>`,
-        )
+        .map((d) => {
+          // bateria: preço da sala, sobe a cada compra (uma por wave)
+          const price = d.id === 'battery' ? this.state.batteryPrice : (d.buy ?? 0);
+          const note = d.id === 'battery' ? ` <span class="lvl">1 por wave · sobe a cada compra</span>` : d.heal ? ` <span class="lvl">+${d.heal} de vida · clique para usar</span>` : '';
+          return `<div class="recipe"><span class="recipe-label">${itemIconHtml(d.id, 22, 'shop-icon')}<b>${d.name}</b>${note}</span><button class="buy" data-id="${d.id}" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`;
+        })
         .join('')}
         <div class="recipe feature"><span class="recipe-label">${iconHtml('minimap', '#4db8ff', 22, 'shop-icon')}<b>Minimapa</b> <span class="lvl">para a sala toda</span></span>${this.state.features.minimap ? '<button disabled>ATIVO</button>' : `<button class="buy-feature" data-feature="minimap" ${money >= GAME.features.MINIMAP_PRICE ? '' : 'disabled'}>$${GAME.features.MINIMAP_PRICE}</button>`}</div>
       </div>`;

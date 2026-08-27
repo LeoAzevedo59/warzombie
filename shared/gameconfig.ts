@@ -25,6 +25,8 @@ export const GAME = {
   camera: { ORTHO_HEIGHT: 6.5 },
   /** vigor gasto por hit em árvore/rocha (client) */
   farming: { STAMINA_PER_HIT: 8 },
+  /** consumíveis (bandagem/analgésico): s entre usos */
+  consumable: { USE_COOLDOWN: 1 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
   /** recursos renascem depois de coletados (s) */

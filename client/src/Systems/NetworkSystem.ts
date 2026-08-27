@@ -209,6 +209,7 @@ export class NetworkSystem implements System {
           const before = this.state.hp;
           this.player.stats.setHp(msg.hp);
           if (msg.hp < before) this.bus.emit('player:damaged', { amount: before - msg.hp, special: false });
+          else if (msg.hp > before && !msg.by) this.bus.emit('player:healed', { amount: msg.hp - before });
         } else {
           const r = this.remotes.get(msg.playerId);
           if (r) r.hp = msg.hp;

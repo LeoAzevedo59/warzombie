@@ -24,5 +24,7 @@ const ICON_COLORS: Partial<Record<ItemId, string>> = {
   stone: '#b7bec6',
   bigstone: '#a7afb7',
   stick: '#c48a52',
+  bandage: '#f2e8dc',
+  painkiller: '#ff8fb1',
   wood: '#b9773f',
 };
