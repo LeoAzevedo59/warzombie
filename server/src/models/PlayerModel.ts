@@ -39,6 +39,11 @@ export const PlayerModel = {
     });
   },
 
+  /** +1 troféu (fase zerada); devolve o total. */
+  addTrophy(id: string): Promise<number> {
+    return prisma.player.update({ where: { id }, data: { trophies: { increment: 1 } }, select: { trophies: true } }).then((p) => p.trophies);
+  },
+
   setCharacter(id: string, character: string): Promise<Player> {
     return prisma.player.update({ where: { id }, data: { character } });
   },

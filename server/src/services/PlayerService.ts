@@ -47,6 +47,10 @@ export class PlayerService {
     return isCharacterId(player.character) ? player.character : 'shaun';
   }
 
+  addTrophy(playerId: string): Promise<number> {
+    return PlayerModel.addTrophy(playerId);
+  }
+
   setCharacter(playerId: string, character: CharacterId): Promise<Player> {
     return PlayerModel.setCharacter(playerId, character);
   }

@@ -11,6 +11,8 @@ export class WaveHUD {
   private tower = { hp: 1, maxHp: 1 };
   private bannerTimer: number | null = null;
   private collapsed = false;
+  /** resgate: helicóptero chamado (pousou? quantos a bordo) */
+  private evac: { landed: boolean; boarded: number } | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -63,6 +65,20 @@ export class WaveHUD {
         this.showBanner('FASE 1 CONCLUÍDA', 'Os 5 chefões caíram. A sala está livre.', 8000);
         this.render();
       }),
+      bus.on('evac:helicopter', ({ landsIn }) => {
+        this.evac = { landed: false, boarded: 0 };
+        this.showBanner('RESGATE', `O helicóptero pousa ao lado da antena em ${landsIn}s. Corra para lá!`, landsIn * 1000);
+        this.render();
+        window.setTimeout(() => {
+          if (this.evac) this.evac.landed = true;
+          this.render();
+        }, landsIn * 1000);
+      }),
+      bus.on('evac:boarded', () => {
+        if (this.evac) this.evac.boarded++;
+        this.render();
+      }),
+      bus.on('evac:complete', () => this.showBanner('RESGATADOS', 'O helicóptero decolou.', 4000)),
       bus.on('zombie:countChanged', ({ alive }) => {
         this.state = { ...this.state, alive };
         this.render();
@@ -109,7 +125,9 @@ export class WaveHUD {
         line = `<span class="boss-label">CHEFÃO ${s.wave}/${s.total}</span> · vivos: <b>${s.alive}</b> · <span class="${(s.timeLeft ?? 99) <= 20 ? 'urgent' : ''}">tempo: <b>${s.timeLeft ?? 0}s</b></span>`;
         break;
       case 'complete':
-        line = '<span class="done">Fase 1 concluída!</span>';
+        line = this.evac
+          ? `<span class="done">Fase 1 concluída!</span> ${this.evac.landed ? 'O <b>helicóptero</b> pousou ao lado da antena — <b>entre nele</b>!' : 'Um <b>helicóptero</b> está pousando ao lado da antena. Vá para lá!'} · a bordo: <b>${this.evac.boarded}</b>`
+          : '<span class="done">Fase 1 concluída!</span> Aguarde o resgate…';
         break;
     }
     // baterias na antena (= waves iniciadas)

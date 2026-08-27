@@ -81,6 +81,31 @@ export class NetworkSystem implements System {
       case 'wave_cleared':
         this.bus.emit('wave:cleared', { wave: msg.wave, total: msg.total });
         break;
+      case 'helicopter':
+        this.bus.emit('evac:helicopter', { x: msg.x, z: msg.z, landsIn: msg.landsIn, timeout: msg.timeout });
+        break;
+      case 'player_boarded':
+        if (msg.playerId === this.state.playerId) {
+          this.state.boarded = true;
+          this.player.entity.enabled = false;
+          this.bus.emit('ui:toast', { text: 'Você embarcou no helicóptero!' });
+        } else {
+          this.remotes.get(msg.playerId)?.hide();
+          this.bus.emit('ui:toast', { text: `${this.nameOf(msg.playerId)} embarcou no helicóptero` });
+        }
+        this.bus.emit('evac:boarded', { playerId: msg.playerId });
+        break;
+      case 'evac_complete':
+        this.bus.emit('evac:complete', { rescued: msg.rescued, leftBehind: msg.leftBehind });
+        break;
+      case 'player_trophy':
+        if (msg.playerId === this.state.playerId) this.state.trophies = msg.trophies;
+        else {
+          const r = this.remotes.get(msg.playerId);
+          if (r) r.trophies = msg.trophies;
+        }
+        this.bus.emit('net:trophy', { playerId: msg.playerId, trophies: msg.trophies });
+        break;
       case 'battery_price':
         this.state.batteryPrice = msg.price;
         this.bus.emit('net:batteryPrice', { price: msg.price });
@@ -179,6 +204,7 @@ export class NetworkSystem implements System {
         break;
       case 'drop_added':
         this.bus.emit('net:dropAdded', { drop: msg.drop });
+        if (msg.drop.itemId === 'boss_heart') this.bus.emit('ui:toast', { text: 'O chefão deixou o coração! Pegue e venda no vendedor.' });
         break;
       case 'drop_removed':
         this.bus.emit('net:dropRemoved', { id: msg.id });

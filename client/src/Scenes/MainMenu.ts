@@ -57,6 +57,7 @@ export class MainMenu extends BaseScene {
         state.playerId = welcome.you.id;
         state.playerName = welcome.you.name;
         state.character = welcome.you.character;
+        state.trophies = welcome.you.trophies;
         state.kills = welcome.you.kills;
         state.devCheats = welcome.devCheats;
         this.game.bus.emit('scene:change', { scene: 'lobby' });

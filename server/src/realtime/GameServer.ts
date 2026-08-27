@@ -223,6 +223,7 @@ export class GameServer {
         id: player.id,
         name: player.name,
         character: this.players.characterOf(player),
+        trophies: player.trophies,
         hp: player.hp,
         kills: player.kills,
         pvpKills: player.pvpKills,
@@ -257,8 +258,9 @@ export class GameServer {
 
   private handleMove(conn: Connection, pose: PlayerPose): void {
     const p = conn.player!;
-    // morto não se move: o servidor mantém a pose do momento da morte até o respawn
-    if (conn.room?.match?.players.get(p.id)?.dead) return;
+    // morto (ou embarcado no helicóptero) não se move: o servidor mantém a pose
+    const mp = conn.room?.match?.players.get(p.id);
+    if (mp?.dead || mp?.boarded) return;
     p.x = pose.x;
     p.z = pose.z;
     p.yaw = pose.yaw;
@@ -377,11 +379,22 @@ export class GameServer {
         log.info(`sala "${room.name}": torre destruída — reiniciando do zero em 6s`);
         setTimeout(() => this.restartMatch(room), 6000);
       },
-      onPhaseComplete: () => {
+      onPhaseComplete: (playerIds) => {
         room.status = 'FINISHED';
         log.info(`sala "${room.name}" concluiu a fase 1 (5 chefões)`);
         room.broadcastState();
         this.broadcastLobby();
+        // troféu para quem estava na partida (🏆 ao lado do nome)
+        for (const id of playerIds) {
+          this.players
+            .addTrophy(id)
+            .then((trophies) => {
+              const c = this.byPlayerId.get(id);
+              if (c?.player) c.player.trophies = trophies;
+              room.broadcast({ type: 'player_trophy', playerId: id, trophies });
+            })
+            .catch((err) => log.error(`falha ao dar troféu a ${id}`, err));
+        }
         if (!this.rooms.has(room.id)) return;
         RoomModel.update(room.id, { status: 'FINISHED' }).catch((err) => log.error(`falha ao salvar status da sala ${room.name}`, err));
       },
@@ -431,6 +444,7 @@ export class GameServer {
       structures: [...match.structures.values()],
       drops: [...match.drops.values()],
       features: { ...match.features },
+      evac: match.evacState(),
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

@@ -155,7 +155,7 @@ export class LobbyScene extends BaseScene {
     const members = r.memberList
       .map(
         (m) =>
-          `<li class="${m.id === r.ownerId ? 'owner' : ''} ${m.ready ? 'ready' : ''}"><span class="mname"></span><span class="char">${CHARACTER_NAMES[m.character]}</span>${m.id === r.ownerId ? ' <em>dono</em>' : ''}<span class="ready-badge">${m.ready ? '✔ PRONTO' : '… esperando'}</span></li>`,
+          `<li class="${m.id === r.ownerId ? 'owner' : ''} ${m.ready ? 'ready' : ''}"><span class="mname"></span>${m.trophies > 0 ? `<span class="trophy" title="Fases zeradas">🏆${m.trophies > 1 ? `×${m.trophies}` : ''}</span>` : ''}<span class="char">${CHARACTER_NAMES[m.character]}</span>${m.id === r.ownerId ? ' <em>dono</em>' : ''}<span class="ready-badge">${m.ready ? '✔ PRONTO' : '… esperando'}</span></li>`,
       )
       .join('');
     const picker = CHARACTERS.map((c) => `<button class="char-pick ${c === character ? 'active' : ''}" data-char="${c}" title="Jogar com ${CHARACTER_NAMES[c]}">${CHARACTER_NAMES[c]}</button>`).join('');

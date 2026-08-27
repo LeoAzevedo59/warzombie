@@ -27,6 +27,12 @@ export const GAME = {
   farming: { STAMINA_PER_HIT: 8 },
   /** consumíveis (bandagem/analgésico): s entre usos */
   consumable: { USE_COOLDOWN: 1 },
+  /**
+   * Resgate: com o 5º chefão morto, um helicóptero pousa ao lado da antena (LAND_TIME s descendo).
+   * Jogador a BOARD_RADIUS embarca (some e fica invulnerável). Todos embarcados, ou TIMEOUT s após
+   * pousar, ele decola (quem não embarcou fica para trás) e sobem os créditos.
+   */
+  evac: { OFFSET: 6.5, LAND_TIME: 6, BOARD_RADIUS: 2.2, TIMEOUT: 90, CLEARANCE: 3 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
   /** recursos renascem depois de coletados (s) */
