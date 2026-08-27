@@ -57,6 +57,11 @@ export class WaveHUD {
         this.tower = { hp, maxHp };
         this.render();
       }),
+      // derrota: o overlay "Você perdeu" cobre a tela; nenhum banner de wave por cima/atrás dele
+      bus.on('net:gameOver', () => {
+        if (this.bannerTimer) clearTimeout(this.bannerTimer);
+        this.banner.classList.remove('visible');
+      }),
       bus.on('wave:failed', ({ wave, boss }) =>
         this.showBanner('TEMPO ESGOTADO', boss ? `O chefão da wave ${wave} venceu. A bateria dessa wave foi perdida — compre outra e tente de novo.` : `A wave ${wave} não foi limpa a tempo. A bateria dessa wave foi perdida — compre outra e tente de novo.`, 6000),
       ),
