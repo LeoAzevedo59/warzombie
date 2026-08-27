@@ -163,6 +163,10 @@
       .panel li.ready .ready-badge { color: #7ed957; }
       .panel li.ready { border-left: 3px solid #7ed957; }
       .panel .actions-title { margin-top: 14px; }
+      /* quadro transparente: a câmera de preview do diorama desenha o personagem exatamente aqui */
+      .lobby-grid .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+      .char-preview { position: relative; height: 170px; margin: 0; border: 2px solid #ffd34d; border-radius: 8px; box-shadow: 0 0 12px rgba(255,211,77,.25) inset; }
+      .char-preview .char-name { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #ffd34d; font-weight: 700; text-shadow: 0 1px 4px #000; }
       .char-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
       .panel button.char-pick { margin: 0; padding: 8px 4px; background: #151b22; border: 2px solid #2d3742; color: #c9d1d9; font-size: 13px; }
       .panel button.char-pick.active { border-color: #ffd34d; color: #ffd34d; background: #2a2a12; }
