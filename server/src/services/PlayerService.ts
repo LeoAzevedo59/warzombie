@@ -1,4 +1,4 @@
-import { isValidName } from '../../../shared/protocol.js';
+import { isCharacterId, isValidName, type CharacterId } from '../../../shared/protocol.js';
 import { PlayerModel, type Player } from '../models/PlayerModel.js';
 import { SessionModel } from '../models/SessionModel.js';
 
@@ -40,6 +40,15 @@ export class PlayerService {
     const player = await PlayerModel.upsertByName(name);
     const session = await SessionModel.open(player.id, ip);
     return { player, sessionId: session.id };
+  }
+
+  /** Personagem salvo no banco (valores desconhecidos caem no padrão). */
+  characterOf(player: Player): CharacterId {
+    return isCharacterId(player.character) ? player.character : 'shaun';
+  }
+
+  setCharacter(playerId: string, character: CharacterId): Promise<Player> {
+    return PlayerModel.setCharacter(playerId, character);
   }
 
   /** Persiste o último estado conhecido e fecha a sessão. */

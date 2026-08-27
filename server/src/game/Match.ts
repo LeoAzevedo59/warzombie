@@ -688,7 +688,7 @@ export class Match {
    * morre (RESPAWN_SECONDS depois) ou some (na hora).
    */
   private infect(target: MatchPlayer, focusId: string | null): void {
-    const z = this.zombies.spawnInfected(target.snapshot.id, focusId, target.snapshot.x, target.snapshot.z);
+    const z = this.zombies.spawnInfected(target.snapshot.id, target.snapshot.character, focusId, target.snapshot.x, target.snapshot.z);
     target.infectedZombieId = z.id;
     target.respawnAt = Infinity;
     this.io.broadcast({ type: 'player_infected', playerId: target.snapshot.id, zombieId: z.id, targetId: focusId, seconds: GAME.infected.DURATION });

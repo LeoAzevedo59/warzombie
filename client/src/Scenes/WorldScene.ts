@@ -85,7 +85,7 @@ export class WorldScene extends BaseScene {
     // --- player ---
     const stats = new PlayerStats(state, bus);
     this.stats = stats;
-    this.player = new Player(stats);
+    this.player = new Player(stats, state.character);
     const sp = state.playerPosition;
     this.player.setPosition(sp.x, 0, sp.z);
     this.root.addChild(this.player.entity);

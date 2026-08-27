@@ -1,5 +1,5 @@
 import * as pc from 'playcanvas';
-import { characterForId, HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
+import { HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { CharacterFx } from '@/Entities/CharacterFx';
 import type { NetAnim, PlayerPose, PlayerSnapshot } from '@shared/protocol';
@@ -33,7 +33,7 @@ export class RemotePlayer {
     this.hp = snapshot.hp;
     this.kills = snapshot.kills;
     this.entity = new pc.Entity(`remote:${snapshot.name}`);
-    this.modelKey = characterForId(id);
+    this.modelKey = `char_${snapshot.character}`; // personagem escolhido no lobby (igual para todos)
     this.model = instantiateModel(this.modelKey);
     showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);

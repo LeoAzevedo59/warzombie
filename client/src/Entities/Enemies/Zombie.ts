@@ -65,7 +65,7 @@ export class Zombie {
     this.entity.setEulerAngles(0, snap.yaw, 0);
     this.target.set(snap.x, 0, snap.z);
     this.targetYaw = this.currentYaw = snap.yaw;
-    const key = snap.kind === 'infected' && this.owner ? characterForId(this.owner) : ZOMBIE_MODEL[snap.kind];
+    const key: ModelKey = snap.kind === 'infected' ? (snap.character ? `char_${snap.character}` : this.owner ? characterForId(this.owner) : ZOMBIE_MODEL.infected) : ZOMBIE_MODEL[snap.kind];
     this.model = instantiateModel(key);
     if (snap.kind === 'infected') showCharacterWeapon(this.model, null); // rig humano: sem armas na mão
     const scale = MODELS[key].scale * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);

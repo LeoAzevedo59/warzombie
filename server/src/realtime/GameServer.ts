@@ -191,6 +191,10 @@ export class GameServer {
           return await this.handleRoomSetVisibility(conn, msg);
         case 'room_start':
           return await this.handleRoomStart(conn);
+        case 'room_ready':
+          return this.handleRoomReady(conn, msg.ready);
+        case 'set_character':
+          return await this.handleSetCharacter(conn, msg.character);
       }
     } catch (err) {
       if (err instanceof RoomServiceError || err instanceof MatchError) {
@@ -218,6 +222,7 @@ export class GameServer {
       conn.player = {
         id: player.id,
         name: player.name,
+        character: this.players.characterOf(player),
         hp: player.hp,
         kills: player.kills,
         pvpKills: player.pvpKills,
@@ -306,10 +311,32 @@ export class GameServer {
     this.broadcastLobby();
   }
 
+  /** PRONTO no lobby: o dono só consegue iniciar quando todos marcaram. */
+  private handleRoomReady(conn: Connection, ready: boolean): void {
+    const room = conn.room;
+    if (!room) throw new RoomServiceError('not_in_room', 'Você não está em uma sala.');
+    if (room.status !== 'LOBBY') throw new RoomServiceError('room_not_in_lobby', 'A partida já começou.');
+    if (ready) room.ready.add(conn.player!.id);
+    else room.ready.delete(conn.player!.id);
+    room.broadcastState();
+  }
+
+  /** Troca de personagem (persistida); não vale no meio de uma partida. */
+  private async handleSetCharacter(conn: Connection, character: Msg<'set_character'>['character']): Promise<void> {
+    const room = conn.room;
+    if (room && room.status !== 'LOBBY') throw new RoomServiceError('room_not_in_lobby', 'Não dá para trocar de personagem durante a partida.');
+    conn.player!.character = character;
+    await this.players.setCharacter(conn.player!.id, character);
+    if (room) room.broadcastState();
+  }
+
   private async handleRoomStart(conn: Connection): Promise<void> {
     const room = conn.room;
     await this.roomService.start(conn.player!.id, room?.view() ?? null);
     room!.status = 'PLAYING';
+    // trava a sala: só quem está aqui agora pode voltar se sair
+    room!.roster.clear();
+    for (const id of room!.members.keys()) room!.roster.add(id);
     room!.match = this.createMatch(room!);
     log.info(`sala "${room!.name}" iniciou com ${room!.members.size} jogador(es)`);
     // partida começa com todos no centro do mapa, espalhados num círculo para não nascerem sobrepostos
@@ -417,6 +444,7 @@ export class GameServer {
     // tudo dentro do lock da sala: saídas simultâneas não podem ver a sala "vazia" ao mesmo tempo
     await room.serialize(async () => {
       if (!room.members.delete(player.id)) return;
+      room.ready.delete(player.id);
       room.match?.removePlayer(player.id);
       const remaining = [...room.members.keys()];
       const result = await this.roomService.leave(player.id, room.view(), remaining);

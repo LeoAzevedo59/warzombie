@@ -19,7 +19,15 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 19;
+export const PROTOCOL_VERSION = 20;
+
+/** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
+export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
+export type CharacterId = (typeof CHARACTERS)[number];
+export const CHARACTER_NAMES: Record<CharacterId, string> = { shaun: 'Shaun', matt: 'Matt', sam: 'Sam', lis: 'Lis' };
+export function isCharacterId(v: unknown): v is CharacterId {
+  return typeof v === 'string' && (CHARACTERS as readonly string[]).includes(v);
+}
 
 export type RoomFeature = 'minimap';
 export type RoomFeatures = Record<RoomFeature, boolean>;
@@ -53,6 +61,8 @@ export interface RoomSummary {
   members: number;
   max: number;
   ownerName: string;
+  /** partida já começou: só quem estava na sala no início pode (re)entrar */
+  locked: boolean;
 }
 
 /** Sala vista por quem está dentro dela. */
@@ -60,7 +70,7 @@ export interface RoomDetail extends RoomSummary {
   ownerId: string;
   /** só enviado ao owner de sala privada */
   code?: string;
-  memberList: Array<{ id: string; name: string }>;
+  memberList: Array<{ id: string; name: string; ready: boolean; character: CharacterId }>;
   money: number;
   wave: number;
 }
@@ -82,6 +92,7 @@ export interface PlayerPose {
 export interface PlayerSnapshot extends PlayerPose {
   id: string;
   name: string;
+  character: CharacterId;
   hp: number;
   kills: number;
   pvpKills: number;
@@ -146,6 +157,16 @@ export interface RoomSetVisibilityMessage {
 }
 export interface RoomStartMessage {
   type: 'room_start';
+}
+/** Marca/desmarca PRONTO no lobby da sala (o dono só inicia com todos prontos). */
+export interface RoomReadyMessage {
+  type: 'room_ready';
+  ready: boolean;
+}
+/** Escolhe o personagem (fora de partida). Persistido no jogador. */
+export interface SetCharacterMessage {
+  type: 'set_character';
+  character: CharacterId;
 }
 
 // ---------- partida (client -> server) ----------
@@ -273,7 +294,9 @@ export type ClientMessage =
   | RoomJoinMessage
   | RoomLeaveMessage
   | RoomSetVisibilityMessage
-  | RoomStartMessage;
+  | RoomStartMessage
+  | RoomReadyMessage
+  | SetCharacterMessage;
 
 // ---------- server -> client ----------
 
@@ -454,8 +477,9 @@ export interface ZombieSnapshot {
   anim: ZombieAnim;
   hp: number;
   maxHp: number;
-  /** infectado: id do jogador que virou este zumbi */
+  /** infectado: id do jogador que virou este zumbi e o personagem dele */
   owner?: string;
+  character?: CharacterId;
 }
 
 export type WavePhase = 'idle' | 'countdown' | 'wave' | 'boss' | 'complete';
@@ -648,6 +672,8 @@ export interface ErrorMessage {
     | 'not_in_room'
     | 'already_in_room'
     | 'room_not_in_lobby'
+    | 'not_all_ready'
+    | 'room_locked'
     | 'too_far'
     | 'hotbar_full'
     | 'no_tool'

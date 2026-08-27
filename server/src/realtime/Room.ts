@@ -33,6 +33,10 @@ export class Room {
   wave: number;
   /** ordem de inserção = ordem de entrada (usada para transferir o owner) */
   readonly members = new Map<string, Member>();
+  /** quem marcou PRONTO no lobby */
+  readonly ready = new Set<string>();
+  /** quem estava na sala no início da partida: só eles podem (re)entrar depois */
+  readonly roster = new Set<string>();
   /** simulação da partida; existe a partir do room_start */
   match: Match | null = null;
   lastWaveStateAt = 0;
@@ -72,7 +76,14 @@ export class Room {
       code: this.code,
       status: this.status,
       memberIds: [...this.members.keys()],
+      readyIds: [...this.ready],
+      rosterIds: [...this.roster],
     };
+  }
+
+  get allReady(): boolean {
+    for (const id of this.members.keys()) if (!this.ready.has(id)) return false;
+    return true;
   }
 
   summary(): RoomSummary {
@@ -84,6 +95,7 @@ export class Room {
       members: this.members.size,
       max: MAX_ROOM_PLAYERS,
       ownerName: this.ownerName,
+      locked: this.status !== 'LOBBY',
     };
   }
 
@@ -91,7 +103,7 @@ export class Room {
     const d: RoomDetail = {
       ...this.summary(),
       ownerId: this.ownerId,
-      memberList: [...this.members.values()].map((m) => ({ id: m.player.id, name: m.player.name })),
+      memberList: [...this.members.values()].map((m) => ({ id: m.player.id, name: m.player.name, ready: this.ready.has(m.player.id), character: m.player.character })),
       money: this.money,
       wave: this.wave,
     };

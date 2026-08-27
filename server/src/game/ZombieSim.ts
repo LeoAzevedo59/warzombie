@@ -1,6 +1,6 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { dist, isClearOfCircles, pushOutCircle, type XZ } from '../../../shared/math.js';
-import type { ProjectileSnapshot, ZombieAnim, ZombieKind, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { CharacterId, ProjectileSnapshot, ZombieAnim, ZombieKind, ZombieSnapshot } from '../../../shared/protocol.js';
 import { mapBounds } from '../../../shared/worldgen.js';
 
 export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'spit' | 'volley' | 'slam' | 'charge' | 'dead';
@@ -31,6 +31,8 @@ export interface Zombie {
   tier: number;
   /** infectado: jogador que virou este zumbi e quem ele caça (null = qualquer jogador vivo) */
   ownerId: string | null;
+  /** infectado: personagem do dono (o client usa o mesmo modelo) */
+  character: CharacterId | null;
   focusId: string | null;
   /** infectado: s até voltar ao normal (some sem morrer) */
   ttl: number | null;
@@ -138,6 +140,7 @@ export class ZombieSim {
     return [...this.zombies.values()].map((z) => {
       const s: ZombieSnapshot = { id: z.id, kind: z.kind, x: z.x, z: z.z, yaw: z.yaw, anim: animFor(z), hp: z.hp, maxHp: z.maxHp };
       if (z.ownerId) s.owner = z.ownerId;
+      if (z.character) s.character = z.character;
       return s;
     });
   }
@@ -174,6 +177,7 @@ export class ZombieSim {
       hunter,
       tier,
       ownerId: null,
+      character: null,
       focusId: null,
       ttl: null,
       hitApplied: false,
@@ -197,9 +201,10 @@ export class ZombieSim {
    * Jogador `ownerId` virou zumbi onde morreu, caçando `focusId` (quem o matou) por GAME.infected.DURATION s.
    * Não é caçador de wave (não conta para limpar a horda) mas, como eles, acha jogadores a qualquer distância.
    */
-  spawnInfected(ownerId: string, focusId: string | null, x: number, z: number): Zombie {
+  spawnInfected(ownerId: string, character: CharacterId, focusId: string | null, x: number, z: number): Zombie {
     const zb = this.spawn('infected', x, z, 1, 1, false);
     zb.ownerId = ownerId;
+    zb.character = character;
     zb.focusId = focusId;
     zb.ttl = GAME.infected.DURATION;
     zb.state = 'chase';
