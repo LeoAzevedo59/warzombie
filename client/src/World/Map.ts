@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 import { groundMaterial } from '@/Assets/GroundTextures';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
+import { markStatic } from './Batching';
 import { WorldObject } from './WorldObject';
 import { generateChunk, hashChunk, mulberry32, WORLD } from '@shared/worldgen';
 
@@ -32,6 +33,8 @@ const DECOR_POOL: Array<{ key: ModelKey; weight: number }> = [
   { key: 'log', weight: 1 },
 ];
 const DECOR_PER_CHUNK = 26;
+/** Só enfeites com volume projetam sombra; grama/flor/cogumelo/pedrinha não (metade dos draw calls do passe de sombra). */
+const DECOR_WITH_SHADOW = new Set<ModelKey>(['bush', 'bush_small', 'stump', 'log']);
 const DECOR_TOTAL_WEIGHT = DECOR_POOL.reduce((a, d) => a + d.weight, 0);
 
 /** Disco achatado de terra (radius x radius*ratio), um pouco acima do chão para não brigar com a grama. */
@@ -105,6 +108,7 @@ export class GameMap {
       e.setLocalPosition(x, 0, z);
       e.setLocalEulerAngles(0, rand() * 360, 0);
       root.addChild(e);
+      markStatic(this.app, e, DECOR_WITH_SHADOW.has(key));
     }
     return { cx, cz, root, objects };
   }
