@@ -48,7 +48,7 @@ conv $IMP/impactWood_heavy_002.ogg wall_break
 conv $IMP/impactPunch_medium_000.ogg hit_1
 conv $IMP/impactPunch_medium_001.ogg hit_2
 conv $IMP/impactSoft_heavy_000.ogg hit_soft
-for n in 0 1 2 3 4; do conv $IMP/footstep_grass_00$n.ogg step_$((n+1)) -af volume=0.7; done
+for n in 0 1 2 3 4; do conv $IMP/footstep_carpet_00$n.ogg step_$((n+1)) -af "lowpass=f=1800,afade=t=in:d=0.008,afade=t=out:st=0.12:d=0.1,volume=0.6" -t 0.25; done
 # ---- ui / waves ----
 conv $UI/click_001.ogg ui_click
 conv $UI/open_001.ogg ui_open

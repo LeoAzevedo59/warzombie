@@ -8,8 +8,8 @@ import { audio } from '@/Assets/SoundAssets';
 import type { WavePhase } from '@shared/protocol';
 
 /** Distância (m) percorrida entre passos andando; correndo é menor. */
-const STEP_DIST_WALK = 0.9;
-const STEP_DIST_RUN = 1.25;
+const STEP_DIST_WALK = 1.15;
+const STEP_DIST_RUN = 1.6;
 
 /**
  * Traduz eventos do jogo em sons (posicionais quando fazem sentido) e escolhe a música pela fase
@@ -127,7 +127,7 @@ export class AudioSystem implements System {
       const need = this.player.running ? STEP_DIST_RUN : STEP_DIST_WALK;
       if (this.stepAcc >= need) {
         this.stepAcc = 0;
-        audio.play('step', { volume: this.player.crouching ? 0.5 : 1, pitchVar: 0.12 });
+        audio.play('step', { volume: this.player.crouching ? 0.5 : this.player.running ? 1 : 0.8, pitchVar: 0.04 });
       }
     } else this.stepAcc = 0;
 

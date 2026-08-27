@@ -45,7 +45,7 @@ export type MusicName = 'calm' | 'tension';
 /** Volume base por som (1 = normal). */
 const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   gun_shot: 0.9,
-  step: 0.35,
+  step: 0.28,
   zombie_growl: 0.6,
   zombie_hurt: 0.55,
   ui_click: 0.5,
