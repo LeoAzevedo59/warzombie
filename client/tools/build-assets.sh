@@ -13,8 +13,9 @@ IMP=kenney_impact-sounds/Audio; RPG=kenney_rpg-audio/Audio; UI=kenney_interface-
 # conv <in> <out> [extra ffmpeg filters/opts...]
 conv(){ in="$1"; out="$2"; shift 2; ffmpeg -hide_banner -loglevel error -y -i "$in" "$@" -ac 1 -ar 44100 -c:a libmp3lame -q:a 3 "$S/$out.mp3"; }
 # ---- arma ----
-conv oga/pistol22.wav gun_shot -ss 0.14 -t 0.55 -af "bass=g=9:f=120,volume=1.6,alimiter=limit=0.95"
-conv $RPG/metalLatch.ogg gun_reload
+# tiro + recarga: "Pistol, animations, sounds for GoDot" (OGA, CC0) em oga/pg/Pistol/Sounds
+conv oga/pg/Pistol/Sounds/pistol_Gunshot.wav gun_shot -af "afade=t=out:st=0.55:d=0.25,alimiter=limit=0.95" -t 0.8
+# gun_reload = mag_out + mag_in (450 ms) + cock_back (950 ms) + cock_forward (1200 ms) mixados (ver commit)
 conv $RPG/metalClick.ogg gun_empty -af volume=1.2
 conv $RPG/knifeSlice.ogg knife_swing_1
 conv $RPG/knifeSlice2.ogg knife_swing_2
