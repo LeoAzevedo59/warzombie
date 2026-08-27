@@ -166,6 +166,13 @@ export const GAME = {
     /** raio (em unidades) ao redor do centro onde os zumbis nascem */
     SPAWN_RADIUS_MIN: 24,
     SPAWN_RADIUS_MAX: 34,
+    /**
+     * A antena é sorteada a até TOWER_MAX_DIST do centro, dentro do anel de spawn: sem isto a horda
+     * nascia em cima dela (43% das waves com zumbi a <10 m). Ponto de spawn precisa estar a pelo menos
+     * isto da antena e de qualquer jogador vivo.
+     */
+    SPAWN_MIN_FROM_TOWER: 18,
+    SPAWN_MIN_FROM_PLAYER: 12,
   },
   /** Estruturas fixas no centro do mapa (chunk 0,0 fica livre de nós num raio de 6). */
   hub: {

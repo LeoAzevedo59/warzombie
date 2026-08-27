@@ -729,3 +729,26 @@ test('torre destruída: nenhum evento de wave é transmitido depois do game_over
   assert.deepEqual(after.filter((t) => t === 'boss_incoming' || t === 'wave_state' || t === 'wave_started' || t === 'boss_spawned' || t === 'wave_cleared'), []);
   assert.equal(m.zombies.zombies.size, 0, 'nenhum zumbi nasce depois do game over');
 });
+
+test('horda nunca nasce perto da antena nem de um jogador vivo', () => {
+  const { m, snap } = setup();
+  const p = m.addPlayer(snap('a', 20, -20));
+  p.hotbar[0] = { itemId: 'battery', count: 1 };
+  p.snapshot.x = m.towerPos.x + 1.5;
+  p.snapshot.z = m.towerPos.z;
+  m.activateBattery('a');
+  p.snapshot.x = 20;
+  p.snapshot.z = -20;
+  // muitos sorteios com rand real (o setup usa 0,5 fixo, que daria sempre o mesmo ponto)
+  const sim = m.zombies as unknown as { rand: () => number };
+  sim.rand = Math.random;
+  for (let i = 0; i < 500; i++) {
+    const s = m.zombies.pickSpawnPoint();
+    const dt = Math.hypot(s.x - m.towerPos.x, s.z - m.towerPos.z);
+    const dp = Math.hypot(s.x - 20, s.z + 20);
+    assert.ok(dt >= GAME.waves.SPAWN_MIN_FROM_TOWER, `a ${dt.toFixed(1)} m da antena`);
+    assert.ok(dp >= GAME.waves.SPAWN_MIN_FROM_PLAYER, `a ${dp.toFixed(1)} m do jogador`);
+    const dc = Math.hypot(s.x, s.z);
+    assert.ok(dc >= GAME.waves.SPAWN_RADIUS_MIN - 0.01 && dc <= GAME.waves.SPAWN_RADIUS_MAX + 0.01, `fora do anel: ${dc.toFixed(1)}`);
+  }
+});

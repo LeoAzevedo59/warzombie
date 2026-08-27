@@ -175,6 +175,11 @@ export class Match {
       },
       () => this.obstacles(),
     );
+    // a horda (e os ambientais) nunca nascem em cima da antena nem de um jogador vivo
+    this.zombies.avoid = () => [
+      { position: this.towerPos, minDist: GAME.waves.SPAWN_MIN_FROM_TOWER },
+      ...[...this.players.values()].filter((p) => !p.dead && !p.boarded).map((p) => ({ position: p.snapshot, minDist: GAME.waves.SPAWN_MIN_FROM_PLAYER })),
+    ];
     this.waves = new WaveDirector(
       this.zombies,
       {
