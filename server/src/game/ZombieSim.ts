@@ -106,6 +106,8 @@ export class ZombieSim {
   private nextProjectileId = 1;
   private bounds = mapBounds();
   private rand: () => number;
+  /** Pontos que o spawn evita (antena, jogadores vivos) com a distância mínima de cada um. */
+  avoid: () => Iterable<{ position: XZ; minDist: number }> = () => [];
 
   constructor(
     private io: ZombieSimIO,
@@ -213,18 +215,33 @@ export class ZombieSim {
     return zb;
   }
 
-  /** Ponto livre num anel ao redor do centro (borda do mapa) — nunca em cima de árvore/rocha. */
+  /**
+   * Ponto livre num anel ao redor do centro (borda do mapa) — nunca em cima de árvore/rocha nem perto
+   * demais da antena/jogadores (`avoid`). Se nenhuma tentativa satisfizer tudo, usa a que ficou mais
+   * longe do que devia evitar (nunca um ponto fixo, que podia ser justamente ao lado da antena).
+   */
   pickSpawnPoint(): XZ {
     const { SPAWN_RADIUS_MIN: min, SPAWN_RADIUS_MAX: max } = GAME.waves;
     const b = this.bounds;
-    for (let i = 0; i < 30; i++) {
+    const avoid = [...this.avoid()];
+    let best: XZ | null = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < 60; i++) {
       const a = this.rand() * Math.PI * 2;
       const d = min + this.rand() * (max - min);
       const x = Math.min(b.maxX, Math.max(b.minX, Math.cos(a) * d));
       const z = Math.min(b.maxZ, Math.max(b.minZ, Math.sin(a) * d));
-      if (isClearOfCircles(x, z, this.obstacles(), GAME.zombie.RADIUS)) return { x, z };
+      if (!isClearOfCircles(x, z, this.obstacles(), GAME.zombie.RADIUS)) continue;
+      // folga mínima em relação aos pontos evitados (negativa = perto demais)
+      let score = Infinity;
+      for (const p of avoid) score = Math.min(score, dist({ x, z }, p.position) - p.minDist);
+      if (score >= 0) return { x, z };
+      if (score > bestScore) {
+        bestScore = score;
+        best = { x, z };
+      }
     }
-    return { x: min, z: 0 };
+    return best ?? { x: -min, z: 0 };
   }
 
   damage(z: Zombie, amount: number, killerId?: string): boolean {
