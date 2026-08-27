@@ -1,5 +1,5 @@
 import * as pc from 'playcanvas';
-import { getCharacterAnimTrack, type CharacterAnimName } from '@/Assets/ModelAssets';
+import { getAnimTrack, type AnimStateDef, type CharacterAnimName, type ModelKey } from '@/Assets/ModelAssets';
 
 /** Duração (s) padrão do crossfade entre estados. */
 const DEFAULT_BLEND_TIME = 0.1;
@@ -12,7 +12,7 @@ interface RestBone {
 }
 
 /**
- * Controlador de animação para personagens do worker.glb (player e zumbis).
+ * Controlador de animação para personagens animados (player, remotos, zumbis, vendedor).
  *
  * Encapsula as pegadinhas do pc.AnimComponent com GLB que foram descobertas no Player:
  * 1. `anim` fica no PAI do entity instanciado — as curvas do GLB têm caminhos tipo
@@ -52,12 +52,17 @@ export class AnimatedModel {
   constructor(
     private owner: pc.Entity,
     private model: pc.Entity,
+    private modelKey: ModelKey,
   ) {}
 
   /** Chame só depois de `owner` já estar na árvore da cena. Retorna false se faltar alguma track. */
-  init(states: Array<{ name: CharacterAnimName; loop?: boolean }>, initial: CharacterAnimName): boolean {
-    const tracks = states.map((s) => ({ ...s, track: getCharacterAnimTrack(s.name) }));
-    if (tracks.some((t) => !t.track)) return false;
+  init(states: AnimStateDef[], initial: CharacterAnimName): boolean {
+    const tracks = states.map((s) => ({ ...s, track: getAnimTrack(this.modelKey, s.track ?? s.name) }));
+    const missing = tracks.filter((t) => !t.track).map((t) => t.track ?? t.name);
+    if (missing.length) {
+      console.warn(`[AnimatedModel] ${this.modelKey}: tracks ausentes ${missing.join(', ')}`);
+      return false;
+    }
 
     this.captureRestPose();
     this.anim = this.owner.addComponent('anim', { activate: true }) as pc.AnimComponent;

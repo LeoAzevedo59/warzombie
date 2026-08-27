@@ -1,16 +1,14 @@
 import * as pc from 'playcanvas';
 import { GAME } from '@shared/gameconfig';
-import { makeBox, makeCylinder, makeGroundX } from '@/Assets/Primitives';
-import { instantiateModel } from '@/Assets/ModelAssets';
+import { makeBox, makeGroundX } from '@/Assets/Primitives';
+import { HUMAN_STATES, instantiateModel, showCharacterWeapon } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 
 export type HubKind = 'vendor' | 'tower';
 
-const VENDOR_TINT = new pc.Color(1.0, 0.85, 0.45);
-
 /**
- * Estrutura fixa do centro do mapa: o vendedor (compra/venda) e a torre (bateria → waves, M3).
- * Mesma interface de interação dos WorldObjects (position/radius/promptLabel/setHighlight).
+ * Estrutura fixa do centro do mapa: o vendedor (bancada + tenda + personagem) e a torre
+ * (caixa d'água com o suporte da bateria). Mesma interface de interação dos WorldObjects.
  */
 export class HubStructure {
   readonly entity: pc.Entity;
@@ -32,29 +30,44 @@ export class HubStructure {
     this.entity.setLocalPosition(spot.x, 0, spot.z);
 
     if (kind === 'vendor') {
-      // balcão + vendedor (worker.glb tingido, parado em Idle olhando para o centro)
-      const counter = makeBox({ color: '#7a4a24', scale: [2.2, 0.9, 0.7], position: [0, 0.45, 0.9] });
-      const top = makeBox({ color: '#c9a06a', scale: [2.4, 0.08, 0.9], position: [0, 0.94, 0.9] });
-      const sign = makeBox({ color: '#ffd34d', scale: [1.6, 0.4, 0.06], position: [0, 2.1, 0.9], emissive: 0.6 });
-      const post1 = makeBox({ color: '#5a3b1e', scale: [0.08, 2.1, 0.08], position: [-1, 1.05, 1.3] });
-      const post2 = makeBox({ color: '#5a3b1e', scale: [0.08, 2.1, 0.08], position: [1, 1.05, 1.3] });
-      for (const e of [counter, top, sign, post1, post2]) this.entity.addChild(e);
-      const model = instantiateModel('player');
-      this.tint(model, VENDOR_TINT);
+      // bancada na frente (lado +Z, virada pro centro), tenda atrás, caixas e fogueira ao lado
+      const bench = instantiateModel('workbench');
+      bench.setLocalPosition(0, 0, 0.9);
+      const tent = instantiateModel('tent');
+      tent.setLocalPosition(0, 0, -1.7);
+      const tentFrame = instantiateModel('tent_frame');
+      tentFrame.setLocalPosition(0, 0, -1.7);
+      const sign = instantiateModel('signpost');
+      sign.setLocalPosition(1.5, 0, 0.9);
+      sign.setLocalEulerAngles(0, 20, 0);
+      const box1 = instantiateModel('box');
+      box1.setLocalPosition(-1.5, 0, 0.5);
+      const box2 = instantiateModel('box');
+      box2.setLocalPosition(-1.5, 0.75, 0.5);
+      box2.setLocalEulerAngles(0, 30, 0);
+      const fire = instantiateModel('campfire');
+      fire.setLocalPosition(2.4, 0, -0.6);
+      for (const e of [bench, tent, tentFrame, sign, box1, box2, fire]) this.entity.addChild(e);
+
+      const model = instantiateModel('char_lis');
+      showCharacterWeapon(model, null);
       const holder = new pc.Entity('vendor-model');
       holder.addChild(model);
+      holder.setLocalPosition(0, 0, 0.1);
       holder.setLocalEulerAngles(0, 0, 0); // olha para +Z (centro do mapa, já que o vendedor fica em z negativo)
       this.entity.addChild(holder);
-      this.anim = new AnimatedModel(holder, model);
+      this.anim = new AnimatedModel(holder, model, 'char_lis');
     } else {
-      // torre: base de pedra + coluna + suporte da bateria (vazio até comprar)
-      const base = makeCylinder({ color: '#4a5058', scale: [1.8, 0.3, 1.8], position: [0, 0.15, 0] });
-      const column = makeCylinder({ color: '#5c6670', scale: [0.6, 2.4, 0.6], position: [0, 1.5, 0] });
-      const socket = makeBox({ color: '#2b2f36', scale: [0.7, 0.4, 0.7], position: [0, 2.9, 0] });
-      const antenna = makeCylinder({ color: '#8e939a', scale: [0.08, 1.2, 0.08], position: [0, 3.6, 0] });
-      for (const e of [base, column, socket, antenna]) this.entity.addChild(e);
+      const tower = instantiateModel('water_tower');
+      this.entity.addChild(tower);
+      // suporte da bateria (vazio até comprar) na base
+      const socket = makeBox({ color: '#2b2f36', scale: [0.6, 0.35, 0.6], position: [0, 0.18, 1.0] });
+      this.entity.addChild(socket);
+      const barrel = instantiateModel('barrel');
+      barrel.setLocalPosition(-1.5, 0, 0.6);
+      this.entity.addChild(barrel);
       this.hpBar = new pc.Entity('hpbar');
-      this.hpBar.setLocalPosition(0, 4.6, 0);
+      this.hpBar.setLocalPosition(0, 5.3, 0);
       this.hpBar.addChild(makeBox({ color: '#111', scale: [2.4, 0.12, 0.1], emissive: 0.6 }));
       this.hpFill = makeBox({ color: '#4db8ff', scale: [2.34, 0.09, 0.12], emissive: 1 });
       this.hpBar.addChild(this.hpFill);
@@ -68,20 +81,7 @@ export class HubStructure {
 
   /** Chame só depois de `entity` estar na cena (o vendedor tem animação Idle). */
   initAnimation(): void {
-    this.anim?.init([{ name: 'Idle' }], 'Idle');
-  }
-
-  private tint(model: pc.Entity, color: pc.Color): void {
-    const renders = model.findComponents('render') as pc.RenderComponent[];
-    for (const r of renders) {
-      const cloned = r.meshInstances.map((mi) => {
-        const m = (mi.material as pc.StandardMaterial).clone();
-        m.diffuse.copy(color);
-        m.update();
-        return m;
-      });
-      r.meshInstances.forEach((mi, i) => (mi.material = cloned[i]));
-    }
+    this.anim?.init(HUMAN_STATES, 'Idle');
   }
 
   /** Vida da torre (0..1) na barra 3D. */

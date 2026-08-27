@@ -1,4 +1,5 @@
 import type { ItemId, ItemStack } from '@/Items/Item';
+import type { SfxName } from '@/Assets/SoundAssets';
 import type { PlayerSummary, ProjectileSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
 /** Mapa de eventos do jogo -> payload. Systems se comunicam exclusivamente por aqui. */
@@ -19,6 +20,11 @@ export interface GameEvents {
   'inventory:changed': { stacks: ReadonlyArray<ItemStack | null> };
 
   'shop:open': void;
+  'shop:transaction': { kind: 'buy' | 'sell' | 'upgrade' };
+  /** pedido genérico de efeito sonoro (posicional se x/z vierem) */
+  'audio:sfx': { name: SfxName; x?: number; z?: number; volume?: number };
+  /** zumbi começou um ataque (para o som) */
+  'zombie:attack': { id: number; x: number; z: number };
 
   'player:statsChanged': { hp: number; stamina: number; maxHp: number; maxStamina: number };
   'player:damaged': { amount: number; special: boolean };

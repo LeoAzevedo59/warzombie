@@ -7,6 +7,7 @@ import { LobbyScene } from '@/Scenes/LobbyScene';
 import { WorldScene } from '@/Scenes/WorldScene';
 import { preloadModels } from '@/Assets/ModelAssets';
 import { NetworkClient } from '@/Net/NetworkClient';
+import { audio } from '@/Assets/SoundAssets';
 
 /** Raiz do jogo: cria a pc.Application, gerencia a cena ativa e o frame update. */
 export class Game {
@@ -34,6 +35,10 @@ export class Game {
     window.addEventListener('resize', () => this.app.resizeCanvas());
 
     this.app.on('update', (dt: number) => this.scene?.update(dt));
+    // o AudioContext só toca depois de um gesto do usuário: destrava no primeiro clique/tecla
+    const unlock = () => audio.unlock();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
     this.bus.on('scene:change', ({ scene }) => this.changeScene(scene));
 
     this.modelsPromise = this.loadModels();

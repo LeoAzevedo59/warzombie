@@ -16,6 +16,7 @@ import { CombatSystem } from '@/Systems/CombatSystem';
 import { NetworkSystem } from '@/Systems/NetworkSystem';
 import { ZombieSystem } from '@/Systems/ZombieSystem';
 import { EffectsSystem } from '@/Systems/EffectsSystem';
+import { AudioSystem } from '@/Systems/AudioSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
 import { SummaryUI } from '@/UI/SummaryUI';
@@ -70,8 +71,8 @@ export class WorldScene extends BaseScene {
     this.camera = new IsoCamera();
     this.root.addChild(this.camera.entity);
 
-    const map = new GameMap(state.seed, (id) => state.collectedObjectIds.has(id));
-    this.world = new World(map, bus, state.tower, state.seed);
+    const map = new GameMap(app, state.seed, (id) => state.collectedObjectIds.has(id));
+    this.world = new World(map, bus, state.tower, state.seed, app);
     this.root.addChild(this.world.root);
     this.world.init();
     for (const s of state.structures) this.world.addWall(s);
@@ -111,6 +112,7 @@ export class WorldScene extends BaseScene {
       .register(zombies)
       .register(new EffectsSystem(bus, this.player, this.root, state, (id) => network.positionOf(id)))
       .register(new BuildSystem(bus, this.player, equipment, net, this.world, this.root, this.input))
+      .register(new AudioSystem(bus, this.player, this.world, this.camera.entity, () => zombies.alive(), (id) => zombies.get(id), (id) => network.positionOf(id), state.playerId ?? ''))
       .start();
 
     // --- UI ---
@@ -146,6 +148,7 @@ export class WorldScene extends BaseScene {
         else this.ui?.players.toggle();
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
+      bus.on('equip:changed', ({ itemId }) => this.player.setEquipped(itemId)),
       bus.on('net:upgrades', ({ upgrades }) => this.camera.setOrthoHeight(cameraOrthoHeight(upgrades))),
       bus.on('net:towerHp', ({ hp, maxHp }) => this.world.tower.setHpRatio(hp / maxHp)),
       bus.on('net:features', ({ features }) => this.ui?.map.setEnabled(features.minimap)),
@@ -170,9 +173,11 @@ export class WorldScene extends BaseScene {
   }
 
   update(dt: number): void {
+    if (!this.world) return; // enter() falhou: não inunda o console a cada frame
     this.loop.tick(dt);
     this.world.update(this.player.position);
     this.camera.update(dt);
+    this.world.updateObjects(dt);
     this.ui?.map.update();
     this.ui?.players.update();
     this.ui?.wave.update();

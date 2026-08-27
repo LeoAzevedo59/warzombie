@@ -54,7 +54,9 @@ export class ZombieSystem implements System {
         z.initAnimation();
         this.zombies.set(s.id, z);
       }
+      const wasAttacking = z.attacking;
       z.apply(s);
+      if (z.attacking && !wasAttacking) this.bus.emit('zombie:attack', { id: s.id, x: s.x, z: s.z });
     }
     for (const [id, z] of this.zombies) {
       if (!seen.has(id) && !z.dead) {

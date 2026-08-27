@@ -1,7 +1,8 @@
 import * as pc from 'playcanvas';
-import { instantiateModel, MODEL_SCALE } from '@/Assets/ModelAssets';
+import { HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterAnimName, type CharacterWeaponNode } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { yawToward, facingDir } from '@/Core/Spatial';
+import type { ItemId } from '@/Items/Item';
 import type { PlayerStats } from './PlayerStats';
 
 /** Ajuste de rotação para alinhar a frente do modelo com o eixo +Z (yaw=0), usado por lookAt(). */
@@ -10,8 +11,24 @@ const MODEL_YAW_OFFSET = 0;
 /** Abaixo dessa velocidade o player é considerado parado (toca Idle). */
 const MOVE_EPSILON = 0.05;
 
+/** Item equipado -> nó de arma embutido no GLB do personagem. */
+export function weaponNodeFor(item: ItemId | null): CharacterWeaponNode | null {
+  switch (item) {
+    case 'knife':
+      return 'Knife';
+    case 'glock':
+      return 'Pistol';
+    case 'axe':
+    case 'pickaxe':
+      return 'Axe';
+    default:
+      return null;
+  }
+}
+
 /**
- * Entidade visual do jogador: modelo GLB (worker.glb) orientado por lookAt(), com Idle/Walk/Run.
+ * Entidade visual do jogador: personagem do Zombie Apocalypse Kit orientado por lookAt(), com
+ * Idle/Walk/Run (variantes _Gun quando a pistola está na mão), Stab (faca), Duck (agachado) e Death.
  * Toda a lógica delicada de animação (skinning, bind pose, corrida de ticks) vive em AnimatedModel.
  */
 export class Player {
@@ -22,11 +39,12 @@ export class Player {
   velocity = new pc.Vec3();
   crouching = false;
   running = false;
-  /** Enquanto > 0 o player mantém a pose de tiro (não troca pra Idle/Walk/Run). */
+  /** Enquanto > 0 o player mantém a pose de tiro/golpe (não troca pra Idle/Walk/Run). */
   private shootPoseTimer = 0;
   /** Lentidão (cuspe de zumbi): fator aplicado à velocidade até `slowUntil` (ms). */
   private slowFactor = 1;
   private slowUntil = 0;
+  private equipped: ItemId | null = null;
 
   applySlow(factor: number, seconds: number): void {
     this.slowFactor = factor;
@@ -40,18 +58,26 @@ export class Player {
 
   constructor(readonly stats: PlayerStats) {
     this.entity = new pc.Entity('player');
-    this.model = instantiateModel('player');
+    this.model = instantiateModel('char_shaun');
     this.model.setLocalEulerAngles(0, MODEL_YAW_OFFSET, 0);
+    showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);
-    this.anim = new AnimatedModel(this.entity, this.model);
+    this.anim = new AnimatedModel(this.entity, this.model, 'char_shaun');
   }
 
   /** Chame só depois de `entity` já estar na árvore da cena. */
   initAnimation(): void {
-    this.anim.init(
-      [{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Punch_Left', loop: false }, { name: 'Death', loop: false }],
-      'Idle',
-    );
+    this.anim.init(HUMAN_STATES, 'Idle');
+  }
+
+  /** Item equipado: mostra a arma correspondente na mão e muda o conjunto Idle/Walk/Run. */
+  setEquipped(item: ItemId | null): void {
+    this.equipped = item;
+    showCharacterWeapon(this.model, weaponNodeFor(item));
+  }
+
+  private get gunMode(): boolean {
+    return this.equipped === 'glock';
   }
 
   get position(): pc.Vec3 {
@@ -73,17 +99,13 @@ export class Player {
   }
 
   setCrouch(on: boolean): void {
-    if (this.crouching === on) return;
     this.crouching = on;
-    const base = MODEL_SCALE.player;
-    const s = on ? 0.6 : 1;
-    this.model.setLocalScale(base, base * s, base);
   }
 
-  /** Golpe de faca. */
+  /** Golpe de faca / machado. */
   playMelee(): void {
     this.shootPoseTimer = 0.4;
-    this.anim.play('Punch_Left', 0.05, true);
+    this.anim.play(this.equipped === 'axe' || this.equipped === 'pickaxe' ? 'Slash' : 'Punch_Left', 0.05, true);
   }
 
   /** Dispara a animação de tiro por um curto período. */
@@ -100,7 +122,11 @@ export class Player {
       return;
     }
     const moving = this.velocity.lengthSq() > MOVE_EPSILON * MOVE_EPSILON;
-    this.anim.play(!moving ? 'Idle' : this.running ? 'Run' : 'Walk');
+    let next: CharacterAnimName;
+    if (!moving) next = this.crouching ? 'Duck' : this.gunMode ? 'Idle_Gun' : 'Idle';
+    else if (this.running) next = this.gunMode ? 'Run_Gun' : 'Run';
+    else next = this.gunMode ? 'Walk_Gun' : 'Walk';
+    this.anim.play(next);
   }
 
   dispose(): void {

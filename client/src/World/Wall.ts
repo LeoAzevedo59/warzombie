@@ -1,11 +1,18 @@
 import * as pc from 'playcanvas';
 import { GAME } from '@shared/gameconfig';
-import { ITEMS } from '@shared/items';
 import { makeBox } from '@/Assets/Primitives';
+import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import type { StructureSnapshot } from '@shared/protocol';
 import { CONFIG } from '@/config';
 
-/** Parede colocada por um jogador: bloco sólido com barra de vida. */
+/** Modelo (Kenney Survival Kit) por tipo de parede; cada GLB tem 0,5 x 0,52 — escalado para WIDTH x altura. */
+const WALL_MODEL: Record<string, { key: ModelKey; height: number }> = {
+  wall_wood: { key: 'fence_wood', height: 1.5 },
+  wall_stone: { key: 'fence_stone', height: 1.6 },
+  wall_iron: { key: 'fence_iron', height: 1.7 },
+};
+
+/** Parede colocada por um jogador: cerca sólida com barra de vida. */
 export class Wall {
   readonly entity: pc.Entity;
   readonly id: number;
@@ -20,13 +27,12 @@ export class Wall {
     this.entity = new pc.Entity(`wall#${s.id}`);
     this.entity.setPosition(s.x, 0, s.z);
     this.entity.setEulerAngles(0, s.yaw, 0);
-    const color = ITEMS[s.kind].color;
-    const h = s.kind === 'wall_iron' ? 1.6 : 1.3;
-    this.entity.addChild(makeBox({ color, scale: [GAME.walls.WIDTH, h, GAME.walls.THICK], position: [0, h / 2, 0] }));
-    // postes nas pontas
-    for (const dx of [-GAME.walls.WIDTH / 2, GAME.walls.WIDTH / 2]) {
-      this.entity.addChild(makeBox({ color: '#3a2a18', scale: [0.16, h + 0.2, 0.5], position: [dx, (h + 0.2) / 2, 0] }));
-    }
+    const def = WALL_MODEL[s.kind] ?? WALL_MODEL.wall_wood;
+    const h = def.height;
+    const model = instantiateModel(def.key);
+    // GLB: 0,5 de largura, 0,52 de altura, ~0,05 de espessura
+    model.setLocalScale(GAME.walls.WIDTH / 0.5, h / 0.52, GAME.walls.THICK / 0.05);
+    this.entity.addChild(model);
     this.hpBar = new pc.Entity('hpbar');
     this.hpBar.setLocalPosition(0, h + 0.35, 0);
     this.hpBar.addChild(makeBox({ color: '#111', scale: [1.2, 0.08, 0.08], emissive: 0.6 }));

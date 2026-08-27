@@ -1,11 +1,8 @@
 import * as pc from 'playcanvas';
-import { instantiateModel } from '@/Assets/ModelAssets';
+import { characterForId, HUMAN_STATES, instantiateModel, showCharacterWeapon, type CharacterWeaponNode, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
-import { MODEL_SCALE } from '@/Assets/ModelAssets';
 import type { NetAnim, PlayerPose, PlayerSnapshot } from '@shared/protocol';
 
-/** Tom azulado para diferenciar outros jogadores do local (mesmo worker.glb). */
-const REMOTE_TINT = new pc.Color(0.7, 0.8, 1.0);
 /** Velocidade da interpolação de posição/rotação (maior = segue mais perto, menos suave). */
 const LERP_SPEED = 12;
 
@@ -16,6 +13,9 @@ const LERP_SPEED = 12;
 export class RemotePlayer {
   readonly entity: pc.Entity;
   readonly anim: AnimatedModel;
+  private modelKey: ModelKey;
+  /** s restantes mostrando a arma inferida da última animação (o snapshot remoto não traz o item equipado) */
+  private weaponTimer = 0;
   private model: pc.Entity;
   private target = new pc.Vec3();
   private targetYaw = 0;
@@ -31,10 +31,11 @@ export class RemotePlayer {
     this.hp = snapshot.hp;
     this.kills = snapshot.kills;
     this.entity = new pc.Entity(`remote:${snapshot.name}`);
-    this.model = instantiateModel('player');
+    this.modelKey = characterForId(id);
+    this.model = instantiateModel(this.modelKey);
+    showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);
-    this.tint();
-    this.anim = new AnimatedModel(this.entity, this.model);
+    this.anim = new AnimatedModel(this.entity, this.model, this.modelKey);
     this.entity.setPosition(snapshot.x, 0, snapshot.z);
     this.entity.setEulerAngles(0, snapshot.yaw, 0);
     this.target.set(snapshot.x, 0, snapshot.z);
@@ -44,20 +45,7 @@ export class RemotePlayer {
 
   /** Chame só depois de `entity` estar na cena. */
   initAnimation(): void {
-    this.anim.init([{ name: 'Idle' }, { name: 'Walk' }, { name: 'Run' }, { name: 'Gun_Shoot', loop: false }, { name: 'Punch_Left', loop: false }, { name: 'Death', loop: false }], 'Idle');
-  }
-
-  private tint(): void {
-    const renders = this.model.findComponents('render') as pc.RenderComponent[];
-    for (const r of renders) {
-      const cloned = r.meshInstances.map((mi) => {
-        const m = (mi.material as pc.StandardMaterial).clone();
-        m.diffuse.copy(REMOTE_TINT);
-        m.update();
-        return m;
-      });
-      r.meshInstances.forEach((mi, i) => (mi.material = cloned[i]));
-    }
+    this.anim.init(HUMAN_STATES, 'Idle');
   }
 
   get position(): pc.Vec3 {
@@ -68,10 +56,12 @@ export class RemotePlayer {
 
   playShoot(): void {
     if (!this.dead) this.anim.play('Gun_Shoot', 0.05, true);
+    this.showWeapon('Pistol');
   }
 
   playMelee(): void {
     if (!this.dead) this.anim.play('Punch_Left', 0.05, true);
+    this.showWeapon('Knife');
   }
 
   die(): void {
@@ -96,14 +86,20 @@ export class RemotePlayer {
       this.targetAnim = pose.anim;
       this.anim.play(pose.anim, 0.1, pose.anim === 'Gun_Shoot');
     }
-    if (pose.crouching !== this.crouching) {
-      this.crouching = pose.crouching;
-      const base = MODEL_SCALE.player;
-      this.model.setLocalScale(base, base * (pose.crouching ? 0.6 : 1), base);
-    }
+    this.crouching = pose.crouching;
+    if (this.crouching && pose.anim === 'Idle') this.anim.play('Duck', 0.1);
+  }
+
+  private showWeapon(node: CharacterWeaponNode): void {
+    showCharacterWeapon(this.model, node);
+    this.weaponTimer = 6;
   }
 
   update(dt: number): void {
+    if (this.weaponTimer > 0) {
+      this.weaponTimer -= dt;
+      if (this.weaponTimer <= 0) showCharacterWeapon(this.model, null);
+    }
     const t = 1 - Math.exp(-LERP_SPEED * dt);
     const pos = this.entity.getPosition();
     const nx = pos.x + (this.target.x - pos.x) * t;

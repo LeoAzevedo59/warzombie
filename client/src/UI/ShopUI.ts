@@ -16,7 +16,7 @@ export class ShopUI {
 
   constructor(
     parent: HTMLElement,
-    bus: EventBus,
+    private bus: EventBus,
     private state: GameState,
     private net: NetworkClient,
   ) {
@@ -97,9 +97,16 @@ export class ShopUI {
       };
     });
     const sell = this.panel.querySelector<HTMLButtonElement>('.sell');
-    if (sell) sell.onclick = () => this.net.send({ type: 'sell' });
+    if (sell)
+      sell.onclick = () => {
+        this.net.send({ type: 'sell' });
+        this.bus.emit('shop:transaction', { kind: 'sell' });
+      };
     this.panel.querySelectorAll<HTMLButtonElement>('.buy').forEach((b) => {
-      b.onclick = () => this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
+      b.onclick = () => {
+        this.net.send({ type: 'buy', itemId: b.dataset.id as 'axe' });
+        this.bus.emit('shop:transaction', { kind: 'buy' });
+      };
     });
     this.panel.querySelectorAll<HTMLButtonElement>('.tower-repair').forEach((b) => {
       b.onclick = () => this.net.send({ type: 'tower_repair' });
@@ -111,7 +118,10 @@ export class ShopUI {
       b.onclick = () => this.net.send({ type: 'buy_feature', feature: 'minimap' });
     });
     this.panel.querySelectorAll<HTMLButtonElement>('.upgrade').forEach((b) => {
-      b.onclick = () => this.net.send({ type: 'upgrade', kind: b.dataset.kind as UpgradeKind });
+      b.onclick = () => {
+        this.net.send({ type: 'upgrade', kind: b.dataset.kind as UpgradeKind });
+        this.bus.emit('shop:transaction', { kind: 'upgrade' });
+      };
     });
   }
 

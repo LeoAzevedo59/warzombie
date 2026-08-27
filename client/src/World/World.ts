@@ -1,10 +1,11 @@
 import * as pc from 'playcanvas';
 import { CONFIG } from '@/config';
 import type { EventBus } from '@/Core/EventBus';
-import { GameMap, chunkKey, type Chunk } from './Map';
+import { GameMap, chunkKey, makeDirtPatch, type Chunk } from './Map';
 import { HubStructure } from './Hub';
 import { Wall } from './Wall';
 import { WorldObject } from './WorldObject';
+import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import { generateChunk } from '@shared/worldgen';
 import type { StructureSnapshot } from '@shared/protocol';
 import { isChunkInBounds, mapBounds, toChunkCoord } from '@shared/worldgen';
@@ -17,18 +18,47 @@ export class World {
   readonly vendor: HubStructure;
   readonly tower: HubStructure;
   readonly walls = new Map<number, Wall>();
+  /** cenografia do hub com colisão (picape, barris...) */
+  private decorObstacles: Array<{ position: pc.Vec3; solidRadius: number }> = [];
 
   constructor(
     private map: GameMap,
     private bus: EventBus,
     towerPos: { x: number; z: number },
     private seed: number,
+    app: pc.Application,
   ) {
     this.root = new pc.Entity('world');
+    // clareira de terra batida do acampamento
+    this.root.addChild(makeDirtPatch(app, 0, 0, 7.5, 0.8, 30));
     this.vendor = new HubStructure('vendor');
     this.tower = new HubStructure('tower', towerPos);
     this.root.addChild(this.vendor.entity);
     this.root.addChild(this.tower.entity);
+    this.buildHubDecor();
+  }
+
+  /** Cenário fixo ao redor do hub (Zombie Apocalypse Kit): picape abandonada, barris, cones, sangue. */
+  private buildHubDecor(): void {
+    const place = (key: ModelKey, x: number, z: number, yaw: number, solidRadius = 0, scale = 1): void => {
+      const e = instantiateModel(key);
+      const s = e.getLocalScale().x * scale;
+      e.setLocalScale(s, s, s);
+      e.setLocalPosition(x, 0, z);
+      e.setLocalEulerAngles(0, yaw, 0);
+      this.root.addChild(e);
+      if (solidRadius > 0) this.decorObstacles.push({ position: e.getPosition(), solidRadius });
+    };
+    place('pickup', -6.5, 4.5, 115, 2.2);
+    place('cone', -4.2, 6.8, 0);
+    place('cone', -3.4, 7.4, 30);
+    place('barrier', 7.5, -2.5, 60, 0.7);
+    place('barrel', 6.8, -4.2, 0, 0.4);
+    place('pallet', 6.2, 7.2, 20);
+    place('cinder', 6.9, 7.6, 70);
+    place('blood_1', 2.5, -7.5, 40);
+    place('blood_2', -7, -1.5, 0);
+    place('chest', -2.6, -5.2, 160, 0.4);
   }
 
   /** Chame depois de `root` estar na cena (animação do vendedor). */
@@ -94,6 +124,7 @@ export class World {
     yield* this.objects();
     yield* this.structures();
     yield* this.walls.values();
+    yield* this.decorObstacles;
   }
 
   addWall(s: StructureSnapshot): void {
@@ -129,6 +160,11 @@ export class World {
 
   updateWalls(): void {
     for (const w of this.walls.values()) w.update();
+  }
+
+  /** Animações leves dos objetos (tremor ao ser golpeado). */
+  updateObjects(dt: number): void {
+    for (const c of this.chunks.values()) for (const o of c.objects) o.update(dt);
   }
 
   findObject(id: number): WorldObject | null {

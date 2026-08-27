@@ -1,16 +1,25 @@
 import * as pc from 'playcanvas';
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
-import { instantiateModel, MODEL_SCALE, type CharacterAnimName } from '@/Assets/ModelAssets';
+import { instantiateModel, MODELS, RIBCAGE_STATES, tintModel, ZOMBIE_STATES, type CharacterAnimName, type ModelKey } from '@/Assets/ModelAssets';
 import { AnimatedModel } from '@/Entities/AnimatedModel';
 import { makeBox } from '@/Assets/Primitives';
 import type { ZombieAnim, ZombieKind, ZombieSnapshot } from '@shared/protocol';
 
-/** Tom aplicado ao worker.glb pra virar zumbi (multiplica a textura). */
-const ZOMBIE_TINT = new pc.Color(0.45, 0.85, 0.4);
-const BOSS_TINT = new pc.Color(0.9, 0.3, 0.25);
-const SPITTER_TINT = new pc.Color(0.7, 0.45, 0.95);
-const HURT_TINT = new pc.Color(1.6, 0.5, 0.5);
+/** Modelo por tipo de zumbi (Quaternius Zombie Apocalypse Kit). */
+const ZOMBIE_MODEL: Record<ZombieKind, ModelKey> = {
+  zombie: 'zombie_basic',
+  spitter: 'zombie_ribcage',
+  boss: 'zombie_chubby',
+};
+
+/** Tons multiplicados sobre o atlas (o zumbi comum fica com a cor original). */
+const BASE_TINT: Record<ZombieKind, pc.Color> = {
+  zombie: new pc.Color(1, 1, 1),
+  spitter: new pc.Color(0.85, 0.7, 1.1),
+  boss: new pc.Color(1.1, 0.75, 0.7),
+};
+const HURT_TINT = new pc.Color(1.8, 0.45, 0.45);
 const HURT_FLASH_TIME = 0.12;
 const LERP_SPEED = 12;
 
@@ -51,18 +60,19 @@ export class Zombie {
     this.entity.setEulerAngles(0, snap.yaw, 0);
     this.target.set(snap.x, 0, snap.z);
     this.targetYaw = this.currentYaw = snap.yaw;
-    this.model = instantiateModel('player');
-    const scale = MODEL_SCALE.player * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);
+    const key = ZOMBIE_MODEL[snap.kind];
+    this.model = instantiateModel(key);
+    const scale = MODELS[key].scale * (snap.kind === 'boss' ? GAME.boss.SCALE : 1);
     this.model.setLocalScale(scale, scale, scale);
     this.entity.addChild(this.model);
-    this.baseTint = snap.kind === 'boss' ? BOSS_TINT : snap.kind === 'spitter' ? SPITTER_TINT : ZOMBIE_TINT;
-    this.tint();
-    this.anim = new AnimatedModel(this.entity, this.model);
+    this.baseTint = BASE_TINT[snap.kind];
+    this.materials = tintModel(this.model, this.baseTint);
+    this.anim = new AnimatedModel(this.entity, this.model, key);
 
     // barra de vida acima da cabeça (fundo escuro + preenchimento)
     const bar = new pc.Entity('hpbar');
     this.hpBar = bar;
-    const h = snap.kind === 'boss' ? 2.15 * GAME.boss.SCALE : 2.15;
+    const h = snap.kind === 'boss' ? 2.0 * GAME.boss.SCALE : 2.0;
     const w = snap.kind === 'boss' ? 1.8 : 0.9;
     bar.setLocalPosition(0, h, 0);
     const bg = makeBox({ color: '#111', scale: [w, 0.09, 0.09], emissive: 0.6 });
@@ -72,34 +82,9 @@ export class Zombie {
     this.entity.addChild(bar);
   }
 
-  /** Clona os materiais do GLB (pra não tingir o player, que usa o mesmo asset) e aplica o tom. */
-  private tint(): void {
-    const renders = this.model.findComponents('render') as pc.RenderComponent[];
-    for (const r of renders) {
-      const cloned = r.meshInstances.map((mi) => {
-        const m = (mi.material as pc.StandardMaterial).clone();
-        m.diffuse.copy(this.baseTint);
-        m.update();
-        this.materials.push(m);
-        return m;
-      });
-      r.meshInstances.forEach((mi, i) => (mi.material = cloned[i]));
-    }
-  }
-
   /** Chame só depois de `entity` estar na cena. */
   initAnimation(): void {
-    this.anim.init(
-      [
-        { name: 'Idle' },
-        { name: 'Walk' },
-        { name: 'Run' },
-        { name: 'Punch_Left', loop: false },
-        { name: 'Kick_Right', loop: false },
-        { name: 'Death', loop: false },
-      ],
-      'Idle',
-    );
+    this.anim.init(this.kind === 'spitter' ? RIBCAGE_STATES : ZOMBIE_STATES, 'Idle');
   }
 
   get position(): pc.Vec3 {
@@ -108,6 +93,11 @@ export class Zombie {
 
   get alive(): boolean {
     return !this.dead;
+  }
+
+  /** Está numa animação de ataque (Punch_Left / Kick_Right). */
+  get attacking(): boolean {
+    return this.currentAnim === 'Punch_Left' || this.currentAnim === 'Kick_Right';
   }
 
   /** Aplica o snapshot do servidor (pose alvo, animação, HP). */

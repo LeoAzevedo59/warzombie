@@ -88,6 +88,7 @@ export class CombatSystem implements System {
     }
     if (!this.canFire) return;
     if (this.state.ammo <= 0) {
+      this.bus.emit('audio:sfx', { name: 'gun_empty' });
       this.bus.emit('ui:toast', { text: 'Sem munição — aperte R para recarregar' });
       return;
     }
@@ -109,6 +110,7 @@ export class CombatSystem implements System {
 
   private reload(): void {
     if (this.equipment.equippedItem() !== 'glock' || this.player.stats.dead) return;
+    if (!this.state.reloading && this.state.ammo < this.state.magSize) this.bus.emit('audio:sfx', { name: 'gun_reload' });
     this.net.send({ type: 'reload' });
   }
 

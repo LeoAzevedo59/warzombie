@@ -1,17 +1,21 @@
 import * as pc from 'playcanvas';
 import { ItemDatabase } from '@/Items/ItemDatabase';
-import { makeBox, makeGroundX, makeSphere, setEntityColor } from '@/Assets/Primitives';
-import { instantiateModel } from '@/Assets/ModelAssets';
+import { makeGroundX } from '@/Assets/Primitives';
+import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import { WORLD_OBJECTS, type WorldObjectDef, type WorldObjectKind, type WorldObjectSpec } from '@shared/worldgen';
 
 export type { WorldObjectKind };
 
-const COLORS: Record<WorldObjectKind, string> = {
-  stick: ItemDatabase.get('stick').color,
-  stone: ItemDatabase.get('stone').color,
-  tree: '#2e6b2a',
-  rock: '#6f757c',
+/** Variantes de modelo por tipo; a escolha é determinística pelo id (client e server não precisam concordar: é só visual). */
+const VARIANTS: Record<WorldObjectKind, ModelKey[]> = {
+  stick: ['log_small'],
+  stone: ['resource_stone'],
+  tree: ['tree_default', 'tree_oak', 'tree_detailed', 'tree_pine', 'tree_pine_round', 'tree_thin'],
+  rock: ['rock_a', 'rock_c', 'rock_e'],
 };
+
+/** Tamanho do X de destaque no chão por tipo. */
+const MARK_SIZE: Record<WorldObjectKind, number> = { stick: 0.8, stone: 0.7, tree: 1.6, rock: 2.6 };
 
 /** Objeto interativo no mundo: coletável simples ou nó de recurso (árvore/rocha). Visual apenas — regras no server. */
 export class WorldObject {
@@ -22,10 +26,10 @@ export class WorldObject {
   /** hits conhecidos (o server é a fonte; atualizado por node_hit) */
   hits = 0;
   private highlighted = false;
-  /** partes que recebem highlight (recoloridas); usado por stick/stone com primitivas */
-  private parts: pc.Entity[] = [];
-  /** anel de destaque no chão; usado por tree/rock (modelos GLB importados) */
-  private highlightMark: pc.Entity | null = null;
+  private model: pc.Entity;
+  private highlightMark: pc.Entity;
+  /** s restantes do "tremor" de hit */
+  private shakeTimer = 0;
 
   constructor(spec: WorldObjectSpec) {
     this.id = spec.id;
@@ -34,33 +38,13 @@ export class WorldObject {
     this.entity = new pc.Entity(`${spec.kind}#${spec.id}`);
     this.entity.setLocalPosition(spec.x, 0, spec.z);
     this.entity.setLocalEulerAngles(0, spec.rotY, 0);
-    this.build();
-  }
-
-  private build(): void {
-    const c = COLORS[this.kind];
-    switch (this.kind) {
-      case 'stick':
-        this.parts = [makeBox({ color: c, scale: [0.7, 0.08, 0.08], position: [0, 0.05, 0] })];
-        break;
-      case 'stone':
-        this.parts = [makeSphere({ color: c, scale: [0.35, 0.25, 0.3], position: [0, 0.12, 0] })];
-        break;
-      case 'tree':
-        this.entity.addChild(instantiateModel('tree'));
-        this.addHighlightMark(0.9);
-        return;
-      case 'rock':
-        this.entity.addChild(instantiateModel('rock'));
-        this.addHighlightMark(2.6); // rocha tem base larga; precisa de um X maior pra não ficar escondido embaixo
-        return;
-    }
-    for (const p of this.parts) this.entity.addChild(p);
-  }
-
-  /** X vermelho no chão, ligado/desligado pelo highlight (modelos GLB não têm material próprio pra recolorir). */
-  private addHighlightMark(size: number): void {
-    this.highlightMark = makeGroundX('#e23c3c', size);
+    const pool = VARIANTS[spec.kind];
+    this.model = instantiateModel(pool[spec.id % pool.length]);
+    // pequena variação de escala para quebrar a repetição
+    const s = this.model.getLocalScale().x * (0.9 + ((spec.id >>> 8) % 100) / 500);
+    this.model.setLocalScale(s, s, s);
+    this.entity.addChild(this.model);
+    this.highlightMark = makeGroundX('#e23c3c', MARK_SIZE[spec.kind]);
     this.highlightMark.enabled = false;
     this.entity.addChild(this.highlightMark);
   }
@@ -83,11 +67,22 @@ export class WorldObject {
     return this.def.requiredTool !== null;
   }
 
-  /** Feedback visual de hit confirmado pelo server (encolhe um pouco). */
+  /** Feedback visual de hit confirmado pelo server (encolhe um pouco e treme). */
   setHits(hits: number): void {
     this.hits = hits;
     const s = 1 - 0.08 * hits;
     this.entity.setLocalScale(s, s, s);
+    this.shakeTimer = 0.25;
+  }
+
+  /** Animação do tremor (chamado pelo World a cada frame; barato: só quando shakeTimer > 0). */
+  update(dt: number): void {
+    if (this.shakeTimer <= 0) return;
+    this.shakeTimer -= dt;
+    const k = Math.max(0, this.shakeTimer) / 0.25;
+    const wobble = Math.sin(this.shakeTimer * 60) * 6 * k;
+    this.model.setLocalEulerAngles(wobble, 0, wobble * 0.5);
+    if (this.shakeTimer <= 0) this.model.setLocalEulerAngles(0, 0, 0);
   }
 
   /** Texto do prompt dado o estado (tem ferramenta, canalizando hits automáticos, etc). */
@@ -102,12 +97,7 @@ export class WorldObject {
   setHighlight(on: boolean): void {
     if (this.highlighted === on) return;
     this.highlighted = on;
-    if (this.highlightMark) {
-      this.highlightMark.enabled = on;
-      return;
-    }
-    const c = COLORS[this.kind];
-    for (const p of this.parts) setEntityColor(p, c, on ? 0.6 : 0);
+    this.highlightMark.enabled = on;
   }
 
   destroy(): void {

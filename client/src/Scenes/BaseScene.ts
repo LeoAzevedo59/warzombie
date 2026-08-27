@@ -21,16 +21,22 @@ export abstract class BaseScene {
     const light = new pc.Entity('sun');
     light.addComponent('light', {
       type: 'directional',
-      color: new pc.Color(1, 0.96, 0.9),
-      intensity: 1.4,
+      color: new pc.Color(1, 0.94, 0.82),
+      intensity: 1.35,
       castShadows: true,
       shadowBias: 0.2,
       normalOffsetBias: 0.05,
       shadowResolution: 2048,
       shadowDistance: 60,
     });
-    light.setEulerAngles(55, 30, 0);
+    light.setEulerAngles(52, -35, 0);
     this.root.addChild(light);
-    this.game.app.scene.ambientLight = new pc.Color(0.35, 0.38, 0.42);
+    const scene = this.game.app.scene;
+    scene.ambientLight = new pc.Color(0.4, 0.44, 0.48);
+    // névoa suave nas bordas do mapa (esconde o fim do mundo e dá profundidade)
+    scene.fog.type = pc.FOG_LINEAR;
+    scene.fog.color = new pc.Color(0.62, 0.7, 0.66);
+    scene.fog.start = 38;
+    scene.fog.end = 95;
   }
 }
