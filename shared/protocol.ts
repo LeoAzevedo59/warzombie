@@ -19,7 +19,11 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 23;
+/**
+ * Suba também quando o worldgen mudar (ids/posições dos objetos): client antigo com server novo
+ * discorda de tudo ("Objeto não existe mais") e a checagem no join é o que força o reload.
+ */
+export const PROTOCOL_VERSION = 24;
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
