@@ -17,9 +17,8 @@ conv(){ in="$1"; out="$2"; shift 2; ffmpeg -hide_banner -loglevel error -y -i "$
 conv oga/pg/Pistol/Sounds/pistol_Gunshot.wav gun_shot -af "afade=t=out:st=0.55:d=0.25,alimiter=limit=0.95" -t 0.8
 # gun_reload = mag_out + mag_in (450 ms) + cock_back (950 ms) + cock_forward (1200 ms) mixados (ver commit)
 conv $RPG/metalClick.ogg gun_empty -af volume=1.2
-# golpe de faca: whoosh sintetizado (ruído rosa filtrado com envelope), sem asset externo
-ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.2:r=44100:a=0.9" -af "bandpass=f=420:w=300,bandpass=f=420:w=450,afade=t=in:d=0.03,afade=t=out:st=0.08:d=0.12,volume=7,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_1.mp3"
-ffmpeg -hide_banner -loglevel error -y -f lavfi -i "anoisesrc=color=pink:d=0.18:r=44100:a=0.9:seed=7" -af "bandpass=f=520:w=350,bandpass=f=520:w=500,afade=t=in:d=0.03,afade=t=out:st=0.07:d=0.11,volume=7,alimiter=limit=0.9" -ac 1 -c:a libmp3lame -q:a 3 "$S/knife_swing_2.mp3"
+# golpe de faca: Swishes Sound Pack (OGA, CC0) em oga/swishes/swishes
+i=1; for n in 7 9 8; do conv oga/swishes/swishes/swish-$n.wav knife_swing_$i -af "afade=t=in:d=0.005,afade=t=out:st=0.12:d=0.06,volume=0.8"; i=$((i+1)); done
 conv $RPG/drawKnife1.ogg knife_draw
 conv $RPG/bookOpen.ogg shop_open
 conv $RPG/bookClose.ogg shop_close

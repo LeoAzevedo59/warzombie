@@ -21,9 +21,8 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 | gun_shot, gun_reload | [Pistol, animations, sounds for GoDot](https://opengameart.org/content/pistol-animations-sounds-for-godot) (áudio de David Fluher) | MilitaryG | CC0 1.0 |
 | zombie_growl_*, zombie_attack_*, boss_roar | [Zombies Sound Pack](https://opengameart.org/content/zombies-sound-pack) | Summoning Wars | CC0 1.0 |
 | zombie_hurt_*, zombie_death_* | [Monster Sound Pack, Volume 1](https://opengameart.org/content/monster-sound-pack-volume-1) | Summoning Wars | CC0 1.0 |
+| knife_swing_* | [Swishes Sound Pack](https://opengameart.org/content/swishes-sound-pack) | artisticdude | CC0 1.0 |
 | player_hurt_*, player_death | [grunts of male death and pain](https://opengameart.org/content/grunts-male-death-and-pain) | thebardofblasphemy | CC0 1.0 |
-
-Sintetizados no build (sem fonte externa): `knife_swing_*` (whoosh de ruído filtrado).
 
 ## Música (`music/`)
 

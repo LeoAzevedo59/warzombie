@@ -9,7 +9,7 @@ const SFX_VARIANTS = {
   gun_shot: 1,
   gun_reload: 1,
   gun_empty: 1,
-  knife_swing: 2,
+  knife_swing: 3,
   knife_draw: 1,
   zombie_growl: 5,
   zombie_attack: 4,
@@ -54,7 +54,7 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   wave_bell: 0.9,
   boss_roar: 1,
   coins: 0.7,
-  knife_swing: 0.7,
+  knife_swing: 0.8,
   shop_open: 0.8,
   shop_close: 0.8,
 };
