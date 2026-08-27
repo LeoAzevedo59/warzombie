@@ -41,8 +41,8 @@ export const GAME = {
   lives: { MAX_DEATHS: 3, REVIVE_BASE_PRICE: 120, REVIVE_GROWTH: 1.5 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
-  /** recursos renascem depois de coletados (s) */
-  respawn: { SMALL: 60, NODE: 180 },
+  /** recursos renascem depois de coletados (s): gravetos/pedras 3 min, árvores/rochas 7 min */
+  respawn: { SMALL: 180, NODE: 420 },
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
   walls: { PLACE_DIST: 6, WIDTH: 2, THICK: 0.4, ROTATE_STEP_DEG: 15 },
   /** recursos da sala (comprados uma vez, valem para todos): preço */
