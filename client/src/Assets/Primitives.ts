@@ -50,13 +50,16 @@ export const makeCapsule = (o: PrimitiveOpts) => makePrimitive('capsule', o);
 export const makeCylinder = (o: PrimitiveOpts) => makePrimitive('cylinder', o);
 export const makeSphere = (o: PrimitiveOpts) => makePrimitive('sphere', o);
 
+/** Altura do X: acima das manchas de terra (até ~0,05) e da margem do rio, senão some embaixo delas. */
+const GROUND_X_Y = 0.09;
+
 /** X plano e emissivo no chão (indicador de "alvo selecionado" mais discreto que um disco). */
 export function makeGroundX(color: string, size = 0.6): pc.Entity {
   const group = new pc.Entity('ground-x');
   const barScale: [number, number, number] = [size, 0.03, size * 0.1];
-  const bar1 = makeBox({ color, scale: barScale, position: [0, 0.02, 0], emissive: 1 });
+  const bar1 = makeBox({ color, scale: barScale, position: [0, GROUND_X_Y, 0], emissive: 1 });
   bar1.setLocalEulerAngles(0, 45, 0);
-  const bar2 = makeBox({ color, scale: barScale, position: [0, 0.02, 0], emissive: 1 });
+  const bar2 = makeBox({ color, scale: barScale, position: [0, GROUND_X_Y, 0], emissive: 1 });
   bar2.setLocalEulerAngles(0, -45, 0);
   group.addChild(bar1);
   group.addChild(bar2);
