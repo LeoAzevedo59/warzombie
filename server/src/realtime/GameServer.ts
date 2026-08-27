@@ -145,6 +145,8 @@ export class GameServer {
           return this.match(conn).pickup(conn.player.id, msg.objectId);
         case 'hit_node':
           return this.match(conn).hitNode(conn.player.id, msg.objectId);
+        case 'hit_wall':
+          return this.match(conn).hitWall(conn.player.id, msg.id);
         case 'select_slot':
           return this.match(conn).selectSlot(conn.player.id, msg.index);
         case 'sell':

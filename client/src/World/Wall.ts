@@ -3,6 +3,7 @@ import { GAME } from '@shared/gameconfig';
 import { colorMaterial, makeBox } from '@/Assets/Primitives';
 import { instantiateModel, type ModelKey } from '@/Assets/ModelAssets';
 import type { StructureSnapshot } from '@shared/protocol';
+import { ITEMS, WALL_HITS, WALL_PASSABLE, WALL_TOOL, type WallKind } from '@shared/items';
 import { CONFIG } from '@/config';
 
 /** Modelo (Kenney Survival Kit) por tipo de parede; cada GLB tem 0,5 x 0,52 — escalado para WIDTH x altura. */
@@ -11,6 +12,8 @@ const WALL_MODEL: Record<string, { key: ModelKey; height: number; color?: string
   // o kit não tem cerca de pedra: a reforçada (madeira) recebe um material cinza-pedra chapado
   wall_stone: { key: 'fence_stone', height: 1.6, color: '#8e959c' },
   wall_iron: { key: 'fence_iron', height: 1.7 },
+  // porteira: cerca baixa, madeira clara — jogadores atravessam, zumbis não
+  gate: { key: 'fence_wood', height: 1.1, color: '#d9b25c' },
 };
 
 /** AABB (no espaço local do modelo já escalado, antes de entrar na cena) de todos os meshes. */
@@ -30,6 +33,14 @@ function modelBounds(model: pc.Entity): pc.BoundingBox | null {
 export class Wall {
   readonly entity: pc.Entity;
   readonly id: number;
+  readonly kind: WallKind;
+  /** jogadores atravessam (porteira) */
+  readonly passable: boolean;
+  /** compatível com a interação de árvore/rocha: ferramenta que derruba */
+  readonly def: { requiredTool: 'axe' | 'pickaxe' };
+  readonly isNode = true;
+  private hits = 0;
+  private highlight: pc.Entity;
   /** raio grosseiro (usado pelo server/zumbis); o player colide com a cápsula (ver `segment`) */
   readonly solidRadius = GAME.walls.WIDTH / 2;
   /** colisão precisa: segmento de meia-largura WIDTH/2 com raio THICK/2, na direção `yaw` */
@@ -40,6 +51,9 @@ export class Wall {
 
   constructor(s: StructureSnapshot) {
     this.id = s.id;
+    this.kind = s.kind;
+    this.passable = WALL_PASSABLE[s.kind];
+    this.def = { requiredTool: WALL_TOOL[s.kind] };
     this.maxHp = s.maxHp;
     this.entity = new pc.Entity(`wall#${s.id}`);
     this.entity.setPosition(s.x, 0, s.z);
@@ -64,7 +78,30 @@ export class Wall {
     this.hpFill = makeBox({ color: '#9fc2ff', scale: [1.16, 0.06, 0.1], emissive: 1 });
     this.hpBar.addChild(this.hpFill);
     this.entity.addChild(this.hpBar);
+    this.highlight = makeBox({ color: '#e23c3c', scale: [GAME.walls.WIDTH + 0.2, 0.03, GAME.walls.THICK + 0.3], position: [0, 0.02, 0], emissive: 1 });
+    this.highlight.enabled = false;
+    this.entity.addChild(this.highlight);
     this.setHp(s.hp);
+  }
+
+  /** raio de interação (metade da largura) */
+  get radius(): number {
+    return GAME.walls.WIDTH / 2;
+  }
+
+  setHighlight(on: boolean): void {
+    this.highlight.enabled = on;
+  }
+
+  setHits(hits: number): void {
+    this.hits = hits;
+  }
+
+  promptLabel(hasTool: boolean, channeling = false): string {
+    const name = ITEMS[this.kind].name;
+    const tool = this.def.requiredTool === 'axe' ? 'machado' : 'picareta';
+    if (!hasTool) return `${name} — precisa de ${tool}`;
+    return channeling ? `Derrubando ${name}… ${this.hits}/${WALL_HITS[this.kind]}` : `[E] Derrubar ${name} (${tool})`;
   }
 
   get position(): pc.Vec3 {

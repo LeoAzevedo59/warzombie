@@ -24,7 +24,7 @@ export class CollisionSystem implements System {
     let moved = false;
 
     for (const obj of this.world.obstacles()) {
-      if (!obj.solidRadius) continue;
+      if (!obj.solidRadius || obj.passable) continue; // porteira: o jogador passa
       const seg = obj.segment;
       const pushed = seg
         ? pushOutCapsule(x, z, obj.position.x, obj.position.z, seg.yaw, seg.halfLen, playerR + seg.radius)

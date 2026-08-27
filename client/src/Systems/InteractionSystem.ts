@@ -7,13 +7,14 @@ import type { World } from '@/World/World';
 import type { WorldObject } from '@/World/WorldObject';
 import type { HubStructure } from '@/World/Hub';
 import type { Drop } from '@/World/Drop';
+import type { Wall } from '@/World/Wall';
 import type { NetworkClient } from '@/Net/NetworkClient';
 import type { EquipmentSystem } from './EquipmentSystem';
 
-type Interactable = WorldObject | HubStructure | Drop;
+type Interactable = WorldObject | HubStructure | Drop | Wall;
 
 interface HitChannel {
-  target: WorldObject;
+  target: WorldObject | Wall;
   elapsed: number;
 }
 
@@ -39,6 +40,15 @@ export class InteractionSystem implements System {
     this.unsubs.push(
       bus.on('input:interact', () => this.interact()),
       bus.on('net:nodeHit', ({ objectId, hits }) => this.world.findObject(objectId)?.setHits(hits)),
+      bus.on('net:structureHit', ({ id, hits }) => {
+        this.world.walls.get(id)?.setHits(hits);
+        this.lastLabel = null; // atualiza o contador no prompt
+      }),
+      bus.on('net:structureRemoved', ({ id }) => {
+        const w = this.world.walls.get(id);
+        if (w && this.target === w) this.target = null;
+        if (w && this.channel?.target === w) this.channel = null;
+      }),
       bus.on('net:dropRemoved', ({ id }) => {
         if (this.target?.kind === 'drop' && this.target.id === id) {
           this.target = null;
@@ -61,7 +71,7 @@ export class InteractionSystem implements System {
     let best: Interactable | null = null;
     let bestScore = Infinity;
 
-    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.structures(), ...this.world.drops.values()];
+    const candidates: Iterable<Interactable> = [...this.world.objects(), ...this.world.structures(), ...this.world.drops.values(), ...this.world.walls.values()];
     for (const obj of candidates) {
       const p = obj.position;
       const dx = p.x - pos.x;
@@ -87,8 +97,12 @@ export class InteractionSystem implements System {
     return t.kind === 'vendor' || t.kind === 'tower';
   }
 
+  private isWall(t: Interactable): t is Wall {
+    return 'passable' in t;
+  }
+
   /** A ferramenta precisa estar equipada na mão (slot selecionado), não só na hotbar. */
-  private hasTool(obj: WorldObject): boolean {
+  private hasTool(obj: WorldObject | Wall): boolean {
     const tool = obj.def.requiredTool;
     return tool === null || this.equipment.equippedItem() === tool;
   }
@@ -108,7 +122,12 @@ export class InteractionSystem implements System {
       this.channel = null;
       return;
     }
-    this.net.send({ type: 'hit_node', objectId: c.target.id });
+    this.sendHit(c.target);
+  }
+
+  private sendHit(t: WorldObject | Wall): void {
+    if (this.isWall(t)) this.net.send({ type: 'hit_wall', id: t.id });
+    else this.net.send({ type: 'hit_node', objectId: t.id });
   }
 
   /** Cada golpe em árvore/rocha gasta vigor; sem vigor não dá para farmar. */
@@ -127,6 +146,7 @@ export class InteractionSystem implements System {
     let label: string | null = null;
     if (t) {
       label = this.isHub(t) || t.kind === 'drop' ? t.promptLabel() : t.promptLabel(this.hasTool(t), this.channel?.target === t);
+      if (this.isWall(t) && this.channel?.target === t) this.lastLabel = null; // contador muda a cada golpe
     }
     if (label === this.lastLabel) return;
     this.lastLabel = label;
@@ -151,7 +171,7 @@ export class InteractionSystem implements System {
       if (this.channel?.target !== t) {
         if (!this.spendStamina()) return;
         this.channel = { target: t, elapsed: 0 };
-        this.net.send({ type: 'hit_node', objectId: t.id });
+        this.sendHit(t);
       }
       return;
     }

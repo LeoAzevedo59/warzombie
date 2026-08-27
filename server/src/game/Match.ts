@@ -1,5 +1,5 @@
 import { GAME } from '../../../shared/gameconfig.js';
-import { ITEMS, WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
+import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, isWallKind, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
@@ -101,6 +101,8 @@ export class Match {
   /** recursos comprados para a sala inteira */
   readonly features: RoomFeatures = { minimap: false };
   private hits = new Map<number, number>();
+  /** golpes de ferramenta acumulados por parede */
+  private wallHits = new Map<number, number>();
   readonly players = new Map<string, MatchPlayer>();
   money: number;
   /** compras de upgrade por tipo na sala (define o preço para todos) */
@@ -611,12 +613,37 @@ export class Match {
     }
   }
 
+  /** Golpe de ferramenta numa parede: machado (madeira/porteira) ou picareta (pedra/ferro); WALL_HITS golpes derrubam. */
+  hitWall(playerId: string, id: number): void {
+    const p = this.alive(playerId);
+    const s = this.structures.get(id);
+    if (!s) throw new MatchError('invalid_message', 'Essa parede já caiu.');
+    if (dist(p.snapshot, s) > GAME.interaction.RADIUS + GAME.walls.WIDTH / 2 + 0.5) throw new MatchError('too_far', 'Chegue mais perto.');
+    const tool = WALL_TOOL[s.kind];
+    if (this.equippedItem(p) !== tool) throw new MatchError('no_tool', tool === 'axe' ? 'Precisa do machado para derrubar isso.' : 'Precisa da picareta para derrubar isso.');
+    const now = this.now();
+    if (now - p.lastHitAt < GAME.interaction.HIT_INTERVAL * 1000 * 0.8) return;
+    p.lastHitAt = now;
+    const hits = (this.wallHits.get(id) ?? 0) + 1;
+    const required = WALL_HITS[s.kind];
+    if (hits >= required) {
+      this.wallHits.delete(id);
+      this.structures.delete(id);
+      this.obstacleCache = null;
+      this.io.broadcast({ type: 'structure_removed', id });
+      return;
+    }
+    this.wallHits.set(id, hits);
+    this.io.broadcast({ type: 'structure_hit', id, hits, required });
+  }
+
   damageStructure(id: number, amount: number): void {
     const s = this.structures.get(id);
     if (!s) return;
     s.hp = Math.max(0, s.hp - amount);
     if (s.hp <= 0) {
       this.structures.delete(id);
+      this.wallHits.delete(id);
       this.obstacleCache = null;
       this.io.broadcast({ type: 'structure_removed', id });
     } else {
@@ -628,7 +655,7 @@ export class Match {
   placeWall(playerId: string, x: number, z: number, yaw: number): void {
     const p = this.alive(playerId);
     const item = this.equippedItem(p);
-    if (!item || !(item in WALL_HP)) throw new MatchError('no_wall', 'Equipe uma parede na hotbar.');
+    if (!item || !isWallKind(item)) throw new MatchError('no_wall', 'Equipe uma parede na hotbar.');
     const kind = item as WallKind;
     if (dist(p.snapshot, { x, z }) > GAME.walls.PLACE_DIST + 0.5) throw new MatchError('too_far', 'Muito longe para colocar.');
     const b = mapBounds();

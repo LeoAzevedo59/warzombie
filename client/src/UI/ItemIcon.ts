@@ -21,6 +21,7 @@ const ICON_COLORS: Partial<Record<ItemId, string>> = {
   wall_wood: '#c98a4b',
   wall_stone: '#aab2ba',
   wall_iron: '#8fb3d9',
+  gate: '#e0c060',
   stone: '#b7bec6',
   bigstone: '#a7afb7',
   stick: '#c48a52',

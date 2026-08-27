@@ -81,6 +81,7 @@ export interface GameEvents {
   'net:gameOver': { restartIn: number };
   'net:structureAdded': { structure: StructureSnapshot };
   'net:structureHp': { id: number; hp: number };
+  'net:structureHit': { id: number; hits: number; required: number };
   'net:structureRemoved': { id: number };
   'net:dropAdded': { drop: DroppedItem };
   'net:dropRemoved': { id: number };

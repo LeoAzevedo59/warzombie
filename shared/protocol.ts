@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -187,6 +187,11 @@ export interface PickupDropMessage {
   type: 'pickup_drop';
   id: number;
 }
+/** Um golpe numa parede com a ferramenta certa (machado: madeira/porteira; picareta: pedra/ferro). */
+export interface HitWallMessage {
+  type: 'hit_wall';
+  id: number;
+}
 /** Um hit em árvore/rocha (o client manda a cada HIT_INTERVAL enquanto segura o canal). */
 export interface HitNodeMessage {
   type: 'hit_node';
@@ -277,6 +282,7 @@ export type ClientMessage =
   | DropItemMessage
   | PickupDropMessage
   | HitNodeMessage
+  | HitWallMessage
   | SelectSlotMessage
   | SellMessage
   | BuyMessage
@@ -666,6 +672,13 @@ export interface StructureAddedMessage {
   type: 'structure_added';
   structure: StructureSnapshot;
 }
+/** Golpe de ferramenta numa parede: progresso até derrubar. */
+export interface StructureHitMessage {
+  type: 'structure_hit';
+  id: number;
+  hits: number;
+  required: number;
+}
 export interface StructureHpMessage {
   type: 'structure_hp';
   id: number;
@@ -773,6 +786,7 @@ export type ServerMessage =
   | GameOverMessage
   | StructureAddedMessage
   | StructureHpMessage
+  | StructureHitMessage
   | StructureRemovedMessage
   | ObjectRespawnedMessage
   | KnockbackMessage

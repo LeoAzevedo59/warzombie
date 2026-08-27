@@ -97,6 +97,10 @@ export class AudioSystem implements System {
       bus.on('net:dropAdded', ({ drop }) => audio.play('hit_soft', { x: drop.x, z: drop.z, volume: 0.6 })),
       bus.on('net:structureAdded', ({ structure }) => audio.play('wall_place', { x: structure.x, z: structure.z })),
       bus.on('net:structureRemoved', ({ id }) => audio.play('wall_break', at(this.world.walls.get(id)?.position))),
+      bus.on('net:structureHit', ({ id }) => {
+        const w = this.world.walls.get(id);
+        audio.play(w?.def.requiredTool === 'axe' ? 'chop' : 'mine', at(w?.position));
+      }),
       bus.on('shop:open', () => audio.play('shop_open')),
       bus.on('tower:open', () => audio.play('ui_open')),
       bus.on('input:closePanel', () => audio.play('shop_close')),
