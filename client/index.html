@@ -218,6 +218,20 @@
       .shop-panel .lvl { color: #ffd34d; font-size: 12px; }
       .shop-panel .hint { margin-top: 12px; font-size: 12px; color: #6b7681; }
       .death-screen .timer { color: #ffd34d; font-size: 20px; }
+      .trophy { color: #ffd34d; font-size: 12px; }
+      #ui.cutscene .hud-wave, #ui.cutscene .hud-money, #ui.cutscene .hud-vitals, #ui.cutscene .hotbar, #ui.cutscene .hud-status, #ui.cutscene .name-labels, #ui.cutscene #minimap, #ui.cutscene .dev-toggle, #ui.cutscene .interaction-prompt { display: none !important; }
+      /* créditos do resgate: sobem por cima da cutscene do helicóptero */
+      .credits { position: absolute; inset: 0; display: none; overflow: hidden; background: linear-gradient(rgba(5,8,11,0), rgba(5,8,11,.55) 30%, rgba(5,8,11,.85)); pointer-events: none; }
+      .credits.visible { display: block; }
+      .credits .roll { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); width: min(640px, 90vw); text-align: center; animation: credits-roll 42s linear forwards; }
+      @keyframes credits-roll { from { top: 100%; } to { top: -120%; } }
+      .credits .title { font-size: 56px; letter-spacing: 12px; color: #e6edf3; font-weight: 800; margin-bottom: 8px; }
+      .credits .sub { color: #8b98a5; margin-bottom: 40px; }
+      .credits .h { color: #ffd34d; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; margin: 28px 0 8px; }
+      .credits .name { font-size: 18px; color: #e6edf3; margin: 4px 0; }
+      .credits .name.dim { color: #6b7681; }
+      .credits .end { font-size: 26px; color: #7ed957; letter-spacing: 4px; margin: 60px 0 40px; }
+      .credits .back-lobby { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); pointer-events: auto; font-size: 15px; padding: 10px 22px; background: #2a323b; color: #e6edf3; border: 1px solid #3a4550; border-radius: 8px; cursor: pointer; }
       /* virou zumbi: faixa no topo, o resto da tela livre para assistir o zumbi */
       .death-screen.infected { inset: 0 0 auto 0; padding: 18px 24px 16px; background: linear-gradient(rgba(5,12,6,.92), rgba(5,12,6,.75)); border-bottom: 2px solid #7ed957; }
       .death-screen.infected h1 { font-size: 30px; color: #7ed957; margin-bottom: 6px; }

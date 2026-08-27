@@ -1,7 +1,7 @@
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
-import type { CharacterId, DroppedItem, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
+import type { CharacterId, DroppedItem, EvacState, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
 import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
 import { ITEMS, totalWeight } from '@shared/items';
 
@@ -14,6 +14,12 @@ export class GameState {
   playerName = '';
   /** personagem escolhido (lobby); vem do `welcome` e é persistido no servidor */
   character: CharacterId = 'shaun';
+  /** fases zeradas (🏆 ao lado do nome) */
+  trophies = 0;
+  /** embarcou no helicóptero de resgate (fora do mundo até a cutscene) */
+  boarded = false;
+  /** resgate em andamento ao entrar (helicóptero já chamado) */
+  evac: EvacState | null = null;
   /** servidor aceita cheats (painel ⚙) */
   devCheats = false;
 

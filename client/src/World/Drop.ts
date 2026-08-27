@@ -17,6 +17,7 @@ const DROP_MODEL: Record<ItemId, { key: ModelKey; scale: number; lift: number }>
   glock: { key: 'zak_pistol', scale: 1, lift: 0.15 },
   battery: { key: 'box', scale: 1, lift: 0 },
   bandage: { key: 'box', scale: 0.55, lift: 0 },
+  boss_heart: { key: 'mushroom_red', scale: 0.9, lift: 0.1 },
   painkiller: { key: 'box', scale: 0.45, lift: 0 },
   wall_wood: { key: 'fence_wood', scale: 2.2, lift: 0 },
   wall_stone: { key: 'fence_stone', scale: 2.2, lift: 0 },

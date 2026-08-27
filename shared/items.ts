@@ -1,6 +1,6 @@
 /** Itens do jogo e economia. Fonte única para client (UI) e server (regras). */
 
-export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'knife' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'bandage' | 'painkiller' | 'wall_wood' | 'wall_stone' | 'wall_iron';
+export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'knife' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'bandage' | 'painkiller' | 'boss_heart' | 'wall_wood' | 'wall_stone' | 'wall_iron';
 export type ItemCategory = 'resource' | 'tool' | 'weapon' | 'device' | 'consumable' | 'wall';
 
 export type WallKind = 'wall_wood' | 'wall_stone' | 'wall_iron';
@@ -41,6 +41,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   pickaxe: { id: 'pickaxe', name: 'Picareta', category: 'tool', stackMax: 1, color: '#5f7fa8', buy: 30, weight: 3 },
   glock: { id: 'glock', name: 'Glock', category: 'weapon', stackMax: 1, color: '#2b2f36', buy: 100, weight: 2 },
   battery: { id: 'battery', name: 'Bateria da Antena', category: 'device', stackMax: 1, color: '#ffd34d', buy: 150, weight: 22 }, // o item mais pesado: carregar até a torre é lento
+  boss_heart: { id: 'boss_heart', name: 'Coração do Chefão', category: 'resource', stackMax: 5, color: '#c8102e', sell: 300, weight: 4 }, // cai do chefão; vale muito no vendedor
   bandage: { id: 'bandage', name: 'Bandagem', category: 'consumable', stackMax: 5, color: '#f2e8dc', buy: 15, weight: 1, heal: 35 },
   painkiller: { id: 'painkiller', name: 'Analgésico', category: 'consumable', stackMax: 5, color: '#ff8fb1', buy: 40, weight: 1, heal: 75 },
   wall_wood: { id: 'wall_wood', name: 'Parede de Madeira', category: 'wall', stackMax: 5, color: '#8a5a2b', buy: 20, weight: 4 },

@@ -34,6 +34,11 @@ export class PlayersHUD {
     this.render([...remotes()].length + 1);
     this.unsubs.push(
       bus.on('net:onlineCount', ({ count }) => this.render(count)),
+      bus.on('net:trophy', ({ playerId, trophies }) => {
+        // rótulo do remoto muda: recria
+        for (const [r, el] of this.labelByPlayer) if (r.id === playerId) el.textContent = `${r.name} 🏆${trophies > 1 ? `×${trophies}` : ''}`;
+        this.render(this.count);
+      }),
       bus.on('net:playerJoined', ({ name }) => bus.emit('ui:toast', { text: `${name} entrou no jogo` })),
       bus.on('net:playerLeft', ({ name }) => {
         bus.emit('ui:toast', { text: `${name} saiu do jogo` });
@@ -68,7 +73,7 @@ export class PlayersHUD {
     const u = this.state.upgrades;
     const glock = GAME.weapon.glock;
     this.box.innerHTML = `<h2>MENU</h2>
-      <p>Você: <b></b> · Online: <span class="count">${count}</span></p>
+      <p>Você: <b></b>${this.state.trophies > 0 ? ` <span class="trophy" title="Fases zeradas">🏆${this.state.trophies > 1 ? `×${this.state.trophies}` : ''}</span>` : ''} · Online: <span class="count">${count}</span></p>
       <h3>Arma (Glock)</h3>
       <ul class="stats">
         <li>Dano <b>${Math.round(glock.DAMAGE * damageMultiplier(u))}</b> <span class="lvl">Lv ${u.damage}</span></li>
@@ -102,7 +107,7 @@ export class PlayersHUD {
       if (!el) {
         el = document.createElement('div');
         el.className = 'name-label';
-        el.textContent = r.name;
+        el.textContent = r.trophies > 0 ? `${r.name} 🏆${r.trophies > 1 ? `×${r.trophies}` : ''}` : r.name;
         this.labels.appendChild(el);
         this.labelByPlayer.set(r, el);
       }

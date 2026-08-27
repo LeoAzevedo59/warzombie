@@ -27,11 +27,13 @@ export class RemotePlayer {
   name: string;
   hp: number;
   kills: number;
+  trophies: number;
 
   constructor(readonly id: string, snapshot: PlayerSnapshot) {
     this.name = snapshot.name;
     this.hp = snapshot.hp;
     this.kills = snapshot.kills;
+    this.trophies = snapshot.trophies;
     this.entity = new pc.Entity(`remote:${snapshot.name}`);
     this.modelKey = `char_${snapshot.character}`; // personagem escolhido no lobby (igual para todos)
     this.model = instantiateModel(this.modelKey);

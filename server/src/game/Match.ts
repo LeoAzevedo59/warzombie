@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { ITEMS, WALL_HP, type ItemId, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DroppedItem, DevAction, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { batteryPrice, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, spreadDegrees, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
@@ -29,6 +29,8 @@ export interface MatchPlayer {
   upgrades: WeaponUpgrades;
   /** virou zumbi (morto por outro jogador): id do zumbi que o representa; respawna quando ele some */
   infectedZombieId: number | null;
+  /** embarcou no helicóptero de resgate: fora do mundo, invulnerável */
+  boarded: boolean;
   /** início da participação nesta partida (ms) e stats da partida */
   joinedAt: number;
   matchZombieKills: number;
@@ -65,8 +67,8 @@ export interface MatchIO {
   onMoneyChanged(amount: number): void;
   /** wave mudou (para persistir na sala) */
   onWaveChanged(wave: number): void;
-  /** boss morto: fase concluída */
-  onPhaseComplete(): void;
+  /** 5º chefão morto: fase concluída (ids de quem estava na partida ganham troféu) */
+  onPhaseComplete(playerIds: string[]): void;
   /** torre destruída: a sala deve recomeçar a partida do zero */
   onGameOver(): void;
 }
@@ -94,6 +96,8 @@ export class Match {
   private nextDropId = 1;
   private nextAmbientAt: number;
   gameOver = false;
+  /** resgate: helicóptero ao lado da antena (depois do 5º chefão) */
+  private evac: { x: number; z: number; landedAt: number; deadline: number; boarded: Set<string>; done: boolean } | null = null;
   /** recursos comprados para a sala inteira */
   readonly features: RoomFeatures = { minimap: false };
   private hits = new Map<number, number>();
@@ -162,7 +166,8 @@ export class Match {
         },
         phaseComplete: () => {
           this.io.broadcast({ type: 'phase_complete', summary: this.summary(), duration: Math.round((this.now() - this.startedAt) / 1000) });
-          this.io.onPhaseComplete();
+          this.io.onPhaseComplete([...this.players.keys()]);
+          this.callHelicopter();
         },
         waveFailed: (wave, boss) => {
           this.io.broadcast({ type: 'wave_failed', wave, boss });
@@ -185,6 +190,53 @@ export class Match {
       if (isClearOfCircles(x, z, solids, TOWER_RADIUS + 1.5)) return { x, z };
     }
     return { ...GAME.hub.TOWER };
+  }
+
+  /** Estado do resgate para quem entra depois (null se não há helicóptero). */
+  evacState(): EvacState | null {
+    if (!this.evac || this.evac.done) return null;
+    return { x: this.evac.x, z: this.evac.z, landed: this.now() >= this.evac.landedAt, boarded: [...this.evac.boarded] };
+  }
+
+  /** 5º chefão morto: helicóptero pousa num ponto livre ao lado da antena. */
+  private callHelicopter(): void {
+    const c = GAME.evac;
+    const solids = [...this.obstacles(), ...[...this.structures.values()].map((s) => ({ position: s, solidRadius: GAME.walls.WIDTH / 2 }))];
+    let pos = { x: this.towerPos.x + c.OFFSET, z: this.towerPos.z };
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const p = { x: this.towerPos.x + Math.cos(a) * c.OFFSET, z: this.towerPos.z + Math.sin(a) * c.OFFSET };
+      const b = mapBounds();
+      if (p.x < b.minX + 2 || p.x > b.maxX - 2 || p.z < b.minZ + 2 || p.z > b.maxZ - 2) continue;
+      if (isClearOfCircles(p.x, p.z, solids, c.CLEARANCE)) {
+        pos = p;
+        break;
+      }
+    }
+    const now = this.now();
+    this.evac = { ...pos, landedAt: now + c.LAND_TIME * 1000, deadline: now + (c.LAND_TIME + c.TIMEOUT) * 1000, boarded: new Set(), done: false };
+    this.io.broadcast({ type: 'helicopter', x: pos.x, z: pos.z, landsIn: c.LAND_TIME, timeout: c.TIMEOUT });
+  }
+
+  /** Embarque por proximidade depois de pousar; decola com todos a bordo ou no timeout. */
+  private tickEvac(now: number): void {
+    const e = this.evac;
+    if (!e || e.done || now < e.landedAt) return;
+    for (const p of this.players.values()) {
+      if (p.dead || p.boarded) continue;
+      if (dist(p.snapshot, e) <= GAME.evac.BOARD_RADIUS) {
+        p.boarded = true;
+        e.boarded.add(p.snapshot.id);
+        this.io.broadcast({ type: 'player_boarded', playerId: p.snapshot.id });
+      }
+    }
+    const everyone = [...this.players.keys()];
+    const allIn = everyone.every((id) => e.boarded.has(id));
+    if (allIn || now >= e.deadline) {
+      e.done = true;
+      const rescued = everyone.filter((id) => e.boarded.has(id));
+      this.io.broadcast({ type: 'evac_complete', rescued, leftBehind: everyone.filter((id) => !e.boarded.has(id)) });
+    }
   }
 
   summary(): PlayerSummary[] {
@@ -247,6 +299,7 @@ export class Match {
       shieldUntil: 0,
       upgrades: emptyUpgrades(),
       infectedZombieId: null,
+      boarded: false,
       joinedAt: this.now(),
       matchZombieKills: 0,
       matchHumanKills: 0,
@@ -272,6 +325,7 @@ export class Match {
   private alive(playerId: string): MatchPlayer {
     const p = this.get(playerId);
     if (p.dead) throw new MatchError('dead', 'Você está morto.');
+    if (p.boarded) throw new MatchError('dead', 'Você já está no helicóptero.');
     return p;
   }
 
@@ -388,11 +442,16 @@ export class Match {
     const x = Math.min(b.maxX, Math.max(b.minX, p.snapshot.x + Math.sin(ang) * r));
     const z = Math.min(b.maxZ, Math.max(b.minZ, p.snapshot.z + Math.cos(ang) * r));
     p.hotbar[p.equipped] = null;
-    const drop: DroppedItem = { id: this.nextDropId++, itemId: stack.itemId, count: stack.count, x, z };
+    this.spawnDrop(stack.itemId, stack.count, x, z);
+    this.sendHotbar(p);
+  }
+
+  private spawnDrop(itemId: ItemId, count: number, x: number, z: number): DroppedItem {
+    const drop: DroppedItem = { id: this.nextDropId++, itemId, count, x, z };
     this.drops.set(drop.id, drop);
     this.dropExpiresAt.set(drop.id, this.now() + GAME.drops.TTL * 1000);
     this.io.broadcast({ type: 'drop_added', drop });
-    this.sendHotbar(p);
+    return drop;
   }
 
   /** Pega um item largado (qualquer jogador), respeitando espaço e peso da hotbar. */
@@ -617,7 +676,7 @@ export class Match {
     const from = p.snapshot;
 
     type Hit = { position: { x: number; z: number }; mp?: MatchPlayer; zb?: Zombie };
-    const targets: Hit[] = [...this.players.values()].filter((o) => o !== p && !o.dead).map((o) => ({ position: o.snapshot, mp: o }));
+    const targets: Hit[] = [...this.players.values()].filter((o) => o !== p && !o.dead && !o.boarded).map((o) => ({ position: o.snapshot, mp: o }));
     for (const zb of this.zombies.alive()) targets.push({ position: zb, zb });
     const hit = rayHitNearest(from, dir.dx, dir.dz, targets, w.RANGE, w.HIT_RADIUS + GAME.player.RADIUS);
     this.io.broadcast({
@@ -673,6 +732,11 @@ export class Match {
       killer.snapshot.kills++;
       killer.matchZombieKills++;
     }
+    // chefão deixa o coração no chão: vale caro no vendedor
+    if (z.kind === 'boss') {
+      const b = mapBounds();
+      this.spawnDrop('boss_heart', 1, Math.min(b.maxX, Math.max(b.minX, z.x)), Math.min(b.maxZ, Math.max(b.minZ, z.z)));
+    }
     // infectado abatido: o dono volta a ser humano pelo respawn normal
     const owner = z.ownerId ? this.players.get(z.ownerId) : undefined;
     if (owner && owner.infectedZombieId === z.id) {
@@ -715,7 +779,7 @@ export class Match {
       h.d = d;
       if (!best || d < best.d) best = h;
     };
-    for (const o of this.players.values()) if (o !== p && !o.dead) consider(o.snapshot, GAME.player.RADIUS, { d: 0, mp: o });
+    for (const o of this.players.values()) if (o !== p && !o.dead && !o.boarded) consider(o.snapshot, GAME.player.RADIUS, { d: 0, mp: o });
     for (const zb of this.zombies.alive()) consider(zb, zb.radius, { d: 0, zb });
     const hit = best as Hit | null;
     this.io.broadcast({ type: 'melee_swing', playerId, hitPlayerId: hit?.mp?.snapshot.id, hitZombieId: hit?.zb?.id });
@@ -734,7 +798,7 @@ export class Match {
 
   /** `by` = jogador que causou (tiro/faca); `byZombie` = id do zumbi (um infectado conta como o jogador dono). */
   damagePlayer(target: MatchPlayer, amount: number, by?: string, byZombie?: number): void {
-    if (target.dead || this.isShielded(target)) return;
+    if (target.dead || target.boarded || this.isShielded(target)) return;
     const zb = byZombie !== undefined ? this.zombies.zombies.get(byZombie) : undefined;
     const infectedBy = zb?.kind === 'infected' ? zb : undefined;
     const killerId = by ?? infectedBy?.ownerId ?? undefined;
@@ -773,7 +837,7 @@ export class Match {
 
     if (this.gameOver) return;
     if (this.waves.active || this.zombies.zombies.size > 0) {
-      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead, radius: GAME.player.RADIUS, kind: 'player' as const }));
+      const targets: import('./ZombieSim.js').Target[] = [...this.players.values()].map((p) => ({ id: p.snapshot.id, position: p.snapshot, dead: p.dead || p.boarded, radius: GAME.player.RADIUS, kind: 'player' as const }));
       targets.push({ id: 'tower', position: this.towerPos, dead: this.towerHp <= 0, radius: GAME.hub.TOWER_RADIUS, kind: 'tower' });
       for (const s of this.structures.values()) targets.push({ id: `wall:${s.id}`, position: s, dead: false, radius: GAME.walls.WIDTH / 2, kind: 'wall' });
       this.zombies.tick(dt, targets);
@@ -798,6 +862,7 @@ export class Match {
       }
     }
     if (this.waves.tick()) this.io.broadcast({ type: 'wave_state', wave: this.waves.state() });
+    this.tickEvac(now);
     for (const p of this.players.values()) {
       if (p.reloadUntil && now >= p.reloadUntil) {
         p.reloadUntil = 0;

@@ -19,7 +19,7 @@ export interface StructureSnapshot {
   maxHp: number;
 }
 
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -70,7 +70,7 @@ export interface RoomDetail extends RoomSummary {
   ownerId: string;
   /** só enviado ao owner de sala privada */
   code?: string;
-  memberList: Array<{ id: string; name: string; ready: boolean; character: CharacterId }>;
+  memberList: Array<{ id: string; name: string; ready: boolean; character: CharacterId; trophies: number }>;
   money: number;
   wave: number;
 }
@@ -97,6 +97,8 @@ export interface PlayerSnapshot extends PlayerPose {
   kills: number;
   pvpKills: number;
   deaths: number;
+  /** fases zeradas (🏆 ao lado do nome) */
+  trophies: number;
 }
 
 /** Resultado de um jogador ao fim da fase. */
@@ -348,6 +350,16 @@ export interface GameStartMessage {
   /** itens largados no chão */
   drops: DroppedItem[];
   features: RoomFeatures;
+  /** resgate em andamento (entrou depois do 5º chefão) */
+  evac: EvacState | null;
+}
+
+/** Helicóptero de resgate: posição, se já pousou e quem já embarcou. */
+export interface EvacState {
+  x: number;
+  z: number;
+  landed: boolean;
+  boarded: string[];
 }
 
 // ---------- partida (server -> client) ----------
@@ -564,6 +576,31 @@ export interface WaveClearedMessage {
   wave: number;
   total: number;
 }
+/** 5º chefão morto: helicóptero a caminho, pousa em `landsIn` s ao lado da antena; depois disso `timeout` s para embarcar. */
+export interface HelicopterMessage {
+  type: 'helicopter';
+  x: number;
+  z: number;
+  landsIn: number;
+  timeout: number;
+}
+/** Jogador entrou no helicóptero (some do mundo, invulnerável). */
+export interface PlayerBoardedMessage {
+  type: 'player_boarded';
+  playerId: string;
+}
+/** Helicóptero decolou: cutscene + créditos. */
+export interface EvacCompleteMessage {
+  type: 'evac_complete';
+  rescued: string[];
+  leftBehind: string[];
+}
+/** Troféus atualizados (fase zerada). */
+export interface PlayerTrophyMessage {
+  type: 'player_trophy';
+  playerId: string;
+  trophies: number;
+}
 /** Preço atual da bateria na sala (sobe a cada compra). */
 export interface BatteryPriceMessage {
   type: 'battery_price';
@@ -721,6 +758,10 @@ export type ServerMessage =
   | BossIncomingMessage
   | WaveClearedMessage
   | BatteryPriceMessage
+  | HelicopterMessage
+  | PlayerBoardedMessage
+  | EvacCompleteMessage
+  | PlayerTrophyMessage
   | PlayerInfectedMessage
   | BossSlamMessage
   | ZombieDiedMessage

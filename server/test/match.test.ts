@@ -8,6 +8,7 @@ function setup() {
   let now = 0;
   const sent: Array<{ to: string | '*'; msg: ServerMessage }> = [];
   const money: number[] = [];
+  const phaseDone: string[] = [];
   const m = new Match(
     1337,
     0,
@@ -16,13 +17,13 @@ function setup() {
       broadcast: (msg) => sent.push({ to: '*', msg }),
       onMoneyChanged: (a) => money.push(a),
       onWaveChanged: () => undefined,
-      onPhaseComplete: () => undefined,
+      onPhaseComplete: (ids) => phaseDone.push(...ids),
       onGameOver: () => undefined,
     },
     () => now,
     () => 0.5, // recoil determinístico: desvio zero
   );
-  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, character: 'matt', hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
+  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, character: 'matt', trophies: 0, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
   /** avança o relógio em passos de 100 ms chamando tick() (a simulação limita dt a 0,1 s) */
   const run = (ms: number) => {
     for (let t = 0; t < ms; t += 100) {
@@ -30,7 +31,7 @@ function setup() {
       m.tick();
     }
   };
-  return { m, sent, money, snap, run, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
+  return { m, sent, money, phaseDone, snap, run, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
 }
 
 test('pickup exige proximidade e remove o objeto para todos', () => {
@@ -411,4 +412,79 @@ test('consumíveis: bandagem/analgésico curam até o máximo, gastam 1 unidade,
   assert.equal(a.hotbar[1], null);
   a.equipped = 2;
   assert.throws(() => m.useItem('A'), (e: MatchError) => e.code === 'invalid_message'); // nada equipado
+});
+
+test('chefão morto deixa o coração no chão; vender vale $300', () => {
+  const { m, snap, last } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  m.waves.devSpawnBoss();
+  const boss = [...m.zombies.alive()].find((z) => z.kind === 'boss')!;
+  m.zombies.damage(boss, 1e9, 'A');
+  const drop = (last('drop_added')!.msg as { drop: { itemId: string; x: number; z: number; id: number } }).drop;
+  assert.equal(drop.itemId, 'boss_heart');
+  assert.ok(Math.abs(drop.x - boss.x) < 0.01 && Math.abs(drop.z - boss.z) < 0.01);
+  a.snapshot.x = drop.x;
+  a.snapshot.z = drop.z;
+  m.pickupDrop('A', drop.id);
+  assert.ok(a.hotbar.some((s) => s?.itemId === 'boss_heart'));
+  a.snapshot.x = GAME.hub.VENDOR.x;
+  a.snapshot.z = GAME.hub.VENDOR.z + 1;
+  m.sell('A');
+  assert.equal(m.money, 300);
+});
+
+test('5º chefão morto: troféu para todos, helicóptero pousa ao lado da antena, embarque por proximidade e decolagem', () => {
+  const { m, snap, run, last, phaseDone, sent } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  const b = m.addPlayer(snap('B', 3, 0));
+  m.waves.wave = GAME.waves.TOTAL - 1;
+  m.waves.devSpawnBoss();
+  m.zombies.damage([...m.zombies.alive()].find((z) => z.kind === 'boss')!, 1e9, 'A');
+  m.tick();
+  assert.equal(m.waves.state().phase, 'complete');
+  assert.deepEqual(phaseDone.sort(), ['A', 'B']);
+  const heli = last('helicopter')!.msg as { x: number; z: number; landsIn: number; timeout: number };
+  const d = Math.hypot(heli.x - m.towerPos.x, heli.z - m.towerPos.z);
+  assert.ok(Math.abs(d - GAME.evac.OFFSET) < 0.01, `helicóptero a ${d} da antena`);
+  assert.equal(heli.landsIn, GAME.evac.LAND_TIME);
+  assert.equal(m.evacState()?.landed, false);
+  // ainda no ar: ninguém embarca mesmo do lado
+  a.snapshot.x = heli.x;
+  a.snapshot.z = heli.z;
+  run(1000);
+  assert.ok(!a.boarded);
+  run(GAME.evac.LAND_TIME * 1000);
+  assert.ok(a.boarded, 'A deveria ter embarcado ao pousar');
+  assert.ok(sent.some((s) => s.msg.type === 'player_boarded' && (s.msg as { playerId: string }).playerId === 'A'));
+  assert.deepEqual(m.evacState()?.boarded, ['A']);
+  // embarcado: invulnerável e não é alvo
+  m.damagePlayer(a, 50);
+  assert.equal(a.snapshot.hp, 100);
+  assert.throws(() => m.fire('A', 1, 0), (e: MatchError) => e.code === 'dead');
+  assert.ok(!sent.some((s) => s.msg.type === 'evac_complete'));
+  // B chega: todos a bordo -> decola
+  b.snapshot.x = heli.x + 1;
+  b.snapshot.z = heli.z;
+  run(200);
+  const done = last('evac_complete')!.msg as { rescued: string[]; leftBehind: string[] };
+  assert.deepEqual(done.rescued.sort(), ['A', 'B']);
+  assert.deepEqual(done.leftBehind, []);
+  assert.equal(m.evacState(), null);
+});
+
+test('resgate: timeout decola sem quem não embarcou', () => {
+  const { m, snap, run, last } = setup();
+  m.addPlayer(snap('A', 0, 0));
+  const b = m.addPlayer(snap('B', 40, 40));
+  m.waves.wave = GAME.waves.TOTAL - 1;
+  m.waves.devSpawnBoss();
+  m.zombies.damage([...m.zombies.alive()].find((z) => z.kind === 'boss')!, 1e9);
+  m.tick();
+  const heli = last('helicopter')!.msg as { x: number; z: number };
+  b.snapshot.x = heli.x;
+  b.snapshot.z = heli.z;
+  run((GAME.evac.LAND_TIME + GAME.evac.TIMEOUT) * 1000 + 200);
+  const done = last('evac_complete')!.msg as { rescued: string[]; leftBehind: string[] };
+  assert.deepEqual(done.rescued, ['B']);
+  assert.deepEqual(done.leftBehind, ['A']);
 });

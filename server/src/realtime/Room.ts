@@ -103,7 +103,7 @@ export class Room {
     const d: RoomDetail = {
       ...this.summary(),
       ownerId: this.ownerId,
-      memberList: [...this.members.values()].map((m) => ({ id: m.player.id, name: m.player.name, ready: this.ready.has(m.player.id), character: m.player.character })),
+      memberList: [...this.members.values()].map((m) => ({ id: m.player.id, name: m.player.name, ready: this.ready.has(m.player.id), character: m.player.character, trophies: m.player.trophies })),
       money: this.money,
       wave: this.wave,
     };

@@ -21,6 +21,8 @@ import { AudioSystem } from '@/Systems/AudioSystem';
 import { WaveHUD } from '@/UI/WaveHUD';
 import { DevPanel } from '@/UI/DevPanel';
 import { SummaryUI } from '@/UI/SummaryUI';
+import { CreditsUI } from '@/UI/CreditsUI';
+import { Helicopter } from '@/World/Helicopter';
 import { BuildSystem } from '@/Systems/BuildSystem';
 import { CombatHUD } from '@/UI/CombatHUD';
 import { HealthBar } from '@/UI/HealthBar';
@@ -62,7 +64,10 @@ export class WorldScene extends BaseScene {
     wave: WaveHUD;
     dev: DevPanel | null;
     summary: SummaryUI;
+    credits: CreditsUI;
   } | null = null;
+  private helicopter: Helicopter | null = null;
+  private creditsTimer: number | null = null;
   private stats!: PlayerStats;
   private unsubs: Array<() => void> = [];
 
@@ -124,7 +129,7 @@ export class WorldScene extends BaseScene {
     const tower = new TowerUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
-      this.input.enabled = !shop.open && !tower.open && !this.ui?.players.open && !this.stats.dead;
+      this.input.enabled = !shop.open && !tower.open && !this.ui?.players.open && !this.stats.dead && !state.boarded;
     };
     shop.onOpenChanged = updateInputEnabled;
     tower.onOpenChanged = updateInputEnabled;
@@ -145,7 +150,11 @@ export class WorldScene extends BaseScene {
       }, { hp: state.towerHp, maxHp: state.towerMaxHp }),
       dev: state.devCheats ? new DevPanel(uiRoot, bus, state, net) : null,
       summary: new SummaryUI(uiRoot, bus, state.playerId),
+      credits: new CreditsUI(uiRoot, bus, (id) => network.nameOf(id)),
     };
+    // entrou com o resgate já em andamento
+    if (state.evac) this.spawnHelicopter(state.evac.x, state.evac.z, GAME.evac.LAND_TIME, state.evac.landed);
+    if (state.boarded) this.player.entity.enabled = false;
     this.ui.players.onOpenChanged = updateInputEnabled;
     this.ui.map.setEnabled(state.features.minimap);
     this.unsubs.push(
@@ -169,6 +178,25 @@ export class WorldScene extends BaseScene {
       bus.on('player:died', () => {
         updateInputEnabled();
         this.player.velocity.set(0, 0, 0);
+      }),
+      bus.on('evac:helicopter', ({ x, z, landsIn }) => this.spawnHelicopter(x, z, landsIn, false)),
+      bus.on('evac:boarded', ({ playerId }) => {
+        if (playerId === state.playerId) {
+          updateInputEnabled();
+          this.player.velocity.set(0, 0, 0);
+          if (this.helicopter) this.camera.follow(this.helicopter.entity, false);
+        }
+      }),
+      bus.on('evac:complete', ({ rescued, leftBehind }) => {
+        // cutscene: helicóptero decola com a câmera nele; créditos sobem em seguida
+        if (this.helicopter) {
+          this.helicopter.takeOff();
+          this.camera.follow(this.helicopter.entity, false);
+        }
+        this.input.enabled = false;
+        bus.emit('input:closePanel');
+        uiRoot.classList.add('cutscene'); // esconde o HUD durante a decolagem e os créditos
+        this.creditsTimer = window.setTimeout(() => this.ui?.credits.show(rescued, leftBehind), 3500);
       }),
       bus.on('player:respawned', () => {
         updateInputEnabled();
@@ -198,6 +226,7 @@ export class WorldScene extends BaseScene {
       const z = this.zombies.get(spectate);
       if (z && this.camera.target !== z.entity) this.camera.follow(z.entity, false);
     }
+    this.helicopter?.update(dt);
     this.world.update(this.camera.target?.getPosition() ?? this.player.position);
     this.camera.update(dt);
     this.world.updateObjects(dt);
@@ -206,7 +235,18 @@ export class WorldScene extends BaseScene {
     this.ui?.wave.update();
   }
 
+  private spawnHelicopter(x: number, z: number, landsIn: number, landed: boolean): void {
+    this.helicopter?.destroy();
+    this.helicopter = new Helicopter(x, z, landsIn, landed);
+    this.root.addChild(this.helicopter.pad);
+    this.root.addChild(this.helicopter.entity);
+  }
+
   exit(): void {
+    this.game.ui.classList.remove('cutscene');
+    if (this.creditsTimer) clearTimeout(this.creditsTimer);
+    this.helicopter?.destroy();
+    this.helicopter = null;
     this.unsubs.forEach((u) => u());
     this.unsubs = [];
     this.loop.dispose();

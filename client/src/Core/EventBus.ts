@@ -70,6 +70,11 @@ export interface GameEvents {
   'net:upgrades': { upgrades: WeaponUpgrades };
   'net:upgradePrices': { prices: UpgradePrices };
   'net:batteryPrice': { price: number };
+  /** resgate: helicóptero a caminho / alguém embarcou / decolou (cutscene + créditos) */
+  'evac:helicopter': { x: number; z: number; landsIn: number; timeout: number };
+  'evac:boarded': { playerId: string };
+  'evac:complete': { rescued: string[]; leftBehind: string[] };
+  'net:trophy': { playerId: string; trophies: number };
   'wave:failed': { wave: number; boss: boolean };
   'net:towerHp': { hp: number; maxHp: number };
   'net:features': { features: RoomFeatures };
