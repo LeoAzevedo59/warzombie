@@ -39,6 +39,10 @@ export const PlayerModel = {
     });
   },
 
+  setCharacter(id: string, character: string): Promise<Player> {
+    return prisma.player.update({ where: { id }, data: { character } });
+  },
+
   /** Top N por abates de zumbis. */
   topKills(limit = 10): Promise<Array<{ name: string; kills: number }>> {
     return prisma.player.findMany({ orderBy: { kills: 'desc' }, take: limit, where: { kills: { gt: 0 } }, select: { name: true, kills: true } });

@@ -1,7 +1,7 @@
 import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
-import type { DroppedItem, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
+import type { CharacterId, DroppedItem, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
 import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
 import { ITEMS, totalWeight } from '@shared/items';
 
@@ -12,6 +12,8 @@ export class GameState {
   /** Identidade no servidor (preenchida pelo `welcome` do WebSocket). */
   playerId: string | null = null;
   playerName = '';
+  /** personagem escolhido (lobby); vem do `welcome` e é persistido no servidor */
+  character: CharacterId = 'shaun';
   /** servidor aceita cheats (painel ⚙) */
   devCheats = false;
 

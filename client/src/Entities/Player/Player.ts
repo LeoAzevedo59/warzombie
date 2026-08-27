@@ -5,6 +5,7 @@ import { CharacterFx } from '@/Entities/CharacterFx';
 import { yawToward, facingDir } from '@/Core/Spatial';
 import type { ItemId } from '@/Items/Item';
 import type { PlayerStats } from './PlayerStats';
+import type { CharacterId } from '@shared/protocol';
 
 /** Ajuste de rotação para alinhar a frente do modelo com o eixo +Z (yaw=0), usado por lookAt(). */
 const MODEL_YAW_OFFSET = 0;
@@ -58,13 +59,17 @@ export class Player {
     return performance.now() < this.slowUntil ? this.slowFactor : 1;
   }
 
-  constructor(readonly stats: PlayerStats) {
+  constructor(
+    readonly stats: PlayerStats,
+    character: CharacterId = 'shaun',
+  ) {
+    const key = `char_${character}` as const;
     this.entity = new pc.Entity('player');
-    this.model = instantiateModel('char_shaun');
+    this.model = instantiateModel(key);
     this.model.setLocalEulerAngles(0, MODEL_YAW_OFFSET, 0);
     showCharacterWeapon(this.model, null);
     this.entity.addChild(this.model);
-    this.anim = new AnimatedModel(this.entity, this.model, 'char_shaun');
+    this.anim = new AnimatedModel(this.entity, this.model, key);
     this.fx = new CharacterFx(this.model);
   }
 

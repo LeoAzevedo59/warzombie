@@ -22,7 +22,7 @@ function setup() {
     () => now,
     () => 0.5, // recoil determinístico: desvio zero
   );
-  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
+  const snap = (id: string, x = 0, z = 0): PlayerSnapshot => ({ id, name: id, character: 'matt', hp: 100, kills: 0, pvpKills: 0, deaths: 0, x, z, yaw: 0, anim: 'Idle', crouching: false });
   /** avança o relógio em passos de 100 ms chamando tick() (a simulação limita dt a 0,1 s) */
   const run = (ms: number) => {
     for (let t = 0; t < ms; t += 100) {
@@ -282,6 +282,7 @@ test('fogo amigo: morto por outro jogador vira zumbi por 30s caçando o assassin
   assert.equal(z.focusId, 'A');
   assert.equal(z.x, 1); // nasce onde o jogador caiu
   assert.equal(m.zombieSnapshots().find((s) => s.id === z.id)?.owner, 'B');
+  assert.equal(m.zombieSnapshots().find((s) => s.id === z.id)?.character, 'matt'); // zumbi usa o personagem do dono
   // 5 s depois ainda não renasceu (não é o respawn normal)
   run(6000);
   assert.ok(b.dead);

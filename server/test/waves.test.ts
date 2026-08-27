@@ -91,7 +91,7 @@ test('waves escalam ×1.5 por jogador; horda limpa chama o chefão da wave; chef
 test('estourar o tempo remove a horda e perde só a bateria daquela wave (ambientais/infectados ficam)', () => {
   const { sim, waves, events, advance } = setup(1);
   const ambient = sim.spawn('zombie', 5, 5);
-  const infected = sim.spawnInfected('B', 'A', 1, 1);
+  const infected = sim.spawnInfected('B', 'lis', 'A', 1, 1);
   waves.activate();
   advance(GAME.waves.FIRST_DELAY);
   waves.tick();
@@ -282,7 +282,7 @@ test('caçador prefere a torre quando está mais perto e a danifica ×3', () => 
 
 test('infectado: mais forte que zumbi comum, caça o assassino mesmo com outro jogador mais perto, e some após DURATION', () => {
   const { sim, hits } = setup(1);
-  const z = sim.spawnInfected('B', 'A', 0, 0);
+  const z = sim.spawnInfected('B', 'lis', 'A', 0, 0);
   assert.equal(z.maxHp, GAME.zombie.MAX_HP * GAME.infected.HP_MULT);
   assert.equal(z.damage, Math.round(GAME.zombie.DAMAGE * GAME.infected.DAMAGE_MULT));
   assert.ok(GAME.infected.SPEED > GAME.zombie.CHASE_SPEED);
@@ -307,7 +307,7 @@ test('infectado: mais forte que zumbi comum, caça o assassino mesmo com outro j
 
 test('infectado nunca mira o próprio dono e traz `owner` no snapshot', () => {
   const { sim } = setup(1);
-  const z = sim.spawnInfected('B', null, 0, 0);
+  const z = sim.spawnInfected('B', 'lis', null, 0, 0);
   const owner = { id: 'B', position: { x: 1, z: 0 }, dead: false, kind: 'player' as const };
   const other = { id: 'C', position: { x: 6, z: 0 }, dead: false, kind: 'player' as const };
   sim.tick(0.1, [owner, other]);

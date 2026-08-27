@@ -2,7 +2,7 @@
 
 Jogo de sobrevivência isométrico, **multiplayer e cooperativo** (até 10 por sala), feito com PlayCanvas + TypeScript.
 
-Você entra com um nome, cria ou escolhe uma sala no lobby (pública ou privada com código) e cai num mapa com um
+Você entra com um nome, cria ou escolhe uma sala no lobby (pública ou privada com código), escolhe seu **personagem** (Shaun, Matt, Sam ou Lis — todos veem o mesmo), marca **PRONTO** (o dono só inicia com todos prontos; depois disso a sala fica trancada e só quem estava nela pode voltar) e cai num mapa com um
 **vendedor** e uma **torre** no centro. Colete gravetos e pedras, venda, compre machado e picareta para derrubar
 árvores e rochas e junte dinheiro — que é **compartilhado por toda a sala**. Com uma **Glock** na mão (e upgrades de
 dano, munição, recoil, vigor e mira laser), compre a **Bateria da Antena** e coloque na torre: cada bateria dispara **uma wave** de zumbis

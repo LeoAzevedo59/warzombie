@@ -25,6 +25,8 @@ model Player {
   deaths    Int      @default(0)
   /// tempo total conectado, em segundos
   playtimeSeconds Int @default(0) @map("playtime_seconds")
+  /// personagem escolhido no lobby (shaun | matt | sam | lis)
+  character String   @default("shaun") @db.VarChar(8)
   posX      Float    @default(0) @map("pos_x")
   posZ      Float    @default(0) @map("pos_z")
   createdAt DateTime @default(now()) @map("created_at")

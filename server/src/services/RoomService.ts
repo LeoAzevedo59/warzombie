@@ -10,7 +10,9 @@ export type RoomErrorCode =
   | 'not_owner'
   | 'not_in_room'
   | 'already_in_room'
-  | 'room_not_in_lobby';
+  | 'room_not_in_lobby'
+  | 'not_all_ready'
+  | 'room_locked';
 
 export class RoomServiceError extends Error {
   constructor(
@@ -29,6 +31,10 @@ export interface RoomView {
   code: string | null;
   status: RoomStatus;
   memberIds: string[];
+  /** quem já marcou PRONTO no lobby */
+  readyIds: string[];
+  /** quem estava na sala quando a partida começou (só eles podem voltar) */
+  rosterIds: string[];
 }
 
 /**
@@ -46,6 +52,8 @@ export class RoomService {
   async join(playerId: string, room: RoomView | undefined, code: string | undefined, currentRoom: RoomView | null): Promise<void> {
     if (currentRoom) throw new RoomServiceError('already_in_room', 'Você já está em uma sala.');
     if (!room) throw new RoomServiceError('room_not_found', 'Sala não encontrada.');
+    // partida em andamento: só quem estava na sala no início pode voltar
+    if (room.status !== 'LOBBY' && !room.rosterIds.includes(playerId)) throw new RoomServiceError('room_locked', 'A partida já começou: só quem estava na sala pode entrar.');
     if (room.memberIds.length >= MAX_ROOM_PLAYERS) throw new RoomServiceError('room_full', `Sala cheia (${MAX_ROOM_PLAYERS}/${MAX_ROOM_PLAYERS}).`);
     if (room.visibility === 'PRIVATE') {
       if (!code || !ROOM_CODE_REGEX.test(code) || code !== room.code) {
@@ -83,6 +91,8 @@ export class RoomService {
   async start(playerId: string, room: RoomView | null): Promise<void> {
     this.assertOwner(playerId, room);
     if (room!.status !== 'LOBBY') throw new RoomServiceError('room_not_in_lobby', 'A partida já começou.');
+    const missing = room!.memberIds.filter((id) => !room!.readyIds.includes(id)).length;
+    if (missing > 0) throw new RoomServiceError('not_all_ready', `Todos precisam marcar PRONTO (faltam ${missing}).`);
     await RoomModel.update(room!.id, { status: 'PLAYING' });
   }
 

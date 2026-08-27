@@ -2,7 +2,7 @@ import { BaseScene } from './BaseScene';
 import { MenuDiorama } from './MenuDiorama';
 import { MusicToggle } from '@/UI/MusicToggle';
 import { audio } from '@/Assets/SoundAssets';
-import { isValidRoomName, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
+import { CHARACTER_NAMES, CHARACTERS, isValidRoomName, type CharacterId, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
 import { applyGameStart } from '@/Core/GameStart';
 
 /**
@@ -108,8 +108,8 @@ export class LobbyScene extends BaseScene {
             (r) => `<li class="room" data-id="${r.id}">
               <span class="vis" title="${r.visibility === 'PRIVATE' ? 'Privada' : 'Pública'}">${r.visibility === 'PRIVATE' ? '🔒' : '🌐'}</span>
               <span class="rname"></span>
-              <span class="meta">${r.members}/${r.max} · ${r.status === 'LOBBY' ? 'aguardando' : r.status === 'PLAYING' ? 'em jogo' : 'encerrada'}</span>
-              <button class="join" ${r.members >= r.max ? 'disabled' : ''}>Entrar</button>
+              <span class="meta">${r.members}/${r.max} · ${r.status === 'LOBBY' ? 'aguardando' : r.status === 'PLAYING' ? '🔒 em jogo' : 'encerrada'}</span>
+              <button class="join" ${r.members >= r.max ? 'disabled' : ''} title="${r.locked ? 'Partida em andamento: só quem estava na sala pode voltar' : ''}">${r.locked ? 'Voltar' : 'Entrar'}</button>
             </li>`,
           )
           .join('')
@@ -148,10 +148,21 @@ export class LobbyScene extends BaseScene {
   }
 
   private roomHtml(r: RoomDetail): string {
-    const owner = this.game.state.isOwner;
+    const { isOwner: owner, playerId, character } = this.game.state;
+    const me = r.memberList.find((m) => m.id === playerId);
+    const readyCount = r.memberList.filter((m) => m.ready).length;
+    const allReady = readyCount === r.memberList.length;
     const members = r.memberList
-      .map((m) => `<li${m.id === r.ownerId ? ' class="owner"' : ''}><span class="mname"></span>${m.id === r.ownerId ? ' <em>dono</em>' : ''}</li>`)
+      .map(
+        (m) =>
+          `<li class="${m.id === r.ownerId ? 'owner' : ''} ${m.ready ? 'ready' : ''}"><span class="mname"></span><span class="char">${CHARACTER_NAMES[m.character]}</span>${m.id === r.ownerId ? ' <em>dono</em>' : ''}<span class="ready-badge">${m.ready ? '✔ PRONTO' : '… esperando'}</span></li>`,
+      )
       .join('');
+    const picker = CHARACTERS.map((c) => `<button class="char-pick ${c === character ? 'active' : ''}" data-char="${c}" title="Jogar com ${CHARACTER_NAMES[c]}">${CHARACTER_NAMES[c]}</button>`).join('');
+    const readyBtn = me?.ready ? '<button class="ready-btn off">Cancelar PRONTO</button>' : '<button class="ready-btn on">PRONTO</button>';
+    const startBtn = owner
+      ? `<button class="start" ${allReady ? '' : 'disabled'} title="${allReady ? '' : 'Todos precisam marcar PRONTO'}">Iniciar partida${allReady ? '' : ` (${readyCount}/${r.memberList.length} prontos)`}</button><button class="toggle-vis">${r.visibility === 'PRIVATE' ? 'Tornar pública' : 'Tornar privada'}</button>`
+      : `<p class="hint">${allReady ? 'Todos prontos! Aguardando o dono iniciar…' : `Prontos: ${readyCount}/${r.memberList.length}. O dono só inicia com todos prontos.`}</p>`;
     return `
       <h1 class="rtitle"></h1>
       <p>${r.visibility === 'PRIVATE' ? '🔒 Sala privada' : '🌐 Sala pública'}${r.code ? ` · código <b class="code">${r.code}</b>` : ''} · ${r.members}/${r.max} jogadores · ${r.status === 'LOBBY' ? 'aguardando início' : 'em jogo'}</p>
@@ -161,8 +172,11 @@ export class LobbyScene extends BaseScene {
           <ul class="members">${members}</ul>
         </section>
         <section class="panel">
-          <h2>Ações</h2>
-          ${owner ? `<button class="start">Iniciar partida</button><button class="toggle-vis">${r.visibility === 'PRIVATE' ? 'Tornar pública' : 'Tornar privada'}</button>` : '<p class="hint">Aguardando o dono iniciar a partida…</p>'}
+          <h2>Seu personagem</h2>
+          <div class="char-picker">${picker}</div>
+          <h2 class="actions-title">Ações</h2>
+          ${readyBtn}
+          ${startBtn}
           <button class="leave">Sair da sala</button>
         </section>
       </div>
@@ -250,6 +264,15 @@ export class LobbyScene extends BaseScene {
         li.querySelector('.mname')!.textContent = this.room!.memberList[i].name;
       });
       el.querySelector<HTMLButtonElement>('.start')?.addEventListener('click', () => net.send({ type: 'room_start' }));
+      el.querySelector<HTMLButtonElement>('.ready-btn')?.addEventListener('click', (e) => net.send({ type: 'room_ready', ready: (e.currentTarget as HTMLElement).classList.contains('on') }));
+      el.querySelectorAll<HTMLButtonElement>('.char-pick').forEach((b) => {
+        b.onclick = () => {
+          const c = b.dataset.char as CharacterId;
+          state.character = c; // previsão local; o room_state confirma para todos
+          net.send({ type: 'set_character', character: c });
+          this.render();
+        };
+      });
       el.querySelector<HTMLButtonElement>('.toggle-vis')?.addEventListener('click', () =>
         net.send({ type: 'room_set_visibility', visibility: this.room!.visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE' }),
       );
