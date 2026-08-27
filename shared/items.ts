@@ -1,11 +1,19 @@
 /** Itens do jogo e economia. Fonte única para client (UI) e server (regras). */
 
-export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'knife' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'bandage' | 'painkiller' | 'boss_heart' | 'wall_wood' | 'wall_stone' | 'wall_iron';
+export type ItemId = 'stick' | 'stone' | 'wood' | 'bigstone' | 'knife' | 'axe' | 'pickaxe' | 'glock' | 'battery' | 'bandage' | 'painkiller' | 'boss_heart' | 'wall_wood' | 'wall_stone' | 'wall_iron' | 'gate';
 export type ItemCategory = 'resource' | 'tool' | 'weapon' | 'device' | 'consumable' | 'wall';
 
-export type WallKind = 'wall_wood' | 'wall_stone' | 'wall_iron';
-/** Vida de cada parede. */
-export const WALL_HP: Record<WallKind, number> = { wall_wood: 150, wall_stone: 400, wall_iron: 900 };
+export type WallKind = 'wall_wood' | 'wall_stone' | 'wall_iron' | 'gate';
+/** Vida de cada parede (porteira: jogadores atravessam, zumbis não; mais frágil e mais cara). */
+export const WALL_HP: Record<WallKind, number> = { wall_wood: 150, wall_stone: 400, wall_iron: 900, gate: 100 };
+/** Ferramenta que derruba cada parede (segurando E, como árvore/rocha) e quantos golpes leva. */
+export const WALL_TOOL: Record<WallKind, 'axe' | 'pickaxe'> = { wall_wood: 'axe', wall_stone: 'pickaxe', wall_iron: 'pickaxe', gate: 'axe' };
+export const WALL_HITS: Record<WallKind, number> = { wall_wood: 3, wall_stone: 5, wall_iron: 8, gate: 2 };
+/** Jogadores atravessam (zumbis não). */
+export const WALL_PASSABLE: Record<WallKind, boolean> = { wall_wood: false, wall_stone: false, wall_iron: false, gate: true };
+export function isWallKind(id: ItemId): id is WallKind {
+  return id in WALL_HP;
+}
 
 export interface ItemDef {
   id: ItemId;
@@ -47,6 +55,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   wall_wood: { id: 'wall_wood', name: 'Parede de Madeira', category: 'wall', stackMax: 5, color: '#8a5a2b', buy: 20, weight: 4 },
   wall_stone: { id: 'wall_stone', name: 'Parede de Pedra', category: 'wall', stackMax: 5, color: '#7a8088', buy: 45, weight: 6 },
   wall_iron: { id: 'wall_iron', name: 'Parede de Ferro', category: 'wall', stackMax: 5, color: '#4a5a6a', buy: 90, weight: 8 },
+  gate: { id: 'gate', name: 'Porteira', category: 'wall', stackMax: 5, color: '#d9b25c', buy: 100, weight: 5 },
 };
 
 /** Peso total carregado. */
@@ -63,6 +72,6 @@ export const ItemDatabase = {
   },
   /** Itens à venda no vendedor, na ordem da loja. */
   shop(): ItemDef[] {
-    return (['knife', 'axe', 'pickaxe', 'glock', 'bandage', 'painkiller', 'battery', 'wall_wood', 'wall_stone', 'wall_iron'] as ItemId[]).map((id) => ITEMS[id]);
+    return (['knife', 'axe', 'pickaxe', 'glock', 'bandage', 'painkiller', 'battery', 'wall_wood', 'wall_stone', 'wall_iron', 'gate'] as ItemId[]).map((id) => ITEMS[id]);
   },
 };

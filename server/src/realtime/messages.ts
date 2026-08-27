@@ -43,6 +43,7 @@ const setCharacterSchema = z.object({ type: z.literal('set_character'), characte
 const objectId = z.number().int().nonnegative();
 const pickupSchema = z.object({ type: z.literal('pickup'), objectId });
 const hitNodeSchema = z.object({ type: z.literal('hit_node'), objectId });
+const hitWallSchema = z.object({ type: z.literal('hit_wall'), id: z.number().int().nonnegative() });
 const dropItemSchema = z.object({ type: z.literal('drop_item') });
 const pickupDropSchema = z.object({ type: z.literal('pickup_drop'), id: z.number().int().nonnegative() });
 const selectSlotSchema = z.object({ type: z.literal('select_slot'), index: z.number().int().min(0).max(HOTBAR_SLOTS - 1) });
@@ -77,6 +78,7 @@ const baseSchema = z.discriminatedUnion('type', [
   dropItemSchema,
   pickupDropSchema,
   hitNodeSchema,
+  hitWallSchema,
   selectSlotSchema,
   sellSchema,
   buySchema,

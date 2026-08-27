@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, MatchError } from '../src/game/Match.js';
 import { GAME } from '../../shared/gameconfig.js';
+import { ITEMS } from '../../shared/items.js';
 import type { PlayerSnapshot, ServerMessage } from '../../shared/protocol.js';
 
 function setup() {
@@ -487,4 +488,55 @@ test('resgate: timeout decola sem quem não embarcou', () => {
   const done = last('evac_complete')!.msg as { rescued: string[]; leftBehind: string[] };
   assert.deepEqual(done.rescued, ['B']);
   assert.deepEqual(done.leftBehind, ['A']);
+});
+
+test('ferramenta derruba parede: machado na madeira (3 golpes), picareta no ferro (8), porteira frágil e cara', () => {
+  const { m, snap, advance, last, sent } = setup();
+  const a = m.addPlayer(snap('A', 0, 0));
+  a.hotbar[0] = { itemId: 'wall_wood', count: 1 };
+  a.hotbar[1] = { itemId: 'wall_iron', count: 1 };
+  a.hotbar[2] = { itemId: 'axe', count: 1 };
+  a.hotbar[3] = { itemId: 'pickaxe', count: 1 };
+  a.hotbar[4] = { itemId: 'gate', count: 1 };
+  m.placeWall('A', 2, 0, 0);
+  a.equipped = 1;
+  m.placeWall('A', 0, 3, 90);
+  a.equipped = 4;
+  m.placeWall('A', -3, 0, 0);
+  const [wood, iron, gate] = [...m.structures.values()];
+  assert.equal(gate.hp, 100); // porteira: menos vida que a madeira (150)...
+  assert.ok((ITEMS.gate.buy ?? 0) > (ITEMS.wall_iron.buy ?? 0)); // ...e mais cara que qualquer parede
+  // sem a ferramenta certa não derruba
+  a.equipped = 3; // picareta
+  assert.throws(() => m.hitWall('A', wood.id), (e: MatchError) => e.code === 'no_tool');
+  a.equipped = 2; // machado
+  assert.throws(() => m.hitWall('A', iron.id), (e: MatchError) => e.code === 'no_tool');
+  // madeira: 3 golpes com cadência
+  m.hitWall('A', wood.id);
+  m.hitWall('A', wood.id); // rápido demais: ignorado
+  assert.equal((last('structure_hit')!.msg as { hits: number; required: number }).hits, 1);
+  advance(1000);
+  m.hitWall('A', wood.id);
+  advance(1000);
+  m.hitWall('A', wood.id);
+  assert.ok(!m.structures.has(wood.id));
+  assert.ok(sent.some((s) => s.msg.type === 'structure_removed' && (s.msg as { id: number }).id === wood.id));
+  // ferro: picareta, 8 golpes (mais que a pedra, 5)
+  a.equipped = 3;
+  for (let i = 0; i < 8; i++) {
+    advance(1000);
+    assert.ok(m.structures.has(iron.id), `ferro caiu cedo demais no golpe ${i}`);
+    m.hitWall('A', iron.id);
+  }
+  assert.ok(!m.structures.has(iron.id));
+  // porteira: machado, 2 golpes; longe não vale
+  a.equipped = 2;
+  a.snapshot.x = 10;
+  advance(1000);
+  assert.throws(() => m.hitWall('A', gate.id), (e: MatchError) => e.code === 'too_far');
+  a.snapshot.x = -2;
+  m.hitWall('A', gate.id);
+  advance(1000);
+  m.hitWall('A', gate.id);
+  assert.ok(!m.structures.has(gate.id));
 });

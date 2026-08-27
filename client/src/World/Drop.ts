@@ -22,6 +22,7 @@ const DROP_MODEL: Record<ItemId, { key: ModelKey; scale: number; lift: number }>
   wall_wood: { key: 'fence_wood', scale: 2.2, lift: 0 },
   wall_stone: { key: 'fence_stone', scale: 2.2, lift: 0 },
   wall_iron: { key: 'fence_iron', scale: 2.2, lift: 0 },
+  gate: { key: 'fence_wood', scale: 1.8, lift: 0 },
 };
 
 /** Item largado no chão: modelo do item flutuando/girando devagar, com o X de destaque. Regras no server. */
