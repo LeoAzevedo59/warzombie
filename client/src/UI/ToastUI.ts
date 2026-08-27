@@ -1,5 +1,6 @@
 import type { EventBus } from '@/Core/EventBus';
 import { ItemDatabase } from '@/Items/ItemDatabase';
+import { itemIconHtml } from './ItemIcon';
 
 const LIFETIME_MS = 2200;
 
@@ -32,7 +33,7 @@ export class ToastUI {
     const def = ItemDatabase.get(itemId);
     const el = document.createElement('div');
     el.className = 'toast';
-    el.innerHTML = `<div class="toast-icon" style="background:${def.color}"></div><span>+${count} ${def.name}</span>`;
+    el.innerHTML = `${itemIconHtml(itemId, 18, 'toast-icon')}<span>+${count} ${def.name}</span>`;
     this.show(el);
   }
 
