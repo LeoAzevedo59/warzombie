@@ -706,6 +706,30 @@ test('precisão por postura: parado dispersa menos, andando mais; correndo só a
   assert.ok(Math.abs(shotAngle() - maxed * GAME.accuracy.IDLE_MULT) < 0.01);
 });
 
+test('torre destruída: nenhum evento de wave é transmitido depois do game_over', () => {
+  const { m, sent, snap, run } = setup();
+  const p = m.addPlayer(snap('a'));
+  p.hotbar[0] = { itemId: 'battery', count: 1 };
+  p.snapshot.x = m.towerPos.x + 1.5;
+  p.snapshot.z = m.towerPos.z;
+  m.activateBattery('a');
+  p.snapshot.x = 0;
+  p.snapshot.z = 0; // longe da torre: a horda vai nela
+  run(GAME.waves.FIRST_DELAY * 1000 + 200);
+  assert.equal(m.waves.phase, 'wave');
+  // torre quase morta e um zumbi da horda colado nela
+  m.towerHp = 1;
+  const z = m.zombies.spawn('zombie', m.towerPos.x + 1, m.towerPos.z, 1, 1, true);
+  z.state = 'chase';
+  run(2000);
+  const over = sent.findIndex((s) => s.msg.type === 'game_over');
+  assert.ok(over >= 0, 'game_over enviado');
+  assert.equal(m.gameOver, true);
+  const after = sent.slice(over + 1).map((s) => s.msg.type);
+  assert.deepEqual(after.filter((t) => t === 'boss_incoming' || t === 'wave_state' || t === 'wave_started' || t === 'boss_spawned' || t === 'wave_cleared'), []);
+  assert.equal(m.zombies.zombies.size, 0, 'nenhum zumbi nasce depois do game over');
+});
+
 test('horda nunca nasce perto da antena nem de um jogador vivo', () => {
   const { m, snap } = setup();
   const p = m.addPlayer(snap('a', 20, -20));

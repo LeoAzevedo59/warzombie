@@ -1006,6 +1006,8 @@ export class Match {
       targets.push({ id: 'tower', position: this.towerPos, dead: this.towerHp <= 0, radius: GAME.hub.TOWER_RADIUS, kind: 'tower' });
       for (const s of this.structures.values()) targets.push({ id: `wall:${s.id}`, position: s, dead: false, radius: GAME.walls.WIDTH / 2, kind: 'wall' });
       this.zombies.tick(dt, targets);
+      // a torre pode ter caído agora: nada de spawn ambiental nem eventos de wave depois do game over
+      if (this.gameOver) return;
     }
     // recursos renascem
     for (const [id, at] of this.respawnAt) {

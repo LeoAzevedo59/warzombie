@@ -87,8 +87,8 @@ export const GAME = {
     LOSE_RADIUS: 34,
     /** soco: alcance, cooldown, duração da animação e fração em que o dano aplica */
     ATTACK: { RANGE: 1.4, COOLDOWN: 1.1, DURATION: 1.0, HIT_AT: 0.45 },
-    /** dano em estruturas (torre/paredes) = dano × este fator */
-    STRUCTURE_DAMAGE_MULT: 3,
+    /** dano em estruturas (torre/paredes) = dano × este fator (era 3: a antena de 1500 HP caía em ~4 s para 8 zumbis) */
+    STRUCTURE_DAMAGE_MULT: 1,
     /** preferência pela torre: distância até a torre é multiplicada por isso ao escolher alvo */
     TOWER_BIAS: 0.7,
     /** jogador vivo a até isso da torre é defendido: a horda ataca ele antes da torre */
