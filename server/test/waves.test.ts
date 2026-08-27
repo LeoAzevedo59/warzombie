@@ -331,3 +331,23 @@ test('infectado nunca mira o próprio dono e traz `owner` no snapshot', () => {
   assert.equal(sim.snapshots()[0].owner, 'B');
   assert.equal(sim.snapshots()[0].kind, 'infected');
 });
+
+test('zumbi comum abre o combate com o soco, não com o chute; o chute só vem depois do cooldown cheio', () => {
+  const { sim, hits } = setup(1);
+  const z = sim.spawn('zombie', 1.2, 0);
+  z.state = 'chase';
+  const targets = [{ id: 'p', position: { x: 0, z: 0 }, dead: false, radius: GAME.player.RADIUS, kind: 'player' as const }];
+  // até o cooldown do chute vencer, todos os golpes são socos
+  let t = 0;
+  while (t < GAME.zombie.SPECIAL.COOLDOWN - 0.2) {
+    sim.tick(0.05, targets);
+    t += 0.05;
+  }
+  assert.ok(hits.length >= 3, `deveria ter socado várias vezes (${hits.length})`);
+  assert.ok(hits.every((h) => h.amount === GAME.zombie.DAMAGE), `só socos antes do cooldown: ${hits.map((h) => h.amount).join(',')}`);
+  // depois disso o chute aparece, com 1,75× o dano
+  for (let i = 0; i < 80; i++) sim.tick(0.05, targets);
+  const kick = Math.round(GAME.zombie.DAMAGE * GAME.zombie.SPECIAL.DAMAGE_MULT);
+  assert.ok(hits.some((h) => h.amount === kick), `chute de ${kick} após o cooldown: ${hits.map((h) => h.amount).join(',')}`);
+  assert.equal(kick, 28);
+});

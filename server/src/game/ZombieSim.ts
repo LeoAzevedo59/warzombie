@@ -170,7 +170,9 @@ export class ZombieSim {
       state: 'wander',
       stateTime: 0,
       attackCooldown: 0,
-      specialCooldown: cfg.SPECIAL.COOLDOWN * 0.5,
+      // zumbi comum nasce com o chute em cooldown cheio: o primeiro golpe é o soco, não o chute
+      // (o chute tem mais alcance que o soco e abria todo encontro com 2,75× de dano); o chefão segue como antes
+      specialCooldown: boss ? GAME.boss.SLAM.COOLDOWN * 0.5 : cfg.SPECIAL.COOLDOWN,
       chargeCooldown: 3,
       spitCooldown: 1 + this.rand() * 2,
       summonCooldown: GAME.boss.SUMMON.FIRST_DELAY,
