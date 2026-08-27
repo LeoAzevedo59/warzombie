@@ -588,6 +588,7 @@ test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição reviv
   const a = m.addPlayer(snap('A'));
   const b = m.addPlayer(snap('B', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
   run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  b.shieldUntil = Infinity; // zumbis ambientais aparecem com o tempo: B não pode morrer aqui
   for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
     m.damagePlayer(a, 1000);
     run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
@@ -613,14 +614,17 @@ test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição reviv
   const rp = [...sent].reverse().find((s) => s.msg.type === 'revive_price')!.msg as { price: number };
   assert.equal(rp.price, m.revivePrice());
   // B eliminado com A eliminado também -> derrota
-  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
-    m.damagePlayer(a, 1000);
+  for (let guard = 0; !a.eliminated && guard < 20; guard++) {
+    if (!a.dead) m.damagePlayer(a, 1000);
     run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
   }
+  assert.equal(a.eliminated, true);
   b.shieldUntil = 0;
-  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
-    m.damagePlayer(b, 1000);
+  // zumbis ambientais podem matar B no meio: só conta o golpe quando ele está de pé
+  for (let guard = 0; !b.eliminated && guard < 20; guard++) {
+    if (!b.dead) m.damagePlayer(b, 1000);
     run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
   }
+  assert.equal(b.eliminated, true);
   assert.ok(sent.some((s) => s.msg.type === 'game_over' && (s.msg as { reason: string }).reason === 'all_dead'));
 });
