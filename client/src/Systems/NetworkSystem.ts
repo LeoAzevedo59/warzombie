@@ -221,7 +221,10 @@ export class NetworkSystem implements System {
         break;
       case 'player_revived':
         this.state.eliminated.delete(msg.playerId);
-        if (msg.playerId === this.state.playerId) this.state.deaths = 0; // volta com as vidas cheias
+        if (msg.playerId === this.state.playerId) {
+          this.state.deaths = 0; // volta com as vidas cheias
+          this.bus.emit('player:medalRevive', { byName: msg.byId === msg.playerId ? null : this.nameOf(msg.byId), medalsLeft: this.state.medals });
+        }
         this.bus.emit('net:eliminatedChanged');
         this.bus.emit('ui:toast', {
           text:
