@@ -376,6 +376,8 @@ export class Match {
    * Medalha de Ressurreição: qualquer jogador vivo compra no vendedor (dinheiro da sala; o preço
    * sobe a cada compra) e fica com ela (quantas quiser; não ocupa slot). Usa em um aliado eliminado
    * ou em si mesmo depois de perder as 3 vidas: volta na hora ao centro com as vidas zeradas de novo.
+   * Na 3ª morte, quem tem medalha no bolso gasta uma automaticamente (ver damagePlayer): nunca é
+   * eliminado com medalha na mão.
    */
   buyMedal(playerId: string): void {
     const p = this.alive(playerId);
@@ -1041,6 +1043,16 @@ export class Match {
       target.snapshot.anim = 'Death';
       target.respawnAt = this.now() + GAME.player.RESPAWN_SECONDS * 1000;
       const livesLeft = Math.max(0, GAME.lives.MAX_DEATHS - target.matchDeaths);
+      // sem vidas mas com Medalha de Ressurreição no bolso: ela é usada sozinha — volta com as vidas
+      // cheias no respawn normal e a partida segue (sem isso o solo dava game over com medalha na mão)
+      if (livesLeft <= 0 && target.medals > 0) {
+        target.medals--;
+        target.matchDeaths = 0;
+        this.io.send(target.snapshot.id, { type: 'medals', count: target.medals });
+        this.io.broadcast({ type: 'player_died', playerId: target.snapshot.id, killerId, respawnIn: GAME.player.RESPAWN_SECONDS, eliminated: false, livesLeft: GAME.lives.MAX_DEATHS });
+        this.io.broadcast({ type: 'player_revived', playerId: target.snapshot.id, byId: target.snapshot.id });
+        return;
+      }
       // sem vidas: eliminado (não renasce nem vira zumbi); todos eliminados = derrota
       if (livesLeft <= 0) {
         target.eliminated = true;
