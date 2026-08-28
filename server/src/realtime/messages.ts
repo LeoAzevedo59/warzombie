@@ -6,6 +6,7 @@ import { NET_ANIMS, CHARACTERS, NAME_MAX, NAME_MIN, NAME_REGEX, ROOM_NAME_MAX, R
 /** Validação em runtime do que chega pelo socket — nunca confiar no client. */
 const finite = z.number().finite();
 const visibility = z.enum(['PUBLIC', 'PRIVATE']);
+const mode = z.enum(['NORMAL', 'HARDCORE']);
 
 const joinSchema = z.object({
   type: z.literal('join'),
@@ -29,6 +30,7 @@ const roomCreateSchema = z.object({
   type: z.literal('room_create'),
   name: z.string().min(ROOM_NAME_MIN).max(ROOM_NAME_MAX).regex(NAME_REGEX),
   visibility,
+  mode,
 });
 const roomJoinSchema = z.object({
   type: z.literal('room_join'),
@@ -37,6 +39,7 @@ const roomJoinSchema = z.object({
 });
 const roomLeaveSchema = z.object({ type: z.literal('room_leave') });
 const roomSetVisibilitySchema = z.object({ type: z.literal('room_set_visibility'), visibility });
+const roomSetModeSchema = z.object({ type: z.literal('room_set_mode'), mode });
 const roomStartSchema = z.object({ type: z.literal('room_start') });
 const roomReadySchema = z.object({ type: z.literal('room_ready'), ready: z.boolean() });
 const setCharacterSchema = z.object({ type: z.literal('set_character'), character: z.enum(CHARACTERS) });
@@ -113,6 +116,7 @@ const baseSchema = z.discriminatedUnion('type', [
   roomJoinSchema,
   roomLeaveSchema,
   roomSetVisibilitySchema,
+  roomSetModeSchema,
   roomStartSchema,
   roomReadySchema,
   setCharacterSchema,

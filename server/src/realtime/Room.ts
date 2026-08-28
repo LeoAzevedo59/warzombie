@@ -3,6 +3,7 @@ import {
   MAX_ROOM_PLAYERS,
   type PlayerSnapshot,
   type RoomDetail,
+  type RoomMode,
   type RoomStatus,
   type RoomSummary,
   type RoomVisibility,
@@ -26,6 +27,7 @@ export class Room {
   readonly id: string;
   name: string;
   visibility: RoomVisibility;
+  mode: RoomMode;
   code: string | null;
   ownerId: string;
   status: RoomStatus;
@@ -57,6 +59,7 @@ export class Room {
     this.id = row.id;
     this.name = row.name;
     this.visibility = row.visibility;
+    this.mode = row.mode;
     this.code = row.code;
     this.ownerId = row.ownerId;
     this.status = row.status;
@@ -91,6 +94,7 @@ export class Room {
       id: this.id,
       name: this.name,
       visibility: this.visibility,
+      mode: this.mode,
       status: this.status,
       members: this.members.size,
       max: MAX_ROOM_PLAYERS,

@@ -5,21 +5,25 @@ import { GAME } from '../../shared/gameconfig.js';
 import { ITEMS } from '../../shared/items.js';
 import type { PlayerSnapshot, ServerMessage } from '../../shared/protocol.js';
 
-function setup() {
+function setup(mode: 'NORMAL' | 'HARDCORE' = 'HARDCORE') {
   let now = 0;
   const sent: Array<{ to: string | '*'; msg: ServerMessage }> = [];
   const money: number[] = [];
   const phaseDone: string[] = [];
+  const resets: string[] = [];
+  const waves: number[] = [];
   const m = new Match(
     1337,
     0,
+    mode,
     {
       send: (to, msg) => sent.push({ to, msg }),
       broadcast: (msg) => sent.push({ to: '*', msg }),
       onMoneyChanged: (a) => money.push(a),
-      onWaveChanged: () => undefined,
+      onWaveChanged: (w) => waves.push(w),
       onPhaseComplete: (ids) => phaseDone.push(...ids),
       onGameOver: () => undefined,
+      onMatchReset: (r) => resets.push(r),
     },
     () => now,
     () => 0.5, // recoil determinístico: desvio zero
@@ -32,7 +36,7 @@ function setup() {
       m.tick();
     }
   };
-  return { m, sent, money, phaseDone, snap, run, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
+  return { m, sent, money, phaseDone, resets, waves, snap, run, advance: (ms: number) => (now += ms), last: (type: string) => [...sent].reverse().find((s) => s.msg.type === type) };
 }
 
 test('pickup exige proximidade e remove o objeto para todos', () => {
@@ -665,7 +669,7 @@ test('bateria: vai para a mão (slot travado), avisa a sala e vira isca de todos
 test('precisão por postura: parado dispersa menos, andando mais; correndo só atira com o Recoil máximo', () => {
   let now = 0;
   const sent: ServerMessage[] = [];
-  const m = new Match(1337, 0, { send: (_to, msg) => sent.push(msg), broadcast: (msg) => sent.push(msg), onMoneyChanged: () => undefined, onWaveChanged: () => undefined, onPhaseComplete: () => undefined, onGameOver: () => undefined }, () => now, () => 1); // rand=1: desvio máximo (+spread)
+  const m = new Match(1337, 0, 'HARDCORE', { send: (_to, msg) => sent.push(msg), broadcast: (msg) => sent.push(msg), onMoneyChanged: () => undefined, onWaveChanged: () => undefined, onPhaseComplete: () => undefined, onGameOver: () => undefined, onMatchReset: () => undefined }, () => now, () => 1); // rand=1: desvio máximo (+spread)
   const a = m.addPlayer({ id: 'A', name: 'A', character: 'matt', trophies: 0, hp: 100, kills: 0, pvpKills: 0, deaths: 0, x: 0, z: 0, yaw: 0, anim: 'Idle', crouching: false });
   a.hotbar[0] = { itemId: 'glock', count: 1 };
   a.mag = 10;
@@ -845,4 +849,78 @@ test('medalha própria: na 3ª morte a medalha do bolso é usada sozinha — vol
   }
   assert.equal(a.eliminated, true);
   assert.equal(gameOver, 'all_dead');
+});
+
+test('modo NORMAL: 3ª morte sozinho = wave perdida (match_reset), antena a 0 baterias, mas dinheiro/itens/upgrades ficam e o jogador renasce', () => {
+  const { m, sent, resets, waves, snap, run } = setup('NORMAL');
+  const a = m.addPlayer(snap('A'));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  // estado que NÃO pode ser perdido
+  m.money = 777;
+  m.dev('A', { action: 'give', itemId: 'glock' });
+  m.dev('A', { action: 'give', itemId: 'axe' });
+  a.upgrades.damage = 2;
+  a.medals = 0;
+  const hotbarBefore = JSON.stringify(a.hotbar);
+  // duas mortes normais (renasce)
+  for (let i = 1; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  // antena com 2 baterias e horda em andamento (montada agora para a horda não derrubar a torre antes)
+  m.waves.activate(); // bateria 1 (countdown)
+  m.waves.devNextWave(); // horda 1
+  m.waves.devNextWave(); // chefão 1
+  m.waves.devNextWave(); // mata o chefão 1
+  run(200); // o tick fecha a wave 1 -> idle
+  m.waves.devNextWave(); // bateria 2: horda 2
+  assert.equal(m.waves.wave, 2);
+  assert.ok(m.zombies.zombies.size > 0);
+  m.towerHp = 10; // torre quase caindo: o reset tem que restaurá-la
+  m.damagePlayer(a, 1000); // 3ª morte
+  // sem game over: só reset da wave
+  assert.equal(m.gameOver, false);
+  assert.ok(!sent.some((s) => s.msg.type === 'game_over'));
+  const reset = sent.find((s) => s.msg.type === 'match_reset')!.msg as { reason: string; respawnIn: number; wave: { wave: number; phase: string } };
+  assert.equal(reset.reason, 'all_dead');
+  assert.equal(reset.respawnIn, GAME.player.RESPAWN_SECONDS);
+  assert.deepEqual([reset.wave.wave, reset.wave.phase], [0, 'idle']);
+  assert.deepEqual(resets, ['all_dead']);
+  assert.equal(waves.at(-1), 0, 'wave 0 persistida na sala');
+  assert.equal(m.waves.wave, 0);
+  assert.equal(m.zombies.zombies.size, 0, 'horda some');
+  assert.equal(m.towerHp, m.towerMaxHp, 'torre restaurada');
+  // nada mais mudou
+  assert.equal(m.money, 777);
+  assert.equal(JSON.stringify(a.hotbar), hotbarBefore);
+  assert.equal(a.upgrades.damage, 2);
+  assert.equal(a.eliminated, false);
+  assert.equal(a.matchDeaths, 0);
+  // renasce no centro no tempo normal, com as vidas cheias
+  run(GAME.player.RESPAWN_SECONDS * 1000 + 200);
+  assert.equal(a.dead, false);
+  assert.ok(sent.some((s) => s.msg.type === 'player_respawned'));
+  // a antena aceita bateria de novo e a partida segue
+  assert.equal(m.waves.canActivate, true);
+});
+
+test('modo NORMAL: torre destruída também só zera as baterias (sem game over); HARDCORE mantém o reinício', () => {
+  const soft = setup('NORMAL');
+  soft.m.addPlayer(soft.snap('A'));
+  soft.m.money = 50;
+  soft.m.waves.activate();
+  soft.m.damageTower(1e9);
+  assert.equal(soft.m.gameOver, false);
+  assert.equal(soft.m.towerHp, soft.m.towerMaxHp);
+  assert.equal(soft.m.waves.wave, 0);
+  assert.equal(soft.m.money, 50);
+  assert.deepEqual(soft.resets, ['tower_destroyed']);
+  assert.ok(!soft.sent.some((s) => s.msg.type === 'game_over'));
+
+  const hard = setup('HARDCORE');
+  hard.m.addPlayer(hard.snap('A'));
+  hard.m.damageTower(1e9);
+  assert.equal(hard.m.gameOver, true);
+  assert.deepEqual(hard.resets, []);
+  assert.ok(hard.sent.some((s) => s.msg.type === 'game_over'));
 });

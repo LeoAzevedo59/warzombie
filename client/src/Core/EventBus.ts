@@ -99,6 +99,8 @@ export interface GameEvents {
   'net:towerHp': { hp: number; maxHp: number };
   'net:features': { features: RoomFeatures };
   'net:gameOver': { restartIn: number; reason: 'tower_destroyed' | 'all_dead' };
+  /** derrota no modo NORMAL: antena zerada, todo mundo renasce; dinheiro/itens ficam */
+  'net:matchReset': { respawnIn: number; reason: 'tower_destroyed' | 'all_dead' };
   'net:structureAdded': { structure: StructureSnapshot };
   'net:structureHp': { id: number; hp: number };
   'net:structureHit': { id: number; hits: number; required: number };

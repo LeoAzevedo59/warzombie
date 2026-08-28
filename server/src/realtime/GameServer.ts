@@ -199,6 +199,8 @@ export class GameServer {
           return await this.handleRoomLeave(conn);
         case 'room_set_visibility':
           return await this.handleRoomSetVisibility(conn, msg);
+        case 'room_set_mode':
+          return await this.handleRoomSetMode(conn, msg);
         case 'room_start':
           return await this.handleRoomStart(conn);
         case 'room_ready':
@@ -284,12 +286,12 @@ export class GameServer {
 
   private async handleRoomCreate(conn: Connection, msg: Msg<'room_create'>): Promise<void> {
     const player = conn.player!;
-    const row = await this.roomService.create(player.id, msg.name, msg.visibility, conn.room?.view() ?? null);
+    const row = await this.roomService.create(player.id, msg.name, msg.visibility, msg.mode, conn.room?.view() ?? null);
     const room = new Room(row);
     room.members.set(player.id, { socket: conn.socket, player });
     this.rooms.set(room.id, room);
     conn.room = room;
-    log.info(`${player.name} criou a sala "${room.name}" (${room.visibility}${room.code ? ` #${room.code}` : ''})`);
+    log.info(`${player.name} criou a sala "${room.name}" (${room.visibility}, ${room.mode}${room.code ? ` #${room.code}` : ''})`);
     room.broadcastState();
     this.broadcastLobby();
   }
@@ -320,6 +322,15 @@ export class GameServer {
     const code = await this.roomService.setVisibility(conn.player!.id, room?.view() ?? null, msg.visibility);
     room!.visibility = msg.visibility;
     room!.code = code;
+    room!.broadcastState();
+    this.broadcastLobby();
+  }
+
+  private async handleRoomSetMode(conn: Connection, msg: Msg<'room_set_mode'>): Promise<void> {
+    const room = conn.room;
+    await this.roomService.setMode(conn.player!.id, room?.view() ?? null, msg.mode);
+    room!.mode = msg.mode;
+    log.info(`sala "${room!.name}" agora é ${room!.mode}`);
     room!.broadcastState();
     this.broadcastLobby();
   }
@@ -370,7 +381,7 @@ export class GameServer {
   }
 
   private createMatch(room: Room): Match {
-    return new Match(env.WORLD_SEED, room.money, {
+    return new Match(env.WORLD_SEED, room.money, room.mode, {
       send: (playerId, msg) => {
         const m = room.members.get(playerId);
         if (m) room.send(m, msg);
@@ -387,8 +398,11 @@ export class GameServer {
         RoomModel.update(room.id, { wave }).catch((err) => log.error(`falha ao salvar wave da sala ${room.name}`, err));
       },
       onGameOver: (reason) => {
-        log.info(`sala "${room.name}": ${reason === 'all_dead' ? 'todos eliminados' : 'torre destruída'} — reiniciando do zero em 6s`);
+        log.info(`sala "${room.name}" (HARDCORE): ${reason === 'all_dead' ? 'todos eliminados' : 'torre destruída'} — reiniciando do zero em 6s`);
         setTimeout(() => this.restartMatch(room), 6000);
+      },
+      onMatchReset: (reason) => {
+        log.info(`sala "${room.name}" (NORMAL): ${reason === 'all_dead' ? 'todos eliminados' : 'torre destruída'} — antena volta a 0 baterias; dinheiro/itens ficam`);
       },
       onPhaseComplete: (playerIds) => {
         room.status = 'FINISHED';
@@ -412,7 +426,7 @@ export class GameServer {
     });
   }
 
-  /** Torre destruída: partida nova (dinheiro 0, hotbars vazias, mundo/torre novos) para quem ainda está na sala. */
+  /** Derrota no HARDCORE: partida nova (dinheiro 0, hotbars vazias, mundo/torre novos) para quem ainda está na sala. */
   private restartMatch(room: Room): void {
     if (!this.rooms.has(room.id) || room.members.size === 0) return;
     room.money = 0;

@@ -1,5 +1,5 @@
 import { isValidRoomName, MAX_ROOM_PLAYERS, ROOM_CODE_REGEX } from '../../../shared/protocol.js';
-import type { RoomStatus, RoomVisibility } from '../models/RoomModel.js';
+import type { RoomMode, RoomStatus, RoomVisibility } from '../models/RoomModel.js';
 import { RoomModel, type Room } from '../models/RoomModel.js';
 
 export type RoomErrorCode =
@@ -42,11 +42,11 @@ export interface RoomView {
  * é passado como RoomView pelo GameServer, que é quem o mantém.
  */
 export class RoomService {
-  async create(ownerId: string, name: string, visibility: RoomVisibility, currentRoom: RoomView | null): Promise<Room> {
+  async create(ownerId: string, name: string, visibility: RoomVisibility, mode: RoomMode, currentRoom: RoomView | null): Promise<Room> {
     if (currentRoom) throw new RoomServiceError('already_in_room', 'Saia da sala atual antes de criar outra.');
     if (!isValidRoomName(name)) throw new RoomServiceError('invalid_message', 'Nome da sala deve ter 2–24 caracteres.');
     const code = visibility === 'PRIVATE' ? await this.uniqueCode() : null;
-    return RoomModel.create({ name: name.trim(), visibility, code, ownerId });
+    return RoomModel.create({ name: name.trim(), visibility, mode, code, ownerId });
   }
 
   async join(playerId: string, room: RoomView | undefined, code: string | undefined, currentRoom: RoomView | null): Promise<void> {
@@ -86,6 +86,13 @@ export class RoomService {
     const code = visibility === 'PRIVATE' ? (room!.code ?? (await this.uniqueCode())) : null;
     await RoomModel.update(room!.id, { visibility, code });
     return code;
+  }
+
+  /** Só no lobby: o modo define o que acontece na derrota, então não muda no meio da partida. */
+  async setMode(playerId: string, room: RoomView | null, mode: RoomMode): Promise<void> {
+    this.assertOwner(playerId, room);
+    if (room!.status !== 'LOBBY') throw new RoomServiceError('room_not_in_lobby', 'Não dá para trocar o modo durante a partida.');
+    await RoomModel.update(room!.id, { mode });
   }
 
   async start(playerId: string, room: RoomView | null): Promise<void> {

@@ -23,7 +23,8 @@ export interface StructureSnapshot {
  * Suba também quando o worldgen mudar (ids/posições dos objetos): client antigo com server novo
  * discorda de tudo ("Objeto não existe mais") e a checagem no join é o que força o reload.
  */
-export const PROTOCOL_VERSION = 26; // 26: mochila (bag/bag_move/buy_backpack), medalhas por jogador (buy_medal/use_medal/medals), boss atordoado no snapshot
+export const PROTOCOL_VERSION = 27; // 27: modo da sala (HARDCORE/NORMAL: room_create.mode, room_set_mode, match_reset)
+// 26: // 26: mochila (bag/bag_move/buy_backpack), medalhas por jogador (buy_medal/use_medal/medals), boss atordoado no snapshot
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -54,6 +55,14 @@ export const ROOM_NAME_MAX = 24;
 export const ROOM_CODE_REGEX = /^\d{4}$/;
 
 export type RoomVisibility = 'PUBLIC' | 'PRIVATE';
+/**
+ * Modo da sala (escolhido no lobby):
+ * - HARDCORE: derrota (todos eliminados / torre destruída) reinicia a partida do zero (dinheiro, itens, upgrades, mundo).
+ * - NORMAL: derrota só encerra a wave: a antena perde todas as baterias (wave 0) e todo mundo renasce
+ *   com as vidas cheias, mas dinheiro, itens, upgrades, medalhas e construções ficam.
+ */
+export type RoomMode = 'NORMAL' | 'HARDCORE';
+export const ROOM_MODES: readonly RoomMode[] = ['NORMAL', 'HARDCORE'];
 export type RoomStatus = 'LOBBY' | 'PLAYING' | 'FINISHED';
 
 /** Sala como aparece na lista do lobby. */
@@ -61,6 +70,7 @@ export interface RoomSummary {
   id: string;
   name: string;
   visibility: RoomVisibility;
+  mode: RoomMode;
   status: RoomStatus;
   members: number;
   max: number;
@@ -153,6 +163,7 @@ export interface RoomCreateMessage {
   type: 'room_create';
   name: string;
   visibility: RoomVisibility;
+  mode: RoomMode;
 }
 export interface RoomJoinMessage {
   type: 'room_join';
@@ -165,6 +176,11 @@ export interface RoomLeaveMessage {
 export interface RoomSetVisibilityMessage {
   type: 'room_set_visibility';
   visibility: RoomVisibility;
+}
+/** (dono, no lobby) troca o modo da sala. */
+export interface RoomSetModeMessage {
+  type: 'room_set_mode';
+  mode: RoomMode;
 }
 export interface RoomStartMessage {
   type: 'room_start';
@@ -341,6 +357,7 @@ export type ClientMessage =
   | RoomJoinMessage
   | RoomLeaveMessage
   | RoomSetVisibilityMessage
+  | RoomSetModeMessage
   | RoomStartMessage
   | RoomReadyMessage
   | SetCharacterMessage;
@@ -753,6 +770,16 @@ export interface GameOverMessage {
   reason: 'tower_destroyed' | 'all_dead';
   restartIn: number;
 }
+/**
+ * Derrota no modo NORMAL: a wave acabou. Horda removida, antena volta a 0 baterias (wave 0) e a torre é
+ * restaurada; todos renascem em `respawnIn` s com as vidas cheias. Dinheiro/itens/upgrades continuam.
+ */
+export interface MatchResetMessage {
+  type: 'match_reset';
+  reason: 'tower_destroyed' | 'all_dead';
+  respawnIn: number;
+  wave: WaveState;
+}
 export interface StructureAddedMessage {
   type: 'structure_added';
   structure: StructureSnapshot;
@@ -878,6 +905,7 @@ export type ServerMessage =
   | TowerHpMessage
   | RoomFeaturesMessage
   | GameOverMessage
+  | MatchResetMessage
   | StructureAddedMessage
   | StructureHpMessage
   | StructureHitMessage

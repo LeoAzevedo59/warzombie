@@ -46,6 +46,12 @@ enum RoomVisibility {
   PRIVATE
 }
 
+/// NORMAL: derrota só zera as baterias da antena. HARDCORE: derrota reinicia a partida do zero.
+enum RoomMode {
+  NORMAL
+  HARDCORE
+}
+
 enum RoomStatus {
   LOBBY
   PLAYING
@@ -61,6 +67,7 @@ model Room {
   code       String?        @unique @db.Char(4)
   ownerId    String         @map("owner_id") @db.Uuid
   status     RoomStatus     @default(LOBBY)
+  mode       RoomMode       @default(NORMAL)
   /// dinheiro compartilhado por todos da sala
   money      Int            @default(0)
   /// wave atual da fase (0 = bateria não ativada)

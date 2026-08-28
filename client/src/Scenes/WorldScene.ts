@@ -200,6 +200,11 @@ export class WorldScene extends BaseScene {
         this.input.enabled = false;
         bus.emit('input:closePanel');
       }),
+      bus.on('net:matchReset', () => {
+        // modo NORMAL: a cena continua; quem estava morto renasce pelo player_respawned normal
+        bus.emit('input:closePanel');
+        this.player.velocity.set(0, 0, 0);
+      }),
       bus.on('evac:helicopter', ({ x, z, landsIn }) => this.spawnHelicopter(x, z, landsIn, false)),
       bus.on('evac:boarded', ({ playerId }) => {
         if (playerId === state.playerId) {

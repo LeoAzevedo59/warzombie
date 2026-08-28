@@ -1,11 +1,11 @@
-import type { Room, RoomMember, RoomStatus, RoomVisibility } from '@prisma/client';
+import type { Room, RoomMember, RoomMode, RoomStatus, RoomVisibility } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 export type { Room, RoomMember };
 
 /** Acesso a dados de `rooms` / `room_members`. Regras (limite, código, owner) ficam no RoomService. */
 export const RoomModel = {
-  create(data: { name: string; visibility: RoomVisibility; code: string | null; ownerId: string }): Promise<Room> {
+  create(data: { name: string; visibility: RoomVisibility; mode: RoomMode; code: string | null; ownerId: string }): Promise<Room> {
     return prisma.room.create({ data: { ...data, members: { create: { playerId: data.ownerId } } } });
   },
 
@@ -25,7 +25,7 @@ export const RoomModel = {
     return prisma.roomMember.deleteMany({ where: { playerId } }).then((r) => r.count);
   },
 
-  update(id: string, data: Partial<Pick<Room, 'ownerId' | 'visibility' | 'code' | 'status' | 'money' | 'wave'>>): Promise<Room> {
+  update(id: string, data: Partial<Pick<Room, 'ownerId' | 'visibility' | 'mode' | 'code' | 'status' | 'money' | 'wave'>>): Promise<Room> {
     return prisma.room.update({ where: { id }, data });
   },
 
@@ -47,4 +47,4 @@ export const RoomModel = {
   },
 };
 
-export type { RoomStatus, RoomVisibility };
+export type { RoomMode, RoomStatus, RoomVisibility };
