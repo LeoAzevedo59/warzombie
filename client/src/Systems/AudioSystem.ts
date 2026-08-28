@@ -87,7 +87,11 @@ export class AudioSystem implements System {
       bus.on('wave:cleared', () => audio.play('wave_clear')),
       bus.on('player:infected', () => audio.play('zombie_growl', { volume: 1.1, pitchVar: 0 })),
       bus.on('boss:slam', ({ x, z }) => audio.play('boss_roar', { x, z, volume: 0.7 })),
-      bus.on('phase:complete', () => audio.play('wave_clear')),
+      // fase zerada: fanfarra na hora e a música alegre de vitória entra por baixo (segue no resgate e nos créditos)
+      bus.on('phase:complete', () => {
+        audio.play('victory_fanfare');
+        audio.setMusic('victory', 3);
+      }),
       bus.on('evac:helicopter', () => audio.play('wave_bell', { volume: 1, pitchVar: 0 })),
       bus.on('evac:boarded', () => audio.play('ui_confirm')),
       bus.on('evac:complete', () => audio.play('wave_clear', { volume: 1 })),
@@ -120,7 +124,7 @@ export class AudioSystem implements System {
     const prev = this.phase;
     this.phase = phase;
     if (prev === 'idle' && phase === 'countdown') audio.play('battery_on');
-    audio.setMusic(phase === 'wave' || phase === 'boss' ? 'tension' : 'calm');
+    audio.setMusic(phase === 'wave' || phase === 'boss' ? 'tension' : phase === 'complete' ? 'victory' : 'calm');
   }
 
   update(dt: number): void {
