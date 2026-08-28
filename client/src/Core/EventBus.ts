@@ -66,6 +66,7 @@ export interface GameEvents {
   'net:hotbar': { slots: ReadonlyArray<ItemStack | null>; equipped: number };
   'net:money': { amount: number; delta: number };
   'net:objectRemoved': { objectId: number };
+  'net:error': { code: string; message: string };
   'net:nodeHit': { objectId: number; hits: number; required: number };
   'net:melee': { playerId: string; hitPlayerId: string | null; hitZombieId: number | null };
   'net:shot': { playerId: string; dx: number; dz: number; length: number; hitPlayerId: string | null };

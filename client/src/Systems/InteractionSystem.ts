@@ -55,6 +55,11 @@ export class InteractionSystem implements System {
           this.refreshLabel();
         }
       }),
+      // o server recusou um hit (objeto sumiu, peso, hotbar cheia...): parar o canal em vez de repetir o erro a cada golpe
+      bus.on('net:error', () => {
+        this.channel = null;
+        this.refreshLabel();
+      }),
       bus.on('net:objectRemoved', ({ objectId }) => {
         const obj = this.world.findObject(objectId);
         if (!obj) return;

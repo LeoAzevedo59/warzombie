@@ -159,6 +159,8 @@ export class NetworkSystem implements System {
         this.bus.emit('item:collected', { itemId: msg.itemId, count: msg.count });
         break;
       case 'object_removed':
+        // registra mesmo se o chunk não está carregado: senão o objeto volta como "fantasma" ao recarregar
+        this.state.collectedObjectIds.add(msg.objectId);
         this.bus.emit('net:objectRemoved', { objectId: msg.objectId });
         break;
       case 'node_hit':
@@ -301,6 +303,7 @@ export class NetworkSystem implements System {
         this.bus.emit('net:roomLeft', { reason: msg.reason });
         break;
       case 'error':
+        this.bus.emit('net:error', { code: msg.code, message: msg.message });
         this.bus.emit('ui:toast', { text: msg.message });
         break;
       default:
