@@ -1,10 +1,10 @@
 import { GAME } from '../../../shared/gameconfig.js';
-import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, isWallKind, type ItemId, type WallKind } from '../../../shared/items.js';
+import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, canBag, isWallKind, type ItemId, type ItemStack, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
 import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
-import { batteryPrice, canFireRunning, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegreesFor, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor, type Stance } from '../../../shared/upgrades.js';
+import { batteryPrice, canFireRunning, carriedWeight, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegreesFor, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor, type Stance } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
-import { addItem, buy, canFit, emptyHotbar, fitsWeight, hasItem, sellAll, type Hotbar } from './Economy.js';
+import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
 import { ZombieSim, type Obstacle, type Zombie } from './ZombieSim.js';
 import { WaveDirector } from './WaveDirector.js';
 
@@ -37,6 +37,11 @@ export interface MatchPlayer {
   eliminated: boolean;
   /** está com a bateria na hotbar (fica na mão; todos os zumbis vão atrás) */
   carrying: boolean;
+  /** mochila (GAME.backpack.SLOTS; só usável depois de comprar) e se já comprou */
+  bag: Hotbar;
+  hasBackpack: boolean;
+  /** Medalhas de Ressurreição em posse (não ocupam slot) */
+  medals: number;
   /** velocidade (m/s, suavizada) estimada pelas poses e instante da última pose — define a postura ao atirar */
   speed: number;
   lastPoseAt: number;
@@ -64,6 +69,8 @@ export class MatchError extends Error {
       | 'no_wall'
       | 'phase_complete'
       | 'not_eliminated'
+      | 'no_medal'
+      | 'no_backpack'
       | 'carrying_battery',
     message: string,
   ) {
@@ -332,6 +339,9 @@ export class Match {
       boarded: false,
       eliminated: false,
       carrying: false,
+      bag: Array.from({ length: GAME.backpack.SLOTS }, () => null),
+      hasBackpack: false,
+      medals: 0,
       speed: 0,
       lastPoseAt: 0,
       joinedAt: this.now(),
@@ -363,24 +373,82 @@ export class Match {
   }
 
   /**
-   * Medalha de Ressurreição: um aliado vivo, no vendedor, paga (preço da sala, sobe a cada compra)
-   * e escolhe um jogador eliminado, que volta na hora ao centro com as vidas zeradas de novo.
+   * Medalha de Ressurreição: qualquer jogador vivo compra no vendedor (dinheiro da sala; o preço
+   * sobe a cada compra) e fica com ela (quantas quiser; não ocupa slot). Usa em um aliado eliminado
+   * ou em si mesmo depois de perder as 3 vidas: volta na hora ao centro com as vidas zeradas de novo.
    */
-  buyRevive(playerId: string, targetId: string): void {
+  buyMedal(playerId: string): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    const target = this.players.get(targetId);
-    if (!target) throw new MatchError('invalid_message', 'Esse jogador não está na partida.');
-    if (!target.eliminated) throw new MatchError('not_eliminated', 'Esse jogador não precisa de medalha.');
     const price = this.revivePrice();
     if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
     this.revivePurchases++;
     this.setMoney(this.money - price, -price);
+    p.medals++;
+    this.io.send(playerId, { type: 'medals', count: p.medals });
+    this.io.broadcast({ type: 'revive_price', price: this.revivePrice() });
+  }
+
+  /** Usa uma medalha (de quem manda) em `targetId` eliminado — inclusive em si mesmo. Funciona de qualquer lugar, vivo ou não. */
+  useMedal(playerId: string, targetId: string): void {
+    const p = this.get(playerId);
+    if (p.medals <= 0) throw new MatchError('no_medal', 'Você não tem Medalha de Ressurreição.');
+    const target = this.players.get(targetId);
+    if (!target) throw new MatchError('invalid_message', 'Esse jogador não está na partida.');
+    if (!target.eliminated) throw new MatchError('not_eliminated', 'Esse jogador não precisa de medalha.');
+    p.medals--;
+    this.io.send(playerId, { type: 'medals', count: p.medals });
     target.eliminated = false;
     target.matchDeaths = 0;
     target.respawnAt = this.now(); // o tick renasce agora
     this.io.broadcast({ type: 'player_revived', playerId: targetId, byId: playerId });
-    this.io.broadcast({ type: 'revive_price', price: this.revivePrice() });
+  }
+
+  // ---------- mochila ----------
+
+  /** Peso efetivo (hotbar + mochila com desconto) e capacidade (upgrade + mochila). */
+  private fitsWeight(p: MatchPlayer, stacks: ItemStack[], container: 'hotbar' | 'bag' = 'hotbar'): boolean {
+    const extra = stacks.reduce((n, s) => n + ITEMS[s.itemId].weight * s.count, 0) * (container === 'bag' ? GAME.backpack.WEIGHT_FACTOR : 1);
+    return carriedWeight(p.hotbar, p.bag) + extra <= maxWeight(p.upgrades, p.hasBackpack);
+  }
+
+  private sendBag(p: MatchPlayer): void {
+    this.io.send(p.snapshot.id, { type: 'bag', slots: p.bag, hasBackpack: p.hasBackpack });
+  }
+
+  /** Compra a mochila (uma por jogador): abre os slots (I) e soma capacidade de peso. */
+  buyBackpack(playerId: string): void {
+    const p = this.alive(playerId);
+    this.assertNearHub(p, GAME.hub.VENDOR);
+    if (p.hasBackpack) throw new MatchError('invalid_message', 'Você já tem uma mochila.');
+    const price = GAME.backpack.PRICE;
+    if (this.money < price) throw new MatchError('not_enough_money', 'Dinheiro insuficiente.');
+    p.hasBackpack = true;
+    this.setMoney(this.money - price, -price);
+    this.sendBag(p);
+  }
+
+  /** Move a pilha inteira do slot para o outro container. A mochila não aceita a bateria. */
+  bagMove(playerId: string, from: 'hotbar' | 'bag', index: number): void {
+    const p = this.alive(playerId);
+    if (!p.hasBackpack) throw new MatchError('no_backpack', 'Compre uma mochila no vendedor.');
+    const src = from === 'hotbar' ? p.hotbar : p.bag;
+    const dst = from === 'hotbar' ? p.bag : p.hotbar;
+    if (index < 0 || index >= src.length) throw new MatchError('invalid_message', 'Slot inválido.');
+    const stack = src[index];
+    if (!stack) throw new MatchError('invalid_message', 'Slot vazio.');
+    if (from === 'hotbar' && !canBag(stack.itemId)) throw new MatchError('invalid_message', 'A bateria não cabe na mochila: fica na mão.');
+    if (!canFit(dst, [stack])) throw new MatchError('hotbar_full', from === 'hotbar' ? 'Mochila cheia.' : 'Hotbar cheia.');
+    // tirar da mochila devolve o peso cheio: precisa caber na capacidade
+    if (from === 'bag') {
+      const without = p.bag.map((s, i) => (i === index ? null : s));
+      const after = carriedWeight(p.hotbar, without) + ITEMS[stack.itemId].weight * stack.count;
+      if (after > maxWeight(p.upgrades, p.hasBackpack)) throw new MatchError('too_heavy', 'Peso demais para tirar isso da mochila.');
+    }
+    src[index] = null;
+    addItem(dst, stack.itemId, stack.count);
+    this.sendHotbar(p);
+    this.sendBag(p);
   }
 
   /** Pose nova do client (antes de aplicá-la ao snapshot): atualiza a velocidade estimada. */
@@ -509,7 +577,7 @@ export class Match {
     const hits = (this.hits.get(objectId) ?? 0) + 1;
     if (hits >= def.hitsRequired) {
       if (!canFit(p.hotbar, def.drops)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
-      if (!fitsWeight(p.hotbar, def.drops, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
+      if (!this.fitsWeight(p, def.drops)) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
       this.hits.delete(objectId);
       this.harvest(p, o);
       return;
@@ -521,7 +589,7 @@ export class Match {
   private harvest(p: MatchPlayer, o: WorldObjectSpec): void {
     const def = WORLD_OBJECTS[o.kind];
     if (!canFit(p.hotbar, def.drops)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
-    if (!fitsWeight(p.hotbar, def.drops, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
+    if (!this.fitsWeight(p, def.drops)) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
     for (const d of def.drops) {
       addItem(p.hotbar, d.itemId, d.count);
       this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
@@ -565,7 +633,7 @@ export class Match {
     if (dist(p.snapshot, d) > GAME.interaction.RADIUS + 0.5) throw new MatchError('too_far', 'Chegue mais perto.');
     const stacks = [{ itemId: d.itemId, count: d.count }];
     if (!canFit(p.hotbar, stacks)) throw new MatchError('hotbar_full', 'Hotbar cheia.');
-    if (!fitsWeight(p.hotbar, stacks, maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
+    if (!this.fitsWeight(p, stacks)) throw new MatchError('too_heavy', 'Peso demais — venda algo ou melhore a capacidade.');
     addItem(p.hotbar, d.itemId, d.count);
     this.removeDrop(id);
     this.io.send(p.snapshot.id, { type: 'item_gained', itemId: d.itemId, count: d.count });
@@ -599,16 +667,17 @@ export class Match {
   sell(playerId: string): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    const { total } = sellAll(p.hotbar);
+    const total = sellAll(p.hotbar).total + sellAll(p.bag).total;
     if (total <= 0) throw new MatchError('invalid_message', 'Nada para vender.');
     this.setMoney(this.money + total, total);
     this.sendHotbar(p);
+    if (p.hasBackpack) this.sendBag(p);
   }
 
   buy(playerId: string, itemId: ItemId): void {
     const p = this.alive(playerId);
     this.assertNearHub(p, GAME.hub.VENDOR);
-    if (!fitsWeight(p.hotbar, [{ itemId, count: 1 }], maxWeight(p.upgrades))) throw new MatchError('too_heavy', 'Peso demais para carregar isso.');
+    if (!this.fitsWeight(p, [{ itemId, count: 1 }])) throw new MatchError('too_heavy', 'Peso demais para carregar isso.');
     const r = buy(p.hotbar, this.money, itemId, itemId === 'battery' ? this.batteryPrice() : undefined);
     if (!r.ok) {
       const msg = r.code === 'not_enough_money' ? 'Dinheiro insuficiente.' : r.code === 'hotbar_full' ? 'Hotbar cheia.' : 'Item não está à venda.';

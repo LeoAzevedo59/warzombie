@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { HOTBAR_SLOTS, ITEMS, type ItemId } from '../../../shared/items.js';
+import { GAME } from '../../../shared/gameconfig.js';
 import { NET_ANIMS, CHARACTERS, NAME_MAX, NAME_MIN, NAME_REGEX, ROOM_NAME_MAX, ROOM_NAME_MIN, type ClientMessage } from '../../../shared/protocol.js';
 
 /** Validação em runtime do que chega pelo socket — nunca confiar no client. */
@@ -54,7 +55,14 @@ const reloadSchema = z.object({ type: z.literal('reload') });
 const meleeSchema = z.object({ type: z.literal('melee'), dx: finite, dz: finite });
 const activateBatterySchema = z.object({ type: z.literal('activate_battery') });
 const useItemSchema = z.object({ type: z.literal('use_item') });
-const buyReviveSchema = z.object({ type: z.literal('buy_revive'), targetId: z.string().uuid() });
+const buyMedalSchema = z.object({ type: z.literal('buy_medal') });
+const useMedalSchema = z.object({ type: z.literal('use_medal'), targetId: z.string().uuid() });
+const buyBackpackSchema = z.object({ type: z.literal('buy_backpack') });
+const bagMoveSchema = z.object({
+  type: z.literal('bag_move'),
+  from: z.enum(['hotbar', 'bag']),
+  index: z.number().int().min(0).max(Math.max(HOTBAR_SLOTS, GAME.backpack.SLOTS) - 1),
+});
 const upgradeSchema = z.object({ type: z.literal('upgrade'), kind: z.enum(['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight']) });
 const towerUpgradeSchema = z.object({ type: z.literal('tower_upgrade') });
 const towerRepairSchema = z.object({ type: z.literal('tower_repair') });
@@ -91,7 +99,10 @@ const baseSchema = z.discriminatedUnion('type', [
   meleeSchema,
   activateBatterySchema,
   useItemSchema,
-  buyReviveSchema,
+  buyMedalSchema,
+  useMedalSchema,
+  buyBackpackSchema,
+  bagMoveSchema,
   upgradeSchema,
   placeWallSchema,
   buyFeatureSchema,

@@ -57,7 +57,18 @@ export class NetworkSystem implements System {
         this.bus.emit('net:projectiles', { projectiles: msg.projectiles });
         break;
       case 'shield':
+        // com o escudo ativo o vigor é infinito (corrida/farm sem gastar); volta ao normal quando acaba
+        if (msg.playerId === this.state.playerId) this.player.stats.setInfiniteStamina(msg.seconds);
         this.bus.emit('net:shield', { playerId: msg.playerId, seconds: msg.seconds });
+        break;
+      case 'medals':
+        this.state.medals = msg.count;
+        this.bus.emit('net:medals', { count: msg.count });
+        break;
+      case 'bag':
+        this.state.bag = msg.slots.map((s) => (s ? { ...s } : null));
+        this.state.hasBackpack = msg.hasBackpack;
+        this.bus.emit('net:bag', { slots: this.state.bag, hasBackpack: msg.hasBackpack });
         break;
       case 'slowed':
         if (msg.playerId === this.state.playerId) {
@@ -212,7 +223,16 @@ export class NetworkSystem implements System {
         this.state.eliminated.delete(msg.playerId);
         if (msg.playerId === this.state.playerId) this.state.deaths = 0; // volta com as vidas cheias
         this.bus.emit('net:eliminatedChanged');
-        this.bus.emit('ui:toast', { text: msg.playerId === this.state.playerId ? `${this.nameOf(msg.byId)} comprou uma Medalha de Ressurreição para você!` : `${this.nameOf(msg.byId)} reviveu ${this.nameOf(msg.playerId)} com uma Medalha de Ressurreição` });
+        this.bus.emit('ui:toast', {
+          text:
+            msg.playerId === msg.byId && msg.playerId === this.state.playerId
+              ? 'Você usou uma Medalha de Ressurreição: de volta com todas as vidas!'
+              : msg.playerId === this.state.playerId
+                ? `${this.nameOf(msg.byId)} usou uma Medalha de Ressurreição em você!`
+                : msg.playerId === msg.byId
+                  ? `${this.nameOf(msg.playerId)} usou a própria Medalha de Ressurreição`
+                  : `${this.nameOf(msg.byId)} reviveu ${this.nameOf(msg.playerId)} com uma Medalha de Ressurreição`,
+        });
         break;
       case 'game_start':
         // reinício após derrota (ou nova partida): recarrega o mundo

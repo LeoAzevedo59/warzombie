@@ -29,6 +29,7 @@ import { HealthBar } from '@/UI/HealthBar';
 import { HotbarUI } from '@/UI/HotbarUI';
 import { ShopUI } from '@/UI/ShopUI';
 import { TowerUI } from '@/UI/TowerUI';
+import { BagUI } from '@/UI/BagUI';
 import { EconomyHUD } from '@/UI/EconomyHUD';
 import { MapUI } from '@/UI/MapUI';
 import { ToastUI } from '@/UI/ToastUI';
@@ -57,6 +58,7 @@ export class WorldScene extends BaseScene {
     hotbar: HotbarUI;
     shop: ShopUI;
     tower: TowerUI;
+    bag: BagUI;
     economy: EconomyHUD;
     map: MapUI;
     toasts: ToastUI;
@@ -129,22 +131,25 @@ export class WorldScene extends BaseScene {
     // --- UI ---
     const shop = new ShopUI(uiRoot, bus, state, net, (id) => network.nameOf(id));
     const tower = new TowerUI(uiRoot, bus, state, net);
+    const bag = new BagUI(uiRoot, bus, state, net);
     const updateInputEnabled = () => {
       // morto não anda: painéis fechados não bastam pra religar o input
-      this.input.enabled = !shop.open && !tower.open && !this.ui?.players.open && !this.stats.dead && !state.boarded;
+      this.input.enabled = !shop.open && !tower.open && !bag.open && !this.ui?.players.open && !this.stats.dead && !state.boarded;
     };
     shop.onOpenChanged = updateInputEnabled;
     tower.onOpenChanged = updateInputEnabled;
+    bag.onOpenChanged = updateInputEnabled;
 
     this.ui = {
       healthBar: new HealthBar(uiRoot, bus, state),
       hotbar: new HotbarUI(uiRoot, bus),
       shop,
       tower,
+      bag,
       economy: new EconomyHUD(uiRoot, bus, state.money),
       map: new MapUI(uiRoot, this.world, this.player, () => network.remotes.values(), () => zombies.alive()),
       toasts: new ToastUI(uiRoot, bus),
-      combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills, state.upgrades),
+      combat: new CombatHUD(uiRoot, bus, state.playerId, state.kills, state.upgrades, state.medals),
       players: new PlayersHUD(uiRoot, bus, state.playerName, state, () => network.remotes.values(), () => this.camera.component),
       wave: new WaveHUD(uiRoot, bus, state.wave, () => {
         for (const z of zombies.alive()) if (z.kind === 'boss') return { hp: z.hp, maxHp: z.maxHp };
@@ -163,8 +168,12 @@ export class WorldScene extends BaseScene {
     this.unsubs.push(
       // Esc: fecha a loja/painel dev se abertos; senão abre/fecha o menu
       bus.on('input:escape', () => {
-        if (shop.open || tower.open) bus.emit('input:closePanel');
+        if (shop.open || tower.open || bag.open) bus.emit('input:closePanel');
         else this.ui?.players.toggle();
+      }),
+      // eliminado com medalha própria: volta com todas as vidas
+      bus.on('medal:useSelf', () => {
+        if (state.playerId) net.send({ type: 'use_medal', targetId: state.playerId });
       }),
       bus.on('net:hotbar', ({ slots, equipped }) => inventory.apply(slots, equipped)),
       bus.on('equip:changed', ({ itemId }) => this.player.setEquipped(itemId)),

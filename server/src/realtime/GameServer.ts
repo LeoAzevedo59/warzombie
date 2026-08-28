@@ -163,8 +163,14 @@ export class GameServer {
           return this.match(conn).activateBattery(conn.player.id);
         case 'use_item':
           return this.match(conn).useItem(conn.player.id);
-        case 'buy_revive':
-          return this.match(conn).buyRevive(conn.player.id, msg.targetId);
+        case 'buy_medal':
+          return this.match(conn).buyMedal(conn.player.id);
+        case 'use_medal':
+          return this.match(conn).useMedal(conn.player.id, msg.targetId);
+        case 'buy_backpack':
+          return this.match(conn).buyBackpack(conn.player.id);
+        case 'bag_move':
+          return this.match(conn).bagMove(conn.player.id, msg.from, msg.index);
         case 'upgrade':
           return this.match(conn).buyUpgrade(conn.player.id, msg.kind);
         case 'tower_repair':
@@ -454,6 +460,9 @@ export class GameServer {
       eliminated: match.eliminatedIds(),
       revivePrice: match.revivePrice(),
       carriers: match.carrierIds(),
+      bag: mp.bag,
+      hasBackpack: mp.hasBackpack,
+      medals: mp.medals,
     });
     room.broadcast({ type: 'player_joined', player: conn.player! }, conn.player!.id);
   }

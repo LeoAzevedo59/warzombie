@@ -2,8 +2,8 @@ import { CONFIG } from '@/config';
 import { GAME } from '@shared/gameconfig';
 import type { ItemStack } from '@/Items/Item';
 import type { CharacterId, DroppedItem, EvacState, PlayerSnapshot, RoomFeatures, StructureSnapshot, UpgradePrices, WaveState, WeaponUpgrades } from '@shared/protocol';
-import { maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
-import { ITEMS, totalWeight } from '@shared/items';
+import { carriedWeight, maxWeight, staminaMultiplier, weightSpeedMult } from '@shared/upgrades';
+import { ITEMS } from '@shared/items';
 
 /** Espelho local do estado de jogo. O servidor é a fonte da verdade para hotbar, HP, dinheiro e munição. */
 export class GameState {
@@ -63,6 +63,11 @@ export class GameState {
   revivePrice: number = GAME.lives.REVIVE_BASE_PRICE;
   /** quem está com a bateria na mão (isca dos zumbis) */
   carriers = new Set<string>();
+  /** mochila (I): slots extras; itens nela pesam menos. Vem do servidor. */
+  bag: (ItemStack | null)[] = Array.from({ length: GAME.backpack.SLOTS }, () => null);
+  hasBackpack = false;
+  /** Medalhas de Ressurreição em posse (não ocupam slot) */
+  medals = 0;
 
   /** Eu estou com a bateria? (nenhum outro item pode ir para a mão: Q larga) */
   get carryingBattery(): boolean {
@@ -73,12 +78,13 @@ export class GameState {
     return Math.max(0, GAME.lives.MAX_DEATHS - this.deaths);
   }
 
+  /** Peso efetivo: hotbar inteira + mochila com desconto. */
   get carriedWeight(): number {
-    return totalWeight(this.inventory);
+    return carriedWeight(this.inventory, this.bag);
   }
 
   get maxWeight(): number {
-    return maxWeight(this.upgrades);
+    return maxWeight(this.upgrades, this.hasBackpack);
   }
 
   /** Velocidade × peso carregado (1 vazio … 0.5 no limite). */

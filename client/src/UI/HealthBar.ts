@@ -29,7 +29,7 @@ export class HealthBar {
     this.wText = this.el.querySelector('.ring.weight .value')!;
     this.updateWeight();
 
-    this.unsubs.push(bus.on('inventory:changed', () => this.updateWeight()), bus.on('net:upgrades', () => this.updateWeight()));
+    this.unsubs.push(bus.on('inventory:changed', () => this.updateWeight()), bus.on('net:upgrades', () => this.updateWeight()), bus.on('net:bag', () => this.updateWeight()));
     this.unsubs.push(bus.on('player:statsChanged', ({ hp, stamina, maxHp, maxStamina }) => {
       this.set(this.hpRing, hp / maxHp);
       this.set(this.stRing, stamina / maxStamina);

@@ -18,6 +18,8 @@ export class CombatHUD {
   private slowedUntil = 0;
   private shieldUntil = 0;
   private shieldTimer: number | null = null;
+  /** Medalhas de Ressurreição em posse (botão na tela de eliminado) */
+  private medals = 0;
 
   constructor(
     parent: HTMLElement,
@@ -25,8 +27,10 @@ export class CombatHUD {
     myId: string | null,
     initialKills = 0,
     initialUpgrades?: WeaponUpgrades,
+    initialMedals = 0,
   ) {
     this.kills = initialKills;
+    this.medals = initialMedals;
     void initialUpgrades;
     this.panel = document.createElement('div');
     this.panel.className = 'hud-status';
@@ -38,8 +42,9 @@ export class CombatHUD {
 
     this.death = document.createElement('div');
     this.death.className = 'death-screen';
-    this.death.innerHTML = `<h1>VOCÊ MORREU</h1><p class="cause"></p><p class="timer"></p>`;
+    this.death.innerHTML = `<h1>VOCÊ MORREU</h1><p class="cause"></p><p class="timer"></p><button class="use-medal"></button>`;
     parent.appendChild(this.death);
+    this.death.querySelector<HTMLButtonElement>('.use-medal')!.onclick = () => this.bus.emit('medal:useSelf');
 
     this.unsubs.push(
       bus.on('zombie:countChanged', ({ alive }) => {
@@ -77,6 +82,10 @@ export class CombatHUD {
       }),
       bus.on('player:died', ({ killerName, respawnIn, livesLeft }) => this.showDeath(killerName, respawnIn, livesLeft)),
       bus.on('player:eliminated', ({ killerName }) => this.showEliminated(killerName)),
+      bus.on('net:medals', ({ count }) => {
+        this.medals = count;
+        this.renderMedalButton();
+      }),
       bus.on('net:gameOver', () => this.hideDeath()),
       bus.on('player:infected', ({ targetName, seconds }) => this.showInfected(targetName, seconds)),
       bus.on('player:respawned', () => this.hideDeath()),
@@ -93,6 +102,7 @@ export class CombatHUD {
 
   private showDeath(killerName: string | null, respawnIn: number, livesLeft: number): void {
     this.death.classList.remove('infected', 'eliminated');
+    this.renderMedalButton();
     this.death.querySelector('h1')!.textContent = 'VOCÊ MORREU';
     const hearts = '♥'.repeat(livesLeft) + '♡'.repeat(Math.max(0, GAME.lives.MAX_DEATHS - livesLeft));
     this.death.querySelector('.cause')!.textContent = `${killerName ? `${killerName} te matou.` : 'Os zumbis te pegaram.'} Vidas: ${hearts} (${livesLeft} restante${livesLeft === 1 ? '' : 's'})`;
@@ -108,13 +118,23 @@ export class CombatHUD {
     this.death.querySelector('.cause')!.textContent = `${killerName ? `${killerName} te matou` : 'Os zumbis te pegaram'} pela ${GAME.lives.MAX_DEATHS}ª vez: suas vidas acabaram.`;
     if (this.countdown) clearInterval(this.countdown);
     this.countdown = null;
-    this.death.querySelector<HTMLElement>('.timer')!.textContent = 'Um aliado pode comprar uma Medalha de Ressurreição no vendedor para te reviver.';
+    this.death.querySelector<HTMLElement>('.timer')!.textContent = 'Um aliado pode usar uma Medalha de Ressurreição em você — ou use a sua, se tiver.';
+    this.renderMedalButton();
     this.death.classList.add('visible');
+  }
+
+  /** Eliminado com medalha no bolso: botão para voltar com todas as vidas. */
+  private renderMedalButton(): void {
+    const btn = this.death.querySelector<HTMLButtonElement>('.use-medal')!;
+    const show = this.death.classList.contains('eliminated') && this.medals > 0;
+    btn.style.display = show ? '' : 'none';
+    btn.textContent = `🎖 Usar Medalha de Ressurreição (${this.medals})`;
   }
 
   /** Fogo amigo: virou zumbi — só assiste; o aviso fica discreto no topo para não cobrir o zumbi. */
   private showInfected(targetName: string | null, seconds: number): void {
     this.death.classList.add('infected');
+    this.renderMedalButton();
     this.death.querySelector('h1')!.textContent = 'VOCÊ VIROU ZUMBI';
     this.death.querySelector('.cause')!.textContent = targetName
       ? `Seu zumbi caça ${targetName} — mais forte, mais rápido e sem controle: você só assiste. Se ele matar ${targetName}, ${targetName} também vira zumbi.`
@@ -145,7 +165,7 @@ export class CombatHUD {
     // só avisos de estado (escudo / lentidão / recarga); contadores ficam no menu ESC e no resultado da fase
     const parts: string[] = [];
     const shieldLeft = Math.ceil((this.shieldUntil - Date.now()) / 1000);
-    if (shieldLeft > 0) parts.push(`<span class="shield">🛡 Escudo ${shieldLeft}s</span>`);
+    if (shieldLeft > 0) parts.push(`<span class="shield">🛡 Escudo ${shieldLeft}s · vigor infinito</span>`);
     if (Date.now() < this.slowedUntil) parts.push('<span class="slowed">☠ Lento!</span>');
     if (this.equipped === 'glock' && this.ammo.reloading) parts.push('<span class="hud-cooldown">Recarregando...</span>');
     void this.alive;

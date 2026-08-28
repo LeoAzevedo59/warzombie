@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addItem, buy, canFit, emptyHotbar, sellAll } from '../src/game/Economy.js';
+import { ITEMS } from '../../shared/items.js';
 
 test('addItem empilha até stackMax e devolve o que não coube', () => {
   const h = emptyHotbar();
@@ -28,7 +29,7 @@ test('buy valida dinheiro, slot e item à venda', () => {
   const h = emptyHotbar();
   assert.deepEqual(buy(h, 10, 'glock'), { ok: false, code: 'not_enough_money' });
   assert.deepEqual(buy(h, 100, 'stick'), { ok: false, code: 'invalid_message' });
-  assert.deepEqual(buy(h, 100, 'glock'), { ok: true, price: 100 });
+  assert.deepEqual(buy(h, 100, 'glock'), { ok: true, price: ITEMS.glock.buy! });
   for (let i = 0; i < 4; i++) addItem(h, 'axe', 1);
   assert.equal(canFit(h, [{ itemId: 'pickaxe', count: 1 }]), false);
   assert.deepEqual(buy(h, 100, 'pickaxe'), { ok: false, code: 'hotbar_full' });

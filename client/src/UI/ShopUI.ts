@@ -37,6 +37,8 @@ export class ShopUI {
       bus.on('net:batteryPrice', () => this.renderIfOpen()),
       bus.on('net:revivePrice', () => this.renderIfOpen()),
       bus.on('net:eliminatedChanged', () => this.renderIfOpen()),
+      bus.on('net:medals', () => this.renderIfOpen()),
+      bus.on('net:bag', () => this.renderIfOpen()),
     );
   }
 
@@ -58,7 +60,7 @@ export class ShopUI {
   }
 
   private sellTotal(): number {
-    return this.state.inventory.reduce((n, s) => n + (s ? (ItemDatabase.get(s.itemId).sell ?? 0) * s.count : 0), 0);
+    return [...this.state.inventory, ...this.state.bag].reduce((n, s) => n + (s ? (ItemDatabase.get(s.itemId).sell ?? 0) * s.count : 0), 0);
   }
 
   private render(): void {
@@ -68,7 +70,7 @@ export class ShopUI {
     const money = this.state.money;
     const items = `
       <div class="recipe sell-row">
-        <span class="recipe-label">Vender todos os recursos da hotbar</span>
+        <span class="recipe-label">Vender todos os recursos${this.state.hasBackpack ? ' (hotbar e mochila)' : ' da hotbar'}</span>
         <button class="sell" ${total > 0 ? '' : 'disabled'}>+$${total}</button>
       </div>
       <div class="recipes">${ItemDatabase.shop()
@@ -79,6 +81,7 @@ export class ShopUI {
           return `<div class="recipe"><span class="recipe-label">${itemIconHtml(d.id, 22, 'shop-icon')}<b>${d.name}</b>${note}</span><button class="buy" data-id="${d.id}" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`;
         })
         .join('')}
+        ${this.backpackRow(money)}
         ${this.reviveRows(money)}
         <div class="recipe feature"><span class="recipe-label">${iconHtml('minimap', '#4db8ff', 22, 'shop-icon')}<b>Minimapa</b> <span class="lvl">para a sala toda</span></span>${this.state.features.minimap ? '<button disabled>ATIVO</button>' : `<button class="buy-feature" data-feature="minimap" ${money >= GAME.features.MINIMAP_PRICE ? '' : 'disabled'}>$${GAME.features.MINIMAP_PRICE}</button>`}</div>
       </div>`;
@@ -115,9 +118,18 @@ export class ShopUI {
         this.bus.emit('shop:transaction', { kind: 'buy' });
       };
     });
-    this.panel.querySelectorAll<HTMLButtonElement>('.buy-revive').forEach((b) => {
+    this.panel.querySelectorAll<HTMLButtonElement>('.buy-medal').forEach((b) => {
       b.onclick = () => {
-        this.net.send({ type: 'buy_revive', targetId: b.dataset.target! });
+        this.net.send({ type: 'buy_medal' });
+        this.bus.emit('shop:transaction', { kind: 'buy' });
+      };
+    });
+    this.panel.querySelectorAll<HTMLButtonElement>('.use-medal').forEach((b) => {
+      b.onclick = () => this.net.send({ type: 'use_medal', targetId: b.dataset.target! });
+    });
+    this.panel.querySelectorAll<HTMLButtonElement>('.buy-backpack').forEach((b) => {
+      b.onclick = () => {
+        this.net.send({ type: 'buy_backpack' });
         this.bus.emit('shop:transaction', { kind: 'buy' });
       };
     });
@@ -132,15 +144,28 @@ export class ShopUI {
     });
   }
 
-  /** Medalha de Ressurreição: uma linha por aliado eliminado (preço da sala, sobe a cada compra). */
+  /** Mochila: compra única por jogador (slots extras com I, itens nela pesam metade, +capacidade). */
+  private backpackRow(money: number): string {
+    const b = GAME.backpack;
+    const label = `${iconHtml('backpack', '#c98a4b', 22, 'shop-icon')}<b>Mochila</b> <span class="lvl">+${b.SLOTS} slots (tecla I) · itens nela pesam ${Math.round(b.WEIGHT_FACTOR * 100)}% · +${b.EXTRA_CAPACITY} de capacidade</span>`;
+    const btn = this.state.hasBackpack ? '<button disabled>ATIVA</button>' : `<button class="buy-backpack" ${money >= b.PRICE ? '' : 'disabled'}>$${b.PRICE}</button>`;
+    return `<div class="recipe feature"><span class="recipe-label">${label}</span>${btn}</div>`;
+  }
+
+  /**
+   * Medalha de Ressurreição: compra quantas quiser (ficam com você, sem ocupar slot; preço da sala
+   * sobe a cada compra). Usa em um aliado eliminado daqui, ou em si mesmo na tela de eliminado.
+   */
   private reviveRows(money: number): string {
     const price = this.state.revivePrice;
+    const mine = this.state.medals;
     const label = `<span class="medal">🎖</span><b>Medalha de Ressurreição</b>`;
+    const buyRow = `<div class="recipe feature revive"><span class="recipe-label">${label} <span class="lvl">você tem <b>${mine}</b> · revive um eliminado (ou você mesmo, sem vidas)</span></span><button class="buy-medal" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`;
     const targets = [...this.state.eliminated].filter((id) => id !== this.state.playerId);
-    if (targets.length === 0) return `<div class="recipe feature revive"><span class="recipe-label">${label} <span class="lvl">revive um aliado eliminado · ninguém precisa agora</span></span><button disabled>$${price}</button></div>`;
-    return targets
-      .map((id) => `<div class="recipe feature revive"><span class="recipe-label">${label} <span class="lvl">reviver <b>${this.nameOf(id)}</b></span></span><button class="buy-revive" data-target="${id}" ${money >= price ? '' : 'disabled'}>$${price}</button></div>`)
+    const useRows = targets
+      .map((id) => `<div class="recipe feature revive"><span class="recipe-label"><span class="medal">🎖</span>Reviver <b>${this.nameOf(id)}</b> <span class="lvl">usa 1 medalha</span></span><button class="use-medal" data-target="${id}" ${mine > 0 ? '' : 'disabled'}>USAR</button></div>`)
       .join('');
+    return buyRow + useRows;
   }
 
   private upgradeRows(money: number): string {

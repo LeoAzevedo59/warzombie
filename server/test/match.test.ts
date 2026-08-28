@@ -74,7 +74,7 @@ test('vender e comprar movem o dinheiro da sala', () => {
   assert.equal(m.money, 100);
   assert.deepEqual(money, [100]);
   m.buy('A', 'glock');
-  assert.equal(m.money, 0);
+  assert.equal(m.money, 100 - ITEMS.glock.buy!);
   assert.deepEqual(a.hotbar[0], { itemId: 'glock', count: 1 });
   assert.equal(a.mag, GAME.weapon.glock.START_MAG);
   a.snapshot.x = 20;
@@ -157,13 +157,15 @@ test('upgrades: dano, pente e recoil', () => {
   m.buyUpgrade('A', 'ammo');
   m.buyUpgrade('A', 'recoil');
   assert.deepEqual(a.upgrades, { damage: 1, ammo: 1, recoil: 1, stamina: 0, laser: 0, weight: 0 });
-  assert.equal(m.money, 1000 - 40 - 30 - 40);
+  const U = GAME.upgrades;
+  const first = U.damage.BASE + U.ammo.BASE + U.recoil.BASE;
+  assert.equal(m.money, 1000 - first);
   // preço sobe para a sala: B paga mais caro pelo primeiro nível de dano
-  assert.equal(m.upgradePrices().damage, Math.round(40 * 1.35));
+  assert.equal(m.upgradePrices().damage, Math.round(U.damage.BASE * U.PRICE_GROWTH));
   b.snapshot.x = GAME.hub.VENDOR.x;
   m.buyUpgrade('B', 'damage');
   assert.equal(b.upgrades.damage, 1);
-  assert.equal(m.money, 1000 - 40 - 30 - 40 - Math.round(40 * 1.35));
+  assert.equal(m.money, 1000 - first - Math.round(U.damage.BASE * U.PRICE_GROWTH));
   b.snapshot.x = GAME.hub.VENDOR.x + 5;
   a.mag = 0;
   m.reload('A');
@@ -246,9 +248,10 @@ test('reforço da torre: +500 de máximo e cura, preço sobe', () => {
   m.upgradeTower('A');
   assert.equal(m.towerMaxHp, GAME.hub.TOWER_HP + 500);
   assert.equal(m.towerHp, GAME.hub.TOWER_HP - 600 + 500);
-  assert.equal(m.money, 900);
+  const T = GAME.towerUpgrade;
+  assert.equal(m.money, 1000 - T.BASE_PRICE);
   m.upgradeTower('A');
-  assert.equal(m.money, 900 - Math.round(100 * 1.35));
+  assert.equal(m.money, 1000 - T.BASE_PRICE - Math.round(T.BASE_PRICE * T.GROWTH));
 });
 
 test('reparo da torre cobra pela vida faltante e enche', () => {
@@ -347,7 +350,7 @@ test('bateria: preço da sala sobe a cada compra; uma bateria por wave; fase con
   const { m, snap, last } = setup();
   const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
   m.money = 10000;
-  const base = 150;
+  const base = ITEMS.battery.buy!;
   assert.equal(m.batteryPrice(), base);
   m.buy('A', 'battery');
   assert.equal(m.money, 10000 - base);
@@ -597,13 +600,17 @@ test('vidas: com aliado vivo não há derrota; a Medalha de Ressurreição reviv
   assert.ok(!sent.some((s) => s.msg.type === 'game_over'), 'B ainda está vivo: sem derrota');
   run(20000);
   assert.equal(a.dead, true, 'eliminado não renasce sozinho');
-  // B compra a medalha (precisa de dinheiro e estar no vendedor)
-  assert.throws(() => m.buyRevive('B', 'A'), (e: MatchError) => e.code === 'not_enough_money');
+  // B compra a medalha (precisa de dinheiro e estar no vendedor) e usa em A
+  assert.throws(() => m.buyMedal('B'), (e: MatchError) => e.code === 'not_enough_money');
+  assert.throws(() => m.useMedal('B', 'A'), (e: MatchError) => e.code === 'no_medal');
   m.money = 1000;
-  assert.throws(() => m.buyRevive('B', 'B'), (e: MatchError) => e.code === 'not_eliminated');
   const price = m.revivePrice();
   assert.equal(price, GAME.lives.REVIVE_BASE_PRICE);
-  m.buyRevive('B', 'A');
+  m.buyMedal('B');
+  assert.equal(b.medals, 1);
+  assert.throws(() => m.useMedal('B', 'B'), (e: MatchError) => e.code === 'not_eliminated');
+  m.useMedal('B', 'A');
+  assert.equal(b.medals, 0);
   assert.equal(m.money, 1000 - price);
   assert.equal(a.eliminated, false);
   assert.ok(sent.some((s) => s.msg.type === 'player_revived'));
@@ -751,4 +758,69 @@ test('horda nunca nasce perto da antena nem de um jogador vivo', () => {
     const dc = Math.hypot(s.x, s.z);
     assert.ok(dc >= GAME.waves.SPAWN_RADIUS_MIN - 0.01 && dc <= GAME.waves.SPAWN_RADIUS_MAX + 0.01, `fora do anel: ${dc.toFixed(1)}`);
   }
+});
+
+test('mochila: compra única, itens nela pesam menos, bateria não entra, vender inclui a mochila', () => {
+  const { m, snap, last } = setup();
+  const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  assert.throws(() => m.bagMove('A', 'hotbar', 0), (e: MatchError) => e.code === 'no_backpack');
+  m.money = 1000;
+  m.buyBackpack('A');
+  assert.equal(a.hasBackpack, true);
+  assert.equal(m.money, 1000 - GAME.backpack.PRICE);
+  assert.throws(() => m.buyBackpack('A'), (e: MatchError) => e.code === 'invalid_message');
+  assert.equal((last('bag')!.msg as { hasBackpack: boolean }).hasBackpack, true);
+  // 20 troncos = 60 de peso: não cabe na hotbar (30 + 20 da mochila = 50), mas na mochila pesa 30
+  a.hotbar[0] = { itemId: 'wood', count: 10 };
+  a.hotbar[1] = { itemId: 'battery', count: 1 };
+  assert.throws(() => m.bagMove('A', 'hotbar', 1), (e: MatchError) => e.code === 'invalid_message');
+  m.bagMove('A', 'hotbar', 0);
+  assert.equal(a.hotbar[0], null);
+  assert.deepEqual(a.bag[0], { itemId: 'wood', count: 10 });
+  // capacidade 50 (30 base + 20 da mochila); carregado: bateria 22 + troncos 30 × 0,5 = 37
+  const tree = [...m.objects.values()].find((o) => o.kind === 'tree')!;
+  a.snapshot.x = tree.x + 1;
+  a.snapshot.z = tree.z;
+  a.hotbar[2] = { itemId: 'axe', count: 1 };
+  a.equipped = 2;
+  for (let i = 0; i < 3; i++) {
+    m.tick();
+    (m as unknown as { players: Map<string, { lastHitAt: number }> }).players.get('A')!.lastHitAt = -Infinity;
+    m.hitNode('A', tree.id); // +3 troncos (9 de peso) cabem: 37 + 3 + 9 = 49 ≤ 50
+  }
+  assert.ok(m.removed.has(tree.id));
+  // tirar os troncos da mochila devolve o peso cheio (60): não cabe
+  assert.throws(() => m.bagMove('A', 'bag', 0), (e: MatchError) => e.code === 'too_heavy');
+  a.snapshot.x = GAME.hub.VENDOR.x;
+  a.snapshot.z = GAME.hub.VENDOR.z + 1;
+  const before = m.money;
+  m.sell('A');
+  assert.equal(m.money, before + 13 * ITEMS.wood.sell!);
+  assert.equal(a.bag[0], null);
+});
+
+test('medalha própria: eliminado com medalha no bolso volta sozinho com as vidas cheias', () => {
+  const { m, sent, snap, run } = setup();
+  const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
+  const b = m.addPlayer(snap('B', 40, 40));
+  run(GAME.player.SPAWN_SHIELD * 1000 + 100);
+  b.shieldUntil = Infinity;
+  m.money = 1000;
+  m.buyMedal('A');
+  m.buyMedal('A');
+  assert.equal(a.medals, 2);
+  assert.equal(m.money, 1000 - GAME.lives.REVIVE_BASE_PRICE - Math.round(GAME.lives.REVIVE_BASE_PRICE * GAME.lives.REVIVE_GROWTH));
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.eliminated, true);
+  m.useMedal('A', 'A');
+  assert.equal(a.medals, 1);
+  assert.equal(a.eliminated, false);
+  run(200);
+  assert.equal(a.dead, false);
+  assert.equal(a.matchDeaths, 0);
+  const revived = [...sent].reverse().find((s) => s.msg.type === 'player_revived')!.msg as { playerId: string; byId: string };
+  assert.deepEqual(revived, { type: 'player_revived', playerId: 'A', byId: 'A' });
 });

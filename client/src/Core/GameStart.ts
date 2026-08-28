@@ -32,4 +32,7 @@ export function applyGameStart(state: GameState, msg: GameStartMessage): void {
   state.eliminated = new Set(msg.eliminated);
   state.revivePrice = msg.revivePrice;
   state.carriers = new Set(msg.carriers);
+  state.bag = msg.bag.map((s) => (s ? { ...s } : null));
+  state.hasBackpack = msg.hasBackpack;
+  state.medals = msg.medals;
 }

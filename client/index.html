@@ -226,6 +226,19 @@
       .death-screen.eliminated h1 { color: #8b98a5; }
       .death-screen.eliminated .timer { color: #ffd34d; font-size: 16px; max-width: 560px; text-align: center; }
       .shop-panel .recipe.revive .medal { font-size: 18px; margin-right: 6px; }
+      /* mochila (I): hotbar + slots extras; clique move a pilha para o outro lado */
+      .bag-panel { width: 520px; }
+      .bag-panel h3 { font-size: 11px; letter-spacing: 2px; color: #8b98a5; text-transform: uppercase; margin: 10px 0 6px; display: flex; justify-content: space-between; }
+      .bag-panel h3 .lvl { color: #ffd34d; letter-spacing: 0; text-transform: none; }
+      .bag-panel .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+      .bag-panel .slot.filled { cursor: pointer; }
+      .bag-panel .slot.filled:hover { border-color: #ffd34d; }
+      .bag-panel .slot.locked { opacity: .35; }
+      .bag-panel .hint { color: #8b98a5; font-size: 12px; margin-top: 10px; }
+      .bag-panel .weight-line { color: #8b98a5; font-size: 14px; font-weight: normal; }
+      .bag-panel .weight-line.heavy b { color: #ff9f43; }
+      .death-screen .use-medal { background: #3a8f4a; margin-top: -8px; }
+      .death-screen .use-medal:hover { background: #4aa85c; }
       /* derrota: cobre tudo até o reinício */
       .game-over { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; background: rgba(5,8,11,.92); z-index: 8; text-align: center; }
       .game-over.visible { display: flex; }

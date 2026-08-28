@@ -2,7 +2,7 @@ import * as pc from 'playcanvas';
 import type { EventBus } from '@/Core/EventBus';
 import type { RemotePlayer } from '@/Entities/Player/RemotePlayer';
 import type { GameState } from '@/Core/GameState';
-import { accuracyPercent, damageMultiplier, magSize, maxWeight, staminaMultiplier } from '@shared/upgrades';
+import { accuracyPercent, damageMultiplier, magSize, staminaMultiplier } from '@shared/upgrades';
 import { GAME } from '@shared/gameconfig';
 
 /**
@@ -85,7 +85,8 @@ export class PlayersHUD {
       <ul class="stats">
         <li>Vida <b>${Math.round(this.state.hp)}/${GAME.player.MAX_HP}</b></li>
         <li>Vigor <b>${Math.round(this.state.stamina)}/${Math.round(this.state.maxStamina)}</b> <span class="lvl">Lv ${u.stamina} · +${Math.round((staminaMultiplier(u) - 1) * 100)}%</span></li>
-        <li>Peso <b>${this.state.carriedWeight}/${maxWeight(u)}</b> <span class="lvl">Lv ${u.weight}</span></li>
+        <li>Peso <b>${this.state.carriedWeight}/${this.state.maxWeight}</b> <span class="lvl">Lv ${u.weight}${this.state.hasBackpack ? ' · mochila' : ''}</span></li>
+        <li>Medalhas <b>${this.state.medals}</b></li>
         <li>Abates <b>${this.state.kills}</b></li>
       </ul>
       <button class="resume">Voltar ao jogo (Esc)</button>

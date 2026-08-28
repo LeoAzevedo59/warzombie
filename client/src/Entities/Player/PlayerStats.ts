@@ -18,6 +18,20 @@ export class PlayerStats {
 
   /** Esgotou o vigor correndo e ainda não soltou Shift: força andar e trava a regeneração. */
   private exhausted = false;
+  /** vigor infinito até este instante (ms de performance.now): dura enquanto o escudo de spawn está ativo */
+  private infiniteUntil = 0;
+
+  get infiniteStamina(): boolean {
+    return performance.now() < this.infiniteUntil;
+  }
+
+  /** Escudo ativo: vigor não gasta (corrida nem farm) por `seconds`; depois volta ao normal. */
+  setInfiniteStamina(seconds: number): void {
+    this.infiniteUntil = performance.now() + seconds * 1000;
+    this.exhausted = false;
+    this.state.stamina = this.state.maxStamina;
+    this.notify();
+  }
 
   get canRun(): boolean {
     return this.state.stamina > 0;
@@ -32,7 +46,10 @@ export class PlayerStats {
     const p = CONFIG.player;
     const before = this.state.stamina;
 
-    if (running) {
+    if (this.infiniteStamina) {
+      this.exhausted = false;
+      this.state.stamina = this.state.maxStamina;
+    } else if (running) {
       this.state.stamina = Math.max(0, before - p.STAMINA_DRAIN * dt);
       if (this.state.stamina <= 0) this.exhausted = true;
     } else if (this.exhausted && runHeld) {
@@ -47,6 +64,7 @@ export class PlayerStats {
 
   /** Gasta vigor (farmar); trava a regeneração por um instante como ao correr. */
   spend(amount: number): void {
+    if (this.infiniteStamina) return;
     this.state.stamina = Math.max(0, this.state.stamina - amount);
     this.notify();
   }

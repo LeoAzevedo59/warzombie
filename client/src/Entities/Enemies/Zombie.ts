@@ -22,6 +22,8 @@ const BASE_TINT: Record<ZombieKind, pc.Color> = {
   infected: new pc.Color(0.5, 1.15, 0.55),
 };
 const HURT_TINT = new pc.Color(1.8, 0.45, 0.45);
+/** chefão atordoado: amarelado e piscando (janela para bater nele) */
+const STUN_TINT = new pc.Color(1.6, 1.5, 0.6);
 const HURT_FLASH_TIME = 0.12;
 const LERP_SPEED = 12;
 
@@ -43,6 +45,8 @@ export class Zombie {
   private currentYaw = 0;
   private currentAnim: ZombieAnim = 'Idle';
   private baseTint: pc.Color;
+  private stunned = false;
+  private stunBlink = 0;
 
   hp: number;
   maxHp: number;
@@ -116,6 +120,12 @@ export class Zombie {
     }
     this.hp = snap.hp;
     this.maxHp = snap.maxHp;
+    const stunned = !!snap.stunned;
+    if (stunned !== this.stunned) {
+      this.stunned = stunned;
+      this.stunBlink = 0;
+      if (this.hurtTimer <= 0) this.setTint(stunned ? STUN_TINT : this.baseTint);
+    }
     const w = this.kind === 'boss' ? 1.76 : 0.86;
     const ratio = Math.max(0, this.hp / this.maxHp);
     this.hpFill.setLocalScale(w * ratio, 0.06, 0.1);
@@ -144,7 +154,11 @@ export class Zombie {
     this.hpBar.setEulerAngles(0, CONFIG.camera.YAW, 0); // barra sempre de frente pra câmera isométrica
     if (this.hurtTimer > 0) {
       this.hurtTimer -= dt;
-      if (this.hurtTimer <= 0) this.setTint(this.baseTint);
+      if (this.hurtTimer <= 0) this.setTint(this.stunned ? STUN_TINT : this.baseTint);
+    } else if (this.stunned) {
+      // pisca entre o tom normal e o amarelo enquanto está atordoado
+      this.stunBlink += dt;
+      this.setTint(Math.floor(this.stunBlink / 0.18) % 2 === 0 ? STUN_TINT : this.baseTint);
     }
     const t = 1 - Math.exp(-LERP_SPEED * dt);
     const pos = this.entity.getPosition();

@@ -44,23 +44,28 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   stone: { id: 'stone', name: 'Pedra', category: 'resource', stackMax: 20, color: '#8e939a', sell: 2, weight: 2 },
   wood: { id: 'wood', name: 'Tronco', category: 'resource', stackMax: 20, color: '#6b4226', sell: 5, weight: 3 },
   bigstone: { id: 'bigstone', name: 'Pedra Grande', category: 'resource', stackMax: 20, color: '#5c6670', sell: 6, weight: 4 },
-  knife: { id: 'knife', name: 'Faca', category: 'weapon', stackMax: 1, color: '#c0c8d0', buy: 10, weight: 1 },
-  axe: { id: 'axe', name: 'Machado', category: 'tool', stackMax: 1, color: '#c8742a', buy: 30, weight: 3 },
-  pickaxe: { id: 'pickaxe', name: 'Picareta', category: 'tool', stackMax: 1, color: '#5f7fa8', buy: 30, weight: 3 },
-  glock: { id: 'glock', name: 'Glock', category: 'weapon', stackMax: 1, color: '#2b2f36', buy: 100, weight: 2 },
-  battery: { id: 'battery', name: 'Bateria da Antena', category: 'device', stackMax: 1, color: '#ffd34d', buy: 150, weight: 22 }, // o item mais pesado: carregar até a torre é lento
+  knife: { id: 'knife', name: 'Faca', category: 'weapon', stackMax: 1, color: '#c0c8d0', buy: 8, weight: 1 },
+  axe: { id: 'axe', name: 'Machado', category: 'tool', stackMax: 1, color: '#c8742a', buy: 25, weight: 3 },
+  pickaxe: { id: 'pickaxe', name: 'Picareta', category: 'tool', stackMax: 1, color: '#5f7fa8', buy: 25, weight: 3 },
+  glock: { id: 'glock', name: 'Glock', category: 'weapon', stackMax: 1, color: '#2b2f36', buy: 80, weight: 2 },
+  battery: { id: 'battery', name: 'Bateria da Antena', category: 'device', stackMax: 1, color: '#ffd34d', buy: 120, weight: 22 }, // o item mais pesado: carregar até a torre é lento
   boss_heart: { id: 'boss_heart', name: 'Coração do Chefão', category: 'resource', stackMax: 5, color: '#c8102e', sell: 300, weight: 4 }, // cai do chefão; vale muito no vendedor
-  bandage: { id: 'bandage', name: 'Bandagem', category: 'consumable', stackMax: 5, color: '#f2e8dc', buy: 15, weight: 1, heal: 35 },
-  painkiller: { id: 'painkiller', name: 'Analgésico', category: 'consumable', stackMax: 5, color: '#ff8fb1', buy: 40, weight: 1, heal: 75 },
-  wall_wood: { id: 'wall_wood', name: 'Parede de Madeira', category: 'wall', stackMax: 5, color: '#8a5a2b', buy: 20, weight: 4 },
-  wall_stone: { id: 'wall_stone', name: 'Parede de Pedra', category: 'wall', stackMax: 5, color: '#7a8088', buy: 45, weight: 6 },
-  wall_iron: { id: 'wall_iron', name: 'Parede de Ferro', category: 'wall', stackMax: 5, color: '#4a5a6a', buy: 90, weight: 8 },
-  gate: { id: 'gate', name: 'Porteira', category: 'wall', stackMax: 5, color: '#d9b25c', buy: 100, weight: 5 },
+  bandage: { id: 'bandage', name: 'Bandagem', category: 'consumable', stackMax: 5, color: '#f2e8dc', buy: 8, weight: 0.5, heal: 35 },
+  painkiller: { id: 'painkiller', name: 'Analgésico', category: 'consumable', stackMax: 5, color: '#ff8fb1', buy: 25, weight: 0.5, heal: 75 },
+  wall_wood: { id: 'wall_wood', name: 'Parede de Madeira', category: 'wall', stackMax: 5, color: '#8a5a2b', buy: 15, weight: 4 },
+  wall_stone: { id: 'wall_stone', name: 'Parede de Pedra', category: 'wall', stackMax: 5, color: '#7a8088', buy: 35, weight: 6 },
+  wall_iron: { id: 'wall_iron', name: 'Parede de Ferro', category: 'wall', stackMax: 5, color: '#4a5a6a', buy: 70, weight: 8 },
+  gate: { id: 'gate', name: 'Porteira', category: 'wall', stackMax: 5, color: '#d9b25c', buy: 80, weight: 5 },
 };
 
-/** Peso total carregado. */
-export function totalWeight(hotbar: ReadonlyArray<ItemStack | null>): number {
-  return hotbar.reduce((n, s) => n + (s ? ITEMS[s.itemId].weight * s.count : 0), 0);
+/** Peso total de um container (hotbar ou mochila), sem o desconto da mochila. */
+export function totalWeight(slots: ReadonlyArray<ItemStack | null>): number {
+  return slots.reduce((n, s) => n + (s ? ITEMS[s.itemId].weight * s.count : 0), 0);
+}
+
+/** Itens que não podem ir para a mochila (a bateria fica na mão: é a isca dos zumbis). */
+export function canBag(itemId: ItemId): boolean {
+  return itemId !== 'battery';
 }
 
 export const ItemDatabase = {

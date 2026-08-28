@@ -4,6 +4,7 @@ import { generateWorld, generateChunk, WORLD } from '../../shared/worldgen.js';
 import { rayHitNearest } from '../../shared/math.js';
 import { GAME } from '../../shared/gameconfig.js';
 import { batteryPrice } from '../../shared/upgrades.js';
+import { ITEMS } from '../../shared/items.js';
 
 test('worldgen é determinístico e respeita o hub livre', () => {
   const a = generateWorld(1337);
@@ -32,7 +33,7 @@ test('rayHitNearest acha o alvo mais próximo na linha do tiro', () => {
 });
 
 test('preço da bateria sobe a cada compra da sala', () => {
-  assert.equal(batteryPrice(0), 150);
-  assert.equal(batteryPrice(1), Math.round(150 * GAME.battery.GROWTH));
+  assert.equal(batteryPrice(0), ITEMS.battery.buy!);
+  assert.equal(batteryPrice(1), Math.round(ITEMS.battery.buy! * GAME.battery.GROWTH));
   assert.ok(batteryPrice(4) > batteryPrice(3));
 });

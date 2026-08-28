@@ -38,7 +38,12 @@ export const GAME = {
    * (a partida recomeça). Com mais gente na sala, um aliado vivo compra no vendedor a Medalha de
    * Ressurreição e escolhe quem reviver (um por compra; preço BASE × GROWTH^compras).
    */
-  lives: { MAX_DEATHS: 3, REVIVE_BASE_PRICE: 120, REVIVE_GROWTH: 1.5 },
+  lives: { MAX_DEATHS: 3, REVIVE_BASE_PRICE: 100, REVIVE_GROWTH: 1.5 },
+  /**
+   * Mochila (compra única por jogador no vendedor): SLOTS extras abertos com I. O que está nela pesa
+   * WEIGHT_FACTOR do peso normal (bem distribuído nas costas) e ela soma EXTRA_CAPACITY à capacidade.
+   */
+  backpack: { PRICE: 60, SLOTS: 8, EXTRA_CAPACITY: 20, WEIGHT_FACTOR: 0.5 },
   /** itens largados no chão somem depois de TTL s */
   drops: { TTL: 180 },
   /** recursos renascem depois de coletados (s): gravetos/pedras 3 min, árvores/rochas 7 min */
@@ -46,27 +51,27 @@ export const GAME = {
   /** paredes: distância máxima de colocação e tamanho (largura x espessura) */
   walls: { PLACE_DIST: 6, WIDTH: 2, THICK: 0.4, ROTATE_STEP_DEG: 15 },
   /** recursos da sala (comprados uma vez, valem para todos): preço */
-  features: { MINIMAP_PRICE: 120 },
+  features: { MINIMAP_PRICE: 90 },
   /** reforço da torre (sala): +HP máximo por nível (e cura esse valor), preço base × GROWTH^nível */
-  towerUpgrade: { HP_STEP: 500, BASE_PRICE: 100, GROWTH: 1.35, MAX_LEVEL: 10 },
+  towerUpgrade: { HP_STEP: 500, BASE_PRICE: 80, GROWTH: 1.35, MAX_LEVEL: 10 },
   /** reparo da torre: $ por ponto de vida faltante e preço mínimo */
   towerRepair: { PRICE_PER_HP: 0.1, MIN_PRICE: 10 },
   /** zumbis ambientais fora das waves: máximo vivo (+ por jogador) e intervalo de spawn */
   ambient: { BASE_MAX: 2, PER_PLAYER: 1, INTERVAL: 20, FIRST_DELAY: 15 },
   upgrades: {
-    PRICE_GROWTH: 1.35,
+    PRICE_GROWTH: 1.3,
     /** +20% de dano por nível */
-    damage: { MAX_LEVEL: 5, STEP: 0.2, BASE: 40 },
-    /** +4 balas no pente por nível */
-    ammo: { MAX_LEVEL: 5, STEP: 3, BASE: 30 },
+    damage: { MAX_LEVEL: 5, STEP: 0.2, BASE: 30 },
+    /** +3 balas no pente por nível */
+    ammo: { MAX_LEVEL: 5, STEP: 3, BASE: 25 },
     /** recoil = dispersão (graus) do tiro em torno da mira; cada nível reduz STEP graus */
-    recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, BASE: 40 },
+    recoil: { MAX_LEVEL: 5, BASE_SPREAD: 12, STEP: 2, BASE: 30 },
     /** +25% de vigor máximo por nível (corrida) */
-    stamina: { MAX_LEVEL: 5, STEP: 0.25, BASE: 35 },
+    stamina: { MAX_LEVEL: 5, STEP: 0.25, BASE: 25 },
     /** mira laser (mostra a linha de tiro); nível único */
-    laser: { MAX_LEVEL: 1, STEP: 1, BASE: 60 },
+    laser: { MAX_LEVEL: 1, STEP: 1, BASE: 45 },
     /** +10 de capacidade de peso por nível */
-    weight: { MAX_LEVEL: 5, STEP: 10, BASE: 35 },
+    weight: { MAX_LEVEL: 5, STEP: 10, BASE: 25 },
     /** visão: amplia a câmera por nível */
   },
   /**
@@ -130,8 +135,10 @@ export const GAME = {
     SLAM: { WINDUP: 1.2, RADIUS: 4, DAMAGE: 45, COOLDOWN: 7, RANGE: 3.5 },
     /** investida: velocidade, duração, dano de contato, cooldown, distância mínima do alvo para usar */
     CHARGE: { SPEED: 14, DURATION: 1.0, DAMAGE: 35, COOLDOWN: 5, MIN_DIST: 6, KNOCKBACK: 11 },
-    /** rajada de cuspes à distância (leque), cada um com dano e lentidão */
-    VOLLEY: { COUNT: 3, SPREAD_DEG: 14, COOLDOWN: 5, DURATION: 0.8, FIRE_AT: 0.5, RANGE: 18, SPEED: 14, DAMAGE: 22, SLOW_FACTOR: 0.45, SLOW_TIME: 3, TTL: 2.2 },
+    /** rajada de cuspes à distância (leque), cada um com dano e lentidão; SPREAD_DEG abre o leque o bastante para passar entre dois cuspes */
+    VOLLEY: { COUNT: 3, SPREAD_DEG: 30, COOLDOWN: 5, DURATION: 0.8, FIRE_AT: 0.5, RANGE: 18, SPEED: 14, DAMAGE: 22, SLOW_FACTOR: 0.45, SLOW_TIME: 3, TTL: 2.2 },
+    /** atordoado (parado, sem atacar) por N s depois da investida e da pancada: a janela para revidar */
+    STUN: { AFTER_CHARGE: 2.5, AFTER_SLAM: 1.2 },
     /** invoca zumbis ao redor de si (quantidade em TIER[wave].SUMMON) */
     SUMMON: { COOLDOWN: 20, FIRST_DELAY: 8 },
   },

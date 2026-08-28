@@ -23,7 +23,7 @@ export interface StructureSnapshot {
  * Suba também quando o worldgen mudar (ids/posições dos objetos): client antigo com server novo
  * discorda de tudo ("Objeto não existe mais") e a checagem no join é o que força o reload.
  */
-export const PROTOCOL_VERSION = 25; // 25: NetAnim ganhou os estados com arma/agachado (Idle_Gun, Walk_Gun, Run_Gun, Duck, Slash)
+export const PROTOCOL_VERSION = 26; // 26: mochila (bag/bag_move/buy_backpack), medalhas por jogador (buy_medal/use_medal/medals), boss atordoado no snapshot
 
 /** Personagens jogáveis (modelos do Zombie Apocalypse Kit); escolhido no lobby e visto por todos. */
 export const CHARACTERS = ['shaun', 'matt', 'sam', 'lis'] as const;
@@ -286,10 +286,24 @@ export interface UseItemMessage {
 }
 
 /** Coloca a bateria (da hotbar) na torre: inicia as waves. Precisa estar perto da torre. */
-/** Compra a Medalha de Ressurreição e revive `targetId` (aliado eliminado) na hora. */
-export interface BuyReviveMessage {
-  type: 'buy_revive';
+/** Compra uma Medalha de Ressurreição (fica com o jogador; não ocupa slot). Preço da sala sobe a cada compra. */
+export interface BuyMedalMessage {
+  type: 'buy_medal';
+}
+/** Usa uma medalha: revive `targetId` (eliminado) — pode ser o próprio jogador (volta com as 3 vidas). */
+export interface UseMedalMessage {
+  type: 'use_medal';
   targetId: string;
+}
+/** Compra a mochila (uma por jogador; não ocupa slot). */
+export interface BuyBackpackMessage {
+  type: 'buy_backpack';
+}
+/** Move a pilha do slot `index` para o outro container (hotbar <-> mochila). */
+export interface BagMoveMessage {
+  type: 'bag_move';
+  from: 'hotbar' | 'bag';
+  index: number;
 }
 export interface ActivateBatteryMessage {
   type: 'activate_battery';
@@ -312,7 +326,10 @@ export type ClientMessage =
   | MeleeMessage
   | ActivateBatteryMessage
   | UseItemMessage
-  | BuyReviveMessage
+  | BuyMedalMessage
+  | UseMedalMessage
+  | BuyBackpackMessage
+  | BagMoveMessage
   | UpgradeMessage
   | PlaceWallMessage
   | BuyFeatureMessage
@@ -388,6 +405,11 @@ export interface GameStartMessage {
   revivePrice: number;
   /** quem está carregando uma bateria (fica na mão; zumbis do mapa inteiro vão atrás) */
   carriers: string[];
+  /** mochila do destinatário (vazia se ainda não comprou) */
+  bag: Array<ItemStack | null>;
+  hasBackpack: boolean;
+  /** Medalhas de Ressurreição que o destinatário tem */
+  medals: number;
 }
 
 /** Helicóptero de resgate: posição, se já pousou e quem já embarcou. */
@@ -501,6 +523,17 @@ export interface RevivePriceMessage {
   type: 'revive_price';
   price: number;
 }
+/** Quantas medalhas o destinatário tem agora. */
+export interface MedalsMessage {
+  type: 'medals';
+  count: number;
+}
+/** Mochila do destinatário (após comprar/mover). */
+export interface BagMessage {
+  type: 'bag';
+  slots: Array<ItemStack | null>;
+  hasBackpack: boolean;
+}
 /** Jogador pegou (true) ou largou/usou (false) a bateria: ela fica na mão e atrai todos os zumbis. */
 export interface BatteryCarrierMessage {
   type: 'battery_carrier';
@@ -548,6 +581,8 @@ export interface ZombieSnapshot {
   /** infectado: id do jogador que virou este zumbi e o personagem dele */
   owner?: string;
   character?: CharacterId;
+  /** chefão atordoado (depois da investida/pancada): parado e vulnerável */
+  stunned?: boolean;
 }
 
 export type WavePhase = 'idle' | 'countdown' | 'wave' | 'boss' | 'complete';
@@ -787,6 +822,8 @@ export interface ErrorMessage {
     | 'no_wall'
     | 'phase_complete'
     | 'not_eliminated'
+    | 'no_medal'
+    | 'no_backpack'
     | 'carrying_battery'
     | 'dev_disabled';
   message: string;
@@ -819,6 +856,8 @@ export type ServerMessage =
   | PlayerRespawnedMessage
   | PlayerRevivedMessage
   | RevivePriceMessage
+  | MedalsMessage
+  | BagMessage
   | BatteryCarrierMessage
   | WaveStateMessage
   | WaveStartedMessage

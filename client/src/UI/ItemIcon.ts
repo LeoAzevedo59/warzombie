@@ -2,7 +2,7 @@ import { ItemDatabase } from '@/Items/ItemDatabase';
 import type { ItemId } from '@/Items/Item';
 
 /** Ícones (game-icons.net, CC-BY 3.0) em `public/icons/<id>.svg`, pintados com a cor via CSS mask. */
-export type IconId = ItemId | 'minimap' | 'tower';
+export type IconId = ItemId | 'minimap' | 'tower' | 'backpack' | 'medal';
 
 /** HTML de um ícone colorido. `size` em px. */
 export function iconHtml(id: IconId, color: string, size = 22, extraClass = ''): string {

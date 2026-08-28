@@ -12,6 +12,8 @@ export interface GameEvents {
   'input:place': void;
   /** tecla Q: larga a pilha equipada no chão */
   'input:drop': void;
+  /** tecla I: abre/fecha a mochila */
+  'input:toggleBag': void;
   /** roda do mouse (para girar a parede no modo construção) */
   'input:wheel': { delta: number };
   'input:selectSlot': { index: number };
@@ -41,6 +43,12 @@ export interface GameEvents {
   'net:batteryCarrier': { playerId: string; carrying: boolean };
   /** lista de eliminados mudou (loja re-renderiza a medalha) */
   'net:eliminatedChanged': void;
+  /** quantas Medalhas de Ressurreição eu tenho */
+  'net:medals': { count: number };
+  /** eliminado clicou em usar a própria medalha */
+  'medal:useSelf': void;
+  /** mochila mudou (comprou / moveu item) */
+  'net:bag': { slots: ReadonlyArray<ItemStack | null>; hasBackpack: boolean };
   /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */
   'player:infected': { targetName: string | null; seconds: number; zombieId: number };
   'player:respawned': void;

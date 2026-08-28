@@ -3,7 +3,7 @@ import { dist, isClearOfCircles, pushOutCircle, type XZ } from '../../../shared/
 import type { CharacterId, ProjectileSnapshot, ZombieAnim, ZombieKind, ZombieSnapshot } from '../../../shared/protocol.js';
 import { mapBounds } from '../../../shared/worldgen.js';
 
-export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'spit' | 'volley' | 'slam' | 'charge' | 'dead';
+export type ZombieState = 'wander' | 'chase' | 'attack' | 'special' | 'spit' | 'volley' | 'slam' | 'charge' | 'stunned' | 'dead';
 
 export interface Zombie {
   id: number;
@@ -46,6 +46,8 @@ export interface Zombie {
   chargeDir: XZ;
   /** jogadores já atingidos nesta investida */
   chargeHits: Set<string>;
+  /** chefão: s de atordoamento (parado, sem atacar) ao entrar em 'stunned' */
+  stunTime: number;
   /** posição no último check de "travado" e tempo parado em chase */
   lastX: number;
   lastZ: number;
@@ -145,6 +147,7 @@ export class ZombieSim {
       const s: ZombieSnapshot = { id: z.id, kind: z.kind, x: z.x, z: z.z, yaw: z.yaw, anim: animFor(z), hp: z.hp, maxHp: z.maxHp };
       if (z.ownerId) s.owner = z.ownerId;
       if (z.character) s.character = z.character;
+      if (z.state === 'stunned') s.stunned = true;
       return s;
     });
   }
@@ -194,6 +197,7 @@ export class ZombieSim {
       targetId: null,
       chargeDir: { x: 0, z: 1 },
       chargeHits: new Set(),
+      stunTime: 0,
       lastX: x,
       lastZ: z,
       stuckTime: 0,
@@ -555,7 +559,7 @@ export class ZombieSim {
             }
           }
         }
-        if (z.stateTime >= s.WINDUP + 0.6) this.setState(z, 'chase');
+        if (z.stateTime >= s.WINDUP + 0.6) this.stun(z, GAME.boss.STUN.AFTER_SLAM);
         break;
       }
 
@@ -574,11 +578,24 @@ export class ZombieSim {
         }
         if (z.stateTime >= c.DURATION) {
           z.vx = z.vz = 0;
-          this.setState(z, 'chase');
+          this.stun(z, GAME.boss.STUN.AFTER_CHARGE);
         }
         break;
       }
+
+      case 'stunned':
+        // atordoado: parado e sem atacar — a janela para os jogadores revidarem
+        z.vx = z.vz = 0;
+        if (z.stateTime >= z.stunTime) this.setState(z, 'chase');
+        break;
     }
+  }
+
+  /** Chefão atordoado por `seconds` depois de uma habilidade pesada (investida/pancada). */
+  private stun(z: Zombie, seconds: number): void {
+    z.vx = z.vz = 0;
+    z.stunTime = seconds;
+    this.setState(z, 'stunned');
   }
 
   private setState(z: Zombie, s: ZombieState): void {
@@ -734,6 +751,8 @@ function animFor(z: Zombie): ZombieAnim {
       return 'Kick_Right';
     case 'charge':
       return 'Run';
+    case 'stunned':
+      return 'Idle';
     case 'chase':
       return z.vx === 0 && z.vz === 0 ? 'Idle' : 'Run';
     default:

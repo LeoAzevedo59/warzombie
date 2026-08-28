@@ -351,3 +351,38 @@ test('zumbi comum abre o combate com o soco, não com o chute; o chute só vem d
   assert.ok(hits.some((h) => h.amount === kick), `chute de ${kick} após o cooldown: ${hits.map((h) => h.amount).join(',')}`);
   assert.equal(kick, 28);
 });
+
+test('chefão fica atordoado (parado, sem atacar) depois da investida e volta a caçar depois de STUN.AFTER_CHARGE', () => {
+  const { sim, hits } = setup(1);
+  const boss = sim.spawn('boss', 0, 0, 1, 1, true, 1);
+  boss.spitCooldown = 999; // sem rajada: força a investida como primeira habilidade
+  boss.summonCooldown = 999;
+  boss.chargeCooldown = 0;
+  const player = { id: 'p', position: { x: 12, z: 0 }, dead: false, radius: 0.35, kind: 'player' as const };
+  let guard = 0;
+  while (boss.state !== 'charge' && guard++ < 200) sim.tick(0.05, [player]);
+  assert.equal(boss.state, 'charge', 'deveria ter investido');
+  player.position.x = 40; // sai da frente: a investida termina sem acertar
+  while (boss.state === 'charge' && guard++ < 400) sim.tick(0.05, [player]);
+  assert.equal(boss.state, 'stunned');
+  assert.equal(boss.vx, 0);
+  assert.equal(boss.vz, 0);
+  assert.equal(sim.snapshots().find((s) => s.id === boss.id)!.stunned, true);
+  const hitsBefore = hits.length;
+  const x0 = boss.x;
+  const steps = Math.floor((GAME.boss.STUN.AFTER_CHARGE - 0.1) / 0.05);
+  for (let i = 0; i < steps; i++) sim.tick(0.05, [player]);
+  assert.equal(boss.state, 'stunned', 'ainda atordoado antes de AFTER_CHARGE');
+  assert.equal(boss.x, x0, 'atordoado não anda');
+  assert.equal(hits.length, hitsBefore, 'atordoado não ataca');
+  for (let i = 0; i < 10; i++) sim.tick(0.05, [player]);
+  assert.equal(boss.state, 'chase');
+  assert.equal(sim.snapshots().find((s) => s.id === boss.id)!.stunned, undefined);
+});
+
+test('rajada do chefão abre o leque o bastante para passar entre dois cuspes', () => {
+  // a meia distância do alcance, o vão entre projéteis vizinhos precisa ser maior que o jogador + o raio do cuspe
+  const v = GAME.boss.VOLLEY;
+  const gapAtMid = 2 * (v.RANGE / 2) * Math.sin((v.SPREAD_DEG * Math.PI) / 180 / 2);
+  assert.ok(gapAtMid > 2 * (v.RADIUS ?? 0.55) + 2 * GAME.player.RADIUS + 0.6, `vão ${gapAtMid.toFixed(2)} pequeno demais`);
+});

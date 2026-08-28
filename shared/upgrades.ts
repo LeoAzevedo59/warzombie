@@ -1,5 +1,5 @@
 import { GAME } from './gameconfig.js';
-import { ITEMS } from './items.js';
+import { ITEMS, totalWeight, type ItemStack } from './items.js';
 import type { UpgradeKind, UpgradePrices, WeaponUpgrades } from './protocol.js';
 
 export const UPGRADE_KINDS: UpgradeKind[] = ['damage', 'ammo', 'recoil', 'stamina', 'laser', 'weight'];
@@ -61,9 +61,14 @@ export function towerMaxHp(level: number): number {
   return GAME.hub.TOWER_HP + GAME.towerUpgrade.HP_STEP * level;
 }
 
-/** Capacidade de peso com o upgrade. */
-export function maxWeight(u: WeaponUpgrades): number {
-  return GAME.weight.BASE_CAPACITY + GAME.upgrades.weight.STEP * u.weight;
+/** Capacidade de peso com o upgrade (e a mochila, se o jogador tem). */
+export function maxWeight(u: WeaponUpgrades, hasBackpack = false): number {
+  return GAME.weight.BASE_CAPACITY + GAME.upgrades.weight.STEP * u.weight + (hasBackpack ? GAME.backpack.EXTRA_CAPACITY : 0);
+}
+
+/** Peso efetivo carregado: hotbar inteira + mochila com desconto (WEIGHT_FACTOR). Arredondado a 0,5. */
+export function carriedWeight(hotbar: ReadonlyArray<ItemStack | null>, bag: ReadonlyArray<ItemStack | null>): number {
+  return Math.round((totalWeight(hotbar) + totalWeight(bag) * GAME.backpack.WEIGHT_FACTOR) * 2) / 2;
 }
 
 /** Multiplicador de velocidade pelo peso carregado (1 vazio, 1-SLOW_AT_FULL no limite). */
