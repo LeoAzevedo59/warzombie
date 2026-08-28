@@ -29,6 +29,7 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 | zombie_hurt_*, zombie_death_* | [Monster Sound Pack, Volume 1](https://opengameart.org/content/monster-sound-pack-volume-1) | Summoning Wars | CC0 1.0 |
 | knife_swing_* | [Swishes Sound Pack](https://opengameart.org/content/swishes-sound-pack) | artisticdude | CC0 1.0 |
 | player_hurt_*, player_death | [grunts of male death and pain](https://opengameart.org/content/grunts-male-death-and-pain) | thebardofblasphemy | CC0 1.0 |
+| victory_fanfare | [Victory](https://opengameart.org/content/victory) | celestialghost8 | CC0 1.0 |
 
 ## Música (`music/`)
 
@@ -37,3 +38,4 @@ convertidos/recortados a partir das fontes originais (ver `client/tools/build-as
 | `menu.mp3` | [Oldschool Horror Theme](https://opengameart.org/content/oldschool-horror-theme) (primeiros 2 min) | EmoPreben | CC0 1.0 |
 | `calm.mp3` | [Forest Ambience](https://opengameart.org/content/forest-ambience) | TinyWorlds | CC0 1.0 |
 | `tension.mp3` | [Horror Loop](https://opengameart.org/content/horror-loop) | TinyWorlds | CC0 1.0 |
+| `victory.mp3` | [Jazz / Pop](https://opengameart.org/content/jazz-pop) (vitória: resgate e créditos) | Alex McCulloch (Pro Sensory) | CC0 1.0 |

@@ -75,3 +75,6 @@ for n in Shaun Matt Sam Lis; do cp "glb/Characters_$n.glb" "$MD/characters/$(ech
 for n in Basic Chubby Ribcage; do cp "glb/Zombie_$n.glb" "$MD/zombies/$(echo $n | tr A-Z a-z).glb"; done
 rm -f "$MD/characters/worker.glb" "$MD/nature/tree.glb" "$MD/nature/rock-medium.glb"
 du -sh "$S" "$M" "$MD"; ls "$S" | wc -l
+# vitória (fase zerada): fanfarra CC0 "Victory" (celestialghost8) + loop alegre CC0 "Jazz / Pop" (Alex McCulloch), ambos do OpenGameArt
+ffmpeg -hide_banner -loglevel error -y -i oga/Victory_0.mp3 -ac 1 -ar 44100 -c:a libmp3lame -q:a 3 "$S/victory_fanfare.mp3"
+ffmpeg -hide_banner -loglevel error -y -i oga/jazz_pop_0.mp3 -af "afade=t=in:d=0.5" -ac 2 -ar 44100 -c:a libmp3lame -b:a 96k "$M/victory.mp3"

@@ -39,10 +39,13 @@ const SFX_VARIANTS = {
   wave_bell: 1,
   wave_clear: 1,
   battery_on: 1,
+  /** fanfarra do 5º chefão morto (a fase foi zerada) */
+  victory_fanfare: 1,
 } as const;
 
 export type SfxName = keyof typeof SFX_VARIANTS;
-export type MusicName = 'menu' | 'calm' | 'tension';
+/** victory: música alegre do fim (resgate + créditos) */
+export type MusicName = 'menu' | 'calm' | 'tension' | 'victory';
 
 /** Volume base por som (1 = normal). */
 const BASE_VOLUME: Partial<Record<SfxName, number>> = {
@@ -62,13 +65,14 @@ const BASE_VOLUME: Partial<Record<SfxName, number>> = {
   hit_soft: 0.5,
   shop_open: 0.8,
   shop_close: 0.8,
+  victory_fanfare: 0.9,
 };
 
-const MUSIC_URLS: Record<MusicName, string> = { menu: '/music/menu.mp3', calm: '/music/calm.mp3', tension: '/music/tension.mp3' };
+const MUSIC_URLS: Record<MusicName, string> = { menu: '/music/menu.mp3', calm: '/music/calm.mp3', tension: '/music/tension.mp3', victory: '/music/victory.mp3' };
 const MUSIC_PAUSED_KEY = 'warzombie:musicPaused';
 const MUSIC_VOLUME = 0.45;
 /** volume relativo por faixa (a do menu é bem mais alta que as outras na origem) */
-const MUSIC_TRACK_VOLUME: Record<MusicName, number> = { menu: 0.4, calm: 1, tension: 1 };
+const MUSIC_TRACK_VOLUME: Record<MusicName, number> = { menu: 0.4, calm: 1, tension: 1, victory: 0.5 };
 
 /** Distância (m) além da qual um som posicional não é ouvido. */
 const HEAR_RADIUS = 26;
