@@ -799,28 +799,50 @@ test('mochila: compra única, itens nela pesam menos, bateria não entra, vender
   assert.equal(a.bag[0], null);
 });
 
-test('medalha própria: eliminado com medalha no bolso volta sozinho com as vidas cheias', () => {
+test('medalha própria: na 3ª morte a medalha do bolso é usada sozinha — volta com as vidas cheias, sem game over', () => {
   const { m, sent, snap, run } = setup();
+  let gameOver: string | null = null;
+  m['io'].onGameOver = (r: string) => (gameOver = r);
   const a = m.addPlayer(snap('A', GAME.hub.VENDOR.x, GAME.hub.VENDOR.z + 1));
-  const b = m.addPlayer(snap('B', 40, 40));
   run(GAME.player.SPAWN_SHIELD * 1000 + 100);
-  b.shieldUntil = Infinity;
   m.money = 1000;
   m.buyMedal('A');
   m.buyMedal('A');
   assert.equal(a.medals, 2);
   assert.equal(m.money, 1000 - GAME.lives.REVIVE_BASE_PRICE - Math.round(GAME.lives.REVIVE_BASE_PRICE * GAME.lives.REVIVE_GROWTH));
+  for (let i = 0; i < GAME.lives.MAX_DEATHS - 1; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.matchDeaths, GAME.lives.MAX_DEATHS - 1);
+  // 3ª morte: sozinho na sala, sem medalha seria all_dead; com medalha, gasta uma e renasce normalmente
+  m.damagePlayer(a, 1000);
+  assert.equal(gameOver, null, 'não pode dar game over com medalha no bolso');
+  assert.equal(a.eliminated, false);
+  assert.equal(a.medals, 1);
+  assert.equal(a.matchDeaths, 0);
+  const died = [...sent].reverse().find((s) => s.msg.type === 'player_died')!.msg as { eliminated: boolean; livesLeft: number; respawnIn: number };
+  assert.equal(died.eliminated, false);
+  assert.equal(died.livesLeft, GAME.lives.MAX_DEATHS);
+  assert.equal(died.respawnIn, GAME.player.RESPAWN_SECONDS);
+  const revived = [...sent].reverse().find((s) => s.msg.type === 'player_revived')!.msg as { playerId: string; byId: string };
+  assert.deepEqual(revived, { type: 'player_revived', playerId: 'A', byId: 'A' });
+  const medals = [...sent].reverse().find((s) => s.msg.type === 'medals')!.msg as { count: number };
+  assert.equal(medals.count, 1);
+  run(GAME.player.RESPAWN_SECONDS * 1000 + 200);
+  assert.equal(a.dead, false, 'renasce no tempo normal');
+  run(GAME.player.SPAWN_SHIELD * 1000); // escudo de spawn passa
+  // a última medalha também segura a 3ª morte seguinte; sem medalha, a próxima elimina
+  for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
+    m.damagePlayer(a, 1000);
+    run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
+  }
+  assert.equal(a.medals, 0);
+  assert.equal(a.eliminated, false);
   for (let i = 0; i < GAME.lives.MAX_DEATHS; i++) {
     m.damagePlayer(a, 1000);
     run(GAME.player.RESPAWN_SECONDS * 1000 + GAME.player.SPAWN_SHIELD * 1000 + 200);
   }
   assert.equal(a.eliminated, true);
-  m.useMedal('A', 'A');
-  assert.equal(a.medals, 1);
-  assert.equal(a.eliminated, false);
-  run(200);
-  assert.equal(a.dead, false);
-  assert.equal(a.matchDeaths, 0);
-  const revived = [...sent].reverse().find((s) => s.msg.type === 'player_revived')!.msg as { playerId: string; byId: string };
-  assert.deepEqual(revived, { type: 'player_revived', playerId: 'A', byId: 'A' });
+  assert.equal(gameOver, 'all_dead');
 });
