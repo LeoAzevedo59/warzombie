@@ -237,6 +237,26 @@
       .bag-panel .hint { color: #8b98a5; font-size: 12px; margin-top: 10px; }
       .bag-panel .weight-line { color: #8b98a5; font-size: 14px; font-weight: normal; }
       .bag-panel .weight-line.heavy b { color: #ff9f43; }
+      /* Medalha de Ressurreição usada em mim: camada acima da tela de morte, some sozinha */
+      .medal-revive { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; pointer-events: none; z-index: 20; overflow: hidden; background: rgba(5,8,11,.55); }
+      .death-screen.medal-fx > * { visibility: hidden; }
+      .medal-revive.visible { display: flex; animation: medalLayer 3.2s ease-out forwards; }
+      .medal-revive .medal-rays { position: absolute; width: 900px; height: 900px; border-radius: 50%; background: repeating-conic-gradient(rgba(255,211,77,.22) 0 6deg, transparent 6deg 18deg); animation: medalRays 3.2s linear forwards; }
+      .medal-revive .medal-icon { position: relative; width: 150px; height: 150px; filter: drop-shadow(0 0 22px rgba(255,211,77,.9)); animation: medalDrop 1.1s cubic-bezier(.2,1.4,.4,1) forwards; }
+      .medal-revive .medal-icon svg { width: 100%; height: 100%; fill: #ffd34d; }
+      .medal-revive .medal-title { position: relative; font-size: 26px; letter-spacing: 6px; color: #ffd34d; text-shadow: 0 2px 10px rgba(0,0,0,.8); opacity: 0; animation: medalText .5s ease-out .7s forwards; }
+      .medal-revive .medal-hearts { position: relative; font-size: 44px; line-height: 1; display: flex; gap: 12px; }
+      .medal-revive .medal-hearts span { color: #d63d3d; text-shadow: 0 0 14px rgba(214,61,61,.9); opacity: 0; transform: scale(.3); animation: heartPop .45s cubic-bezier(.2,1.6,.4,1) forwards; }
+      .medal-revive .medal-hearts span:nth-child(1) { animation-delay: 1.0s; }
+      .medal-revive .medal-hearts span:nth-child(2) { animation-delay: 1.35s; }
+      .medal-revive .medal-hearts span:nth-child(3) { animation-delay: 1.7s; }
+      .medal-revive .medal-sub { position: relative; color: #e8e4d8; font-size: 16px; text-shadow: 0 2px 8px rgba(0,0,0,.9); opacity: 0; animation: medalText .5s ease-out 2.0s forwards; }
+      @keyframes medalLayer { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+      @keyframes medalRays { 0% { transform: rotate(0) scale(.2); opacity: 0; } 20% { opacity: 1; } 100% { transform: rotate(120deg) scale(1.3); opacity: 0; } }
+      @keyframes medalDrop { 0% { transform: translateY(-260px) rotateY(0) scale(.4); opacity: 0; } 60% { opacity: 1; } 100% { transform: translateY(0) rotateY(720deg) scale(1); opacity: 1; } }
+      @keyframes heartPop { 0% { opacity: 0; transform: scale(.3); } 60% { opacity: 1; transform: scale(1.35); } 100% { opacity: 1; transform: scale(1); } }
+      @keyframes medalText { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .medal-revive .medal-rays { display: none; } .medal-revive .medal-icon, .medal-revive .medal-hearts span, .medal-revive .medal-title, .medal-revive .medal-sub { animation-duration: .01s; animation-delay: 0s; } }
       .death-screen .use-medal { background: #3a8f4a; margin-top: -8px; }
       .death-screen .use-medal:hover { background: #4aa85c; }
       /* derrota: cobre tudo até o reinício */

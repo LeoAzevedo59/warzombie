@@ -20,6 +20,8 @@ export class CombatHUD {
   private shieldTimer: number | null = null;
   /** Medalhas de Ressurreição em posse (botão na tela de eliminado) */
   private medals = 0;
+  private medalFx: HTMLElement;
+  private medalFxTimer: number | null = null;
 
   constructor(
     parent: HTMLElement,
@@ -45,6 +47,17 @@ export class CombatHUD {
     this.death.innerHTML = `<h1>VOCÊ MORREU</h1><p class="cause"></p><p class="timer"></p><button class="use-medal"></button>`;
     parent.appendChild(this.death);
     this.death.querySelector<HTMLButtonElement>('.use-medal')!.onclick = () => this.bus.emit('medal:useSelf');
+
+    // animação da Medalha de Ressurreição (camada própria: aparece por cima da tela de morte e sobrevive ao respawn)
+    this.medalFx = document.createElement('div');
+    this.medalFx.className = 'medal-revive';
+    this.medalFx.innerHTML = `
+      <div class="medal-rays"></div>
+      <div class="medal-icon"><svg viewBox="0 0 512 512" aria-hidden="true"><path d="M144 32h72l40 96 40-96h72l-84 176h-56L144 32zm112 160c70 0 128 58 128 128s-58 128-128 128-128-58-128-128 58-128 128-128zm0 48l24 50 56 8-40 39 10 55-50-26-50 26 10-55-40-39 56-8 24-50z"/></svg></div>
+      <div class="medal-title">MEDALHA DE RESSURREIÇÃO</div>
+      <div class="medal-hearts"><span>♥</span><span>♥</span><span>♥</span></div>
+      <div class="medal-sub"></div>`;
+    parent.appendChild(this.medalFx);
 
     this.unsubs.push(
       bus.on('zombie:countChanged', ({ alive }) => {
@@ -86,7 +99,11 @@ export class CombatHUD {
         this.medals = count;
         this.renderMedalButton();
       }),
-      bus.on('net:gameOver', () => this.hideDeath()),
+      bus.on('player:medalRevive', ({ byName, medalsLeft }) => this.showMedalRevive(byName, medalsLeft)),
+      bus.on('net:gameOver', () => {
+        this.hideDeath();
+        this.medalFx.classList.remove('visible');
+      }),
       bus.on('player:infected', ({ targetName, seconds }) => this.showInfected(targetName, seconds)),
       bus.on('player:respawned', () => this.hideDeath()),
     );
@@ -121,6 +138,34 @@ export class CombatHUD {
     this.death.querySelector<HTMLElement>('.timer')!.textContent = 'Um aliado pode usar uma Medalha de Ressurreição em você — ou use a sua, se tiver.';
     this.renderMedalButton();
     this.death.classList.add('visible');
+  }
+
+  /**
+   * Medalha usada em mim: a medalha desce girando, os 3 corações reacendem um a um e o texto diz de
+   * onde vieram as vidas. Fica ~3 s por cima da tela de morte (que continua com o countdown) e some.
+   */
+  private showMedalRevive(byName: string | null, medalsLeft: number): void {
+    this.medalFx.querySelector('.medal-sub')!.textContent = byName
+      ? `${byName} usou uma medalha em você — vidas restauradas`
+      : `Sua medalha foi usada — vidas restauradas · medalhas restantes: ${medalsLeft}`;
+    // reinicia as animações mesmo se a camada ainda estiver visível
+    this.medalFx.classList.remove('visible');
+    void this.medalFx.offsetWidth;
+    this.medalFx.classList.add('visible');
+    // a tela de morte por trás passa a mostrar as vidas cheias e o motivo
+    if (this.death.classList.contains('visible') && !this.death.classList.contains('infected')) {
+      this.death.classList.remove('eliminated');
+      this.death.querySelector('h1')!.textContent = 'RESSUSCITADO';
+      this.death.querySelector('.cause')!.textContent = `Medalha de Ressurreição${byName ? ` de ${byName}` : ''}: vidas ${'♥'.repeat(GAME.lives.MAX_DEATHS)} (${GAME.lives.MAX_DEATHS} restantes)`;
+      this.renderMedalButton();
+    }
+    // enquanto a medalha anima, o texto da tela de morte some (senão os dois se sobrepõem)
+    this.death.classList.add('medal-fx');
+    if (this.medalFxTimer) clearTimeout(this.medalFxTimer);
+    this.medalFxTimer = window.setTimeout(() => {
+      this.medalFx.classList.remove('visible');
+      this.death.classList.remove('medal-fx');
+    }, 3200);
   }
 
   /** Eliminado com medalha no bolso: botão para voltar com todas as vidas. */
@@ -158,7 +203,7 @@ export class CombatHUD {
   private hideDeath(): void {
     if (this.countdown) clearInterval(this.countdown);
     this.countdown = null;
-    this.death.classList.remove('visible', 'infected', 'eliminated');
+    this.death.classList.remove('visible', 'infected', 'eliminated', 'medal-fx');
   }
 
   private render(): void {

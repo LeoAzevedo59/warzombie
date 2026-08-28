@@ -47,6 +47,8 @@ export interface GameEvents {
   'net:medals': { count: number };
   /** eliminado clicou em usar a própria medalha */
   'medal:useSelf': void;
+  /** uma Medalha de Ressurreição foi usada em MIM (byName = aliado; null = a minha, automática ou pelo botão): animação */
+  'player:medalRevive': { byName: string | null; medalsLeft: number };
   /** mochila mudou (comprou / moveu item) */
   'net:bag': { slots: ReadonlyArray<ItemStack | null>; hasBackpack: boolean };
   /** fogo amigo: virou zumbi por `seconds` (só assiste o zumbi `zombieId`), caçando `targetName` */
