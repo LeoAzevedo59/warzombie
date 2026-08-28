@@ -9,7 +9,8 @@
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0f14; font-family: system-ui, sans-serif; color: #e6edf3; }
       #game { display: block; width: 100%; height: 100%; }
-      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #ui { position: fixed; inset: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
+      #ui input, #ui textarea { user-select: text; -webkit-user-select: text; }
       #ui > * { pointer-events: auto; }
       /* cursores: mira sobre o jogo, seta estilizada na UI */
       #game { cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'><g fill='none' stroke='#0b0f14' stroke-width='4' stroke-linecap='round'><circle cx='18' cy='18' r='9'/><path d='M18 3v7M18 26v7M3 18h7M26 18h7'/></g><g fill='none' stroke='#ffd34d' stroke-width='2' stroke-linecap='round'><circle cx='18' cy='18' r='9'/><path d='M18 3v7M18 26v7M3 18h7M26 18h7'/></g><circle cx='18' cy='18' r='1.8' fill='#ff3b3b'/></svg>") 18 18, crosshair; }
@@ -181,7 +182,10 @@
       .panel button:disabled { opacity: .5; cursor: not-allowed; }
       .panel form { display: flex; flex-direction: column; gap: 8px; }
       .panel form label { font-size: 13px; color: #c9d1d9; display: flex; align-items: center; gap: 8px; cursor: pointer; }
-      .panel form .vis { display: flex; gap: 18px; }
+      .panel form .vis { display: flex; gap: 18px; flex-wrap: wrap; }
+      .panel form .mode-hint { color: #8b98a5; font-size: 12px; margin: -6px 0 6px; }
+      li.room .mode { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #1c242c; color: #8b98a5; margin-right: 6px; }
+      li.room .mode.hard { background: #3a1414; color: #ff7b6e; }
       .panel form .vis label { white-space: nowrap; flex: 0 0 auto; }
       .panel input[type=radio] { accent-color: #d63d3d; width: auto; padding: 0; margin: 0; }
       .panel input[type=text], .panel input:not([type]) { font-size: 15px; padding: 8px 12px; width: 100%; background: #0f151c; color: #e6edf3; border: 1px solid #2d3742; border-radius: 6px; outline: none; }
@@ -265,6 +269,9 @@
       .game-over h1 { font-size: 56px; letter-spacing: 6px; color: #d63d3d; margin-bottom: 14px; }
       .game-over .why { color: #c9d1d9; font-size: 18px; margin-bottom: 10px; }
       .game-over .restart { color: #8b98a5; font-size: 16px; }
+      .game-over.soft { background: rgba(5,8,11,.8); }
+      .game-over.soft h1 { color: #ffd34d; }
+      .game-over .keep { color: #7ed957; font-size: 14px; margin-top: 8px; }
       .trophy { color: #ffd34d; font-size: 12px; }
       #ui.cutscene .hud-wave, #ui.cutscene .hud-money, #ui.cutscene .hud-vitals, #ui.cutscene .hotbar, #ui.cutscene .hud-status, #ui.cutscene .name-labels, #ui.cutscene #minimap, #ui.cutscene .dev-toggle, #ui.cutscene .interaction-prompt { display: none !important; }
       /* créditos do resgate: sobem por cima da cutscene do helicóptero */

@@ -1,7 +1,7 @@
 import { GAME } from '../../../shared/gameconfig.js';
 import { ITEMS, WALL_HITS, WALL_HP, WALL_TOOL, canBag, isWallKind, type ItemId, type ItemStack, type WallKind } from '../../../shared/items.js';
 import { dist, isClearOfCircles, normalize2, rayHitNearest } from '../../../shared/math.js';
-import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
+import type { DroppedItem, DevAction, EvacState, PlayerSnapshot, PlayerSummary, ProjectileSnapshot, RoomFeature, RoomFeatures, RoomMode, ServerMessage, StructureSnapshot, UpgradeKind, UpgradePrices, WaveState, WeaponUpgrades, ZombieSnapshot } from '../../../shared/protocol.js';
 import { batteryPrice, canFireRunning, carriedWeight, damageMultiplier, emptyUpgrades, isMaxed, magSize, maxWeight, pricesFor, revivePrice, spreadDegreesFor, towerMaxHp, towerRepairPrice, towerUpgradePrice, upgradePriceFor, type Stance } from '../../../shared/upgrades.js';
 import { generateWorld, mapBounds, WORLD_OBJECTS, type WorldObjectSpec } from '../../../shared/worldgen.js';
 import { addItem, buy, canFit, emptyHotbar, hasItem, sellAll, type Hotbar } from './Economy.js';
@@ -87,8 +87,10 @@ export interface MatchIO {
   onWaveChanged(wave: number): void;
   /** 5º chefão morto: fase concluída (ids de quem estava na partida ganham troféu) */
   onPhaseComplete(playerIds: string[]): void;
-  /** derrota (torre destruída / todos eliminados): a sala deve recomeçar a partida do zero */
+  /** derrota (torre destruída / todos eliminados) no HARDCORE: a sala deve recomeçar a partida do zero */
   onGameOver(reason: 'tower_destroyed' | 'all_dead'): void;
+  /** derrota no NORMAL: a partida continua, só a antena voltou a 0 baterias (já persistido via onWaveChanged) */
+  onMatchReset(reason: 'tower_destroyed' | 'all_dead'): void;
 }
 
 /**
@@ -153,6 +155,8 @@ export class Match {
   constructor(
     seed: number,
     money: number,
+    /** o que a derrota faz: HARDCORE reinicia tudo; NORMAL só zera as baterias (ver resetRun) */
+    readonly mode: RoomMode,
     private io: MatchIO,
     private now: () => number = Date.now,
     private rand: () => number = Math.random,
@@ -362,14 +366,43 @@ export class Match {
     if (this.players.size > 0) this.checkAllEliminated();
   }
 
-  /** Todos os jogadores da partida sem vidas: derrota, a partida recomeça. */
+  /** Todos os jogadores da partida sem vidas: derrota (HARDCORE recomeça do zero; NORMAL só perde as baterias). */
   private checkAllEliminated(): void {
     if (this.gameOver || this.players.size === 0) return;
     for (const p of this.players.values()) if (!p.eliminated) return;
+    this.defeat('all_dead');
+  }
+
+  private defeat(reason: 'tower_destroyed' | 'all_dead'): void {
+    if (this.gameOver) return;
+    if (this.mode === 'NORMAL') return this.resetRun(reason);
     this.gameOver = true;
     this.zombies.clear();
-    this.io.broadcast({ type: 'game_over', reason: 'all_dead', restartIn: 6 });
-    this.io.onGameOver('all_dead');
+    this.io.broadcast({ type: 'game_over', reason, restartIn: 6 });
+    this.io.onGameOver(reason);
+  }
+
+  /**
+   * Derrota no modo NORMAL: a wave acaba. Todos os zumbis somem, a antena volta a 0 baterias (a fase
+   * recomeça da wave 1) e a torre é restaurada; quem estava eliminado/morto renasce no centro em
+   * RESPAWN_SECONDS com as vidas cheias. Dinheiro, hotbar/mochila, upgrades, medalhas, recursos da
+   * sala, preços e paredes NÃO mudam — a única perda é o progresso das baterias.
+   */
+  private resetRun(reason: 'tower_destroyed' | 'all_dead'): void {
+    const now = this.now();
+    this.zombies.clear();
+    this.waves.reset();
+    this.io.onWaveChanged(0);
+    this.towerHp = this.towerMaxHp;
+    for (const p of this.players.values()) {
+      p.eliminated = false;
+      p.matchDeaths = 0;
+      p.infectedZombieId = null;
+      if (p.dead) p.respawnAt = now + GAME.player.RESPAWN_SECONDS * 1000; // o tick renasce no centro
+    }
+    this.io.broadcast({ type: 'match_reset', reason, respawnIn: GAME.player.RESPAWN_SECONDS, wave: this.waves.state() });
+    this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
+    this.io.onMatchReset(reason);
   }
 
   /**
@@ -780,12 +813,7 @@ export class Match {
     if (this.gameOver || this.towerHp <= 0) return;
     this.towerHp = Math.max(0, this.towerHp - amount);
     this.io.broadcast({ type: 'tower_hp', hp: this.towerHp, maxHp: this.towerMaxHp, level: this.towerLevel });
-    if (this.towerHp <= 0) {
-      this.gameOver = true;
-      this.zombies.clear();
-      this.io.broadcast({ type: 'game_over', reason: 'tower_destroyed', restartIn: 6 });
-      this.io.onGameOver('tower_destroyed');
-    }
+    if (this.towerHp <= 0) this.defeat('tower_destroyed');
   }
 
   /** Golpe de ferramenta numa parede: machado (madeira/porteira) ou picareta (pedra/ferro); WALL_HITS golpes derrubam. */

@@ -168,6 +168,17 @@ export class WaveDirector {
     this.spawnBoss();
   }
 
+  /** Derrota no modo NORMAL: horda some e a antena volta a 0 baterias (a fase recomeça da wave 1). */
+  reset(): void {
+    this.sim.clearHunters();
+    this.phase = 'idle';
+    this.wave = 0;
+    this.bossNext = false;
+    this.nextAt = null;
+    this.deadline = null;
+    this.bossId = null;
+  }
+
   private fail(boss: boolean): void {
     const wave = this.wave;
     this.sim.clearHunters();

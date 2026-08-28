@@ -2,8 +2,14 @@ import { BaseScene } from './BaseScene';
 import { MenuDiorama } from './MenuDiorama';
 import { MusicToggle } from '@/UI/MusicToggle';
 import { audio } from '@/Assets/SoundAssets';
-import { CHARACTER_NAMES, CHARACTERS, isValidRoomName, type CharacterId, type RankingEntry, type RoomDetail, type RoomSummary, type ServerMessage } from '@shared/protocol';
+import { CHARACTER_NAMES, CHARACTERS, isValidRoomName, type CharacterId, type RankingEntry, type RoomDetail, type RoomMode, type RoomSummary, type ServerMessage } from '@shared/protocol';
 import { applyGameStart } from '@/Core/GameStart';
+
+const MODE_LABEL: Record<RoomMode, string> = { NORMAL: '🛡 Normal', HARDCORE: '💀 Hardcore' };
+const MODE_HINT: Record<RoomMode, string> = {
+  NORMAL: 'Normal: perder (todos eliminados / antena destruída) só zera as baterias da antena — dinheiro, itens e upgrades ficam',
+  HARDCORE: 'Hardcore: perder reinicia a partida do zero',
+};
 
 /**
  * Lobby em DOM: lista de salas (criar/entrar) e, dentro de uma sala, a lista de membros com
@@ -107,6 +113,7 @@ export class LobbyScene extends BaseScene {
           .map(
             (r) => `<li class="room" data-id="${r.id}">
               <span class="vis" title="${r.visibility === 'PRIVATE' ? 'Privada' : 'Pública'}">${r.visibility === 'PRIVATE' ? '🔒' : '🌐'}</span>
+              <span class="mode ${r.mode === 'HARDCORE' ? 'hard' : ''}" title="${MODE_HINT[r.mode]}">${MODE_LABEL[r.mode]}</span>
               <span class="rname"></span>
               <span class="meta">${r.members}/${r.max} · ${r.status === 'LOBBY' ? 'aguardando' : r.status === 'PLAYING' ? '🔒 em jogo' : 'encerrada'}</span>
               <button class="join" ${r.members >= r.max ? 'disabled' : ''} title="${r.locked ? 'Partida em andamento: só quem estava na sala pode voltar' : ''}">${r.locked ? 'Voltar' : 'Entrar'}</button>
@@ -132,6 +139,11 @@ export class LobbyScene extends BaseScene {
               <label><input type="radio" name="vis" value="PUBLIC" checked /> 🌐 Pública</label>
               <label><input type="radio" name="vis" value="PRIVATE" /> 🔒 Privada (código)</label>
             </div>
+            <div class="vis">
+              <label><input type="radio" name="mode" value="NORMAL" checked /> ${MODE_LABEL.NORMAL}</label>
+              <label><input type="radio" name="mode" value="HARDCORE" /> ${MODE_LABEL.HARDCORE}</label>
+            </div>
+            <p class="mode-hint">${MODE_HINT.NORMAL} · ${MODE_HINT.HARDCORE}</p>
             <button type="submit">Criar</button>
           </form>
         </section>
@@ -161,11 +173,12 @@ export class LobbyScene extends BaseScene {
     const picker = CHARACTERS.map((c) => `<button class="char-pick ${c === character ? 'active' : ''}" data-char="${c}" title="Jogar com ${CHARACTER_NAMES[c]}">${CHARACTER_NAMES[c]}</button>`).join('');
     const readyBtn = me?.ready ? '<button class="ready-btn off">Cancelar PRONTO</button>' : '<button class="ready-btn on">PRONTO</button>';
     const startBtn = owner
-      ? `<button class="start" ${allReady ? '' : 'disabled'} title="${allReady ? '' : 'Todos precisam marcar PRONTO'}">Iniciar partida${allReady ? '' : ` (${readyCount}/${r.memberList.length} prontos)`}</button><button class="toggle-vis">${r.visibility === 'PRIVATE' ? 'Tornar pública' : 'Tornar privada'}</button>`
+      ? `<button class="start" ${allReady ? '' : 'disabled'} title="${allReady ? '' : 'Todos precisam marcar PRONTO'}">Iniciar partida${allReady ? '' : ` (${readyCount}/${r.memberList.length} prontos)`}</button><button class="toggle-vis">${r.visibility === 'PRIVATE' ? 'Tornar pública' : 'Tornar privada'}</button><button class="toggle-mode" title="${MODE_HINT[r.mode === 'HARDCORE' ? 'NORMAL' : 'HARDCORE']}">Modo: ${MODE_LABEL[r.mode]} → trocar</button>`
       : `<p class="hint">${allReady ? 'Todos prontos! Aguardando o dono iniciar…' : `Prontos: ${readyCount}/${r.memberList.length}. O dono só inicia com todos prontos.`}</p>`;
     return `
       <h1 class="rtitle"></h1>
-      <p>${r.visibility === 'PRIVATE' ? '🔒 Sala privada' : '🌐 Sala pública'}${r.code ? ` · código <b class="code">${r.code}</b>` : ''} · ${r.members}/${r.max} jogadores · ${r.status === 'LOBBY' ? 'aguardando início' : 'em jogo'}</p>
+      <p>${r.visibility === 'PRIVATE' ? '🔒 Sala privada' : '🌐 Sala pública'}${r.code ? ` · código <b class="code">${r.code}</b>` : ''} · <b title="${MODE_HINT[r.mode]}">${MODE_LABEL[r.mode]}</b> · ${r.members}/${r.max} jogadores · ${r.status === 'LOBBY' ? 'aguardando início' : 'em jogo'}</p>
+      <p class="mode-hint">${MODE_HINT[r.mode]}</p>
       <div class="lobby-grid">
         <section class="panel">
           <h2>Jogadores</h2>
@@ -252,7 +265,8 @@ export class LobbyScene extends BaseScene {
         const name = el.querySelector<HTMLInputElement>('#rname')!.value.trim();
         if (!isValidRoomName(name)) return this.setStatus('Nome da sala: 2–24 caracteres (letras, números, espaço, _ ou -).', true);
         const visibility = (createForm.querySelector<HTMLInputElement>('input[name=vis]:checked')?.value ?? 'PUBLIC') as 'PUBLIC' | 'PRIVATE';
-        net.send({ type: 'room_create', name, visibility });
+        const mode = (createForm.querySelector<HTMLInputElement>('input[name=mode]:checked')?.value ?? 'NORMAL') as RoomMode;
+        net.send({ type: 'room_create', name, visibility, mode });
       };
     }
     el.querySelector<HTMLButtonElement>('.back')?.addEventListener('click', () => {
@@ -279,6 +293,7 @@ export class LobbyScene extends BaseScene {
       el.querySelector<HTMLButtonElement>('.toggle-vis')?.addEventListener('click', () =>
         net.send({ type: 'room_set_visibility', visibility: this.room!.visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE' }),
       );
+      el.querySelector<HTMLButtonElement>('.toggle-mode')?.addEventListener('click', () => net.send({ type: 'room_set_mode', mode: this.room!.mode === 'HARDCORE' ? 'NORMAL' : 'HARDCORE' }));
       el.querySelector<HTMLButtonElement>('.leave')!.onclick = () => net.send({ type: 'room_leave' });
     }
     const s = el.querySelector<HTMLElement>('#status');

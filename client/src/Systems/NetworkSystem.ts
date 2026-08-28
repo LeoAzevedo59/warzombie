@@ -204,6 +204,17 @@ export class NetworkSystem implements System {
       case 'game_over':
         this.bus.emit('net:gameOver', { restartIn: msg.restartIn, reason: msg.reason });
         break;
+      case 'match_reset':
+        // modo NORMAL: a wave acabou — vidas voltam, antena a 0 baterias; o resto do estado não muda
+        this.state.deaths = 0;
+        if (this.state.eliminated.size > 0) {
+          this.state.eliminated.clear();
+          this.bus.emit('net:eliminatedChanged');
+        }
+        this.state.wave = msg.wave;
+        this.bus.emit('wave:state', { wave: msg.wave });
+        this.bus.emit('net:matchReset', { respawnIn: msg.respawnIn, reason: msg.reason });
+        break;
       case 'battery_carrier':
         if (msg.carrying) this.state.carriers.add(msg.playerId);
         else this.state.carriers.delete(msg.playerId);
