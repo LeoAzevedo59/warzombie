@@ -200,10 +200,14 @@ export class WorldScene extends BaseScene {
         this.input.enabled = false;
         bus.emit('input:closePanel');
       }),
-      bus.on('net:matchReset', () => {
-        // modo NORMAL: a cena continua; quem estava morto renasce pelo player_respawned normal
+      bus.on('net:matchReset', ({ respawnIn }) => {
+        // modo NORMAL: a cena continua; quem estava morto renasce pelo player_respawned normal.
+        // Fecha loja/antena/mochila e trava o input enquanto a tela "Wave perdida" está na frente
+        // (senão dava para reabrir a loja por baixo dela).
         bus.emit('input:closePanel');
         this.player.velocity.set(0, 0, 0);
+        this.input.enabled = false;
+        window.setTimeout(updateInputEnabled, respawnIn * 1000 + 50);
       }),
       bus.on('evac:helicopter', ({ x, z, landsIn }) => this.spawnHelicopter(x, z, landsIn, false)),
       bus.on('evac:boarded', ({ playerId }) => {
